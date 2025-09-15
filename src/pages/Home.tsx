@@ -104,6 +104,7 @@ export default function Home() {
                   key={tag}
                   variant="secondary"
                   className="px-4 py-2 text-sm bg-accent/30 text-accent-foreground border-0 cursor-pointer hover:bg-accent/50 transition-smooth"
+                  onClick={() => navigate(`/explore?tag=${tag}`)}
                 >
                   #{tag}
                 </Badge>

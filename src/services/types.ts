@@ -1,0 +1,118 @@
+// TypeScript interfaces for Bean Scene Houston Cafe App
+
+export interface Cafe {
+  id: string;
+  placeId: string;
+  name: string;
+  address: string;
+  neighborhood: string;
+  latitude: number;
+  longitude: number;
+  rating?: number;
+  googleRating?: number;
+  priceLevel?: number;
+  phoneNumber?: string;
+  website?: string;
+  openingHours?: string[];
+  photos?: string[];
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+}
+
+export interface Post {
+  id: string;
+  userId: string;
+  cafeId: string;
+  placeId: string;
+  imageUrl: string;
+  rating: number;
+  textReview: string;
+  tags: string[];
+  likes: number;
+  comments: number;
+  createdAt: string;
+  cafe?: Pick<Cafe, 'name' | 'neighborhood' | 'placeId'>;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  createdAt: string;
+}
+
+export interface CheckInData {
+  cafeId: string;
+  placeId: string;
+  rating: number;
+  imageFile?: File;
+  imageUrl?: string;
+  tags: string[];
+  review: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+export interface GooglePlacesResult {
+  place_id: string;
+  name: string;
+  formatted_address: string;
+  geometry: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
+  rating?: number;
+  price_level?: number;
+  formatted_phone_number?: string;
+  website?: string;
+  opening_hours?: {
+    weekday_text: string[];
+  };
+  photos?: Array<{
+    photo_reference: string;
+  }>;
+}
+
+export interface SearchFilters {
+  query?: string;
+  neighborhoods?: string[];
+  tags?: string[];
+  rating?: number;
+  distance?: number;
+  priceLevel?: number[];
+}
+
+export interface ApiResponse<T> {
+  data: T;
+  success: boolean;
+  error?: string;
+}
+
+// Houston Metro Area Bounds
+export const HOUSTON_BOUNDS = {
+  north: 30.110732,
+  south: 29.523624,
+  east: -95.014648,
+  west: -95.669403
+};
+
+// Houston Neighborhoods
+export const HOUSTON_NEIGHBORHOODS = [
+  "Montrose", "Heights", "Downtown", "Midtown", "Rice Village",
+  "West University", "River Oaks", "Memorial", "Galleria", "East End",
+  "Museum District", "Washington Avenue", "EaDo", "Third Ward", "Fifth Ward"
+];
+
+// Popular Coffee Tags
+export const COFFEE_TAGS = [
+  "latte-art", "cozy-vibes", "laptop-friendly", "third-wave", "cold-brew",
+  "pastries", "rooftop", "instagram-worthy", "pet-friendly", "outdoor-seating",
+  "wifi", "quiet", "busy", "date-spot", "group-friendly", "drive-thru"
+];

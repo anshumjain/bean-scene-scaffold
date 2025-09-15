@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Camera, Heart, Share } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { CafeHeader } from "@/components/Cafe/CafeHeader";
 import { PostCard } from "@/components/Feed/PostCard";
-import { useNavigate } from "react-router-dom";
+import { fetchCafeDetails } from "@/services/cafeService";
+import { fetchCafePostsById } from "@/services/postService";
+import { Cafe, Post } from "@/services/types";
+import { toast } from "@/hooks/use-toast";
 
 // Mock cafe data
 const mockCafe = {
@@ -50,7 +54,89 @@ const mockPosts = [
 
 export default function CafeDetail() {
   const navigate = useNavigate();
+  const { id: placeId } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState("posts");
+  const [cafe, setCafe] = useState<Cafe | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load cafe details and posts
+  const loadCafeData = async () => {
+    if (!placeId) {
+      setError('Cafe not found');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch cafe details and posts in parallel
+      const [cafeResult, postsResult] = await Promise.all([
+        fetchCafeDetails(placeId),
+        fetchCafePostsById(placeId)
+      ]);
+
+      if (cafeResult.success && cafeResult.data) {
+        setCafe(cafeResult.data);
+      } else {
+        setError(cafeResult.error || 'Cafe not found');
+        return;
+      }
+
+      if (postsResult.success) {
+        setPosts(postsResult.data);
+      } else {
+        console.error('Failed to load posts:', postsResult.error);
+        // Don't show error for posts, just log it
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load cafe';
+      setError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCafeData();
+  }, [placeId]);
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="max-w-md mx-auto min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading cafe details...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (error || !cafe) {
+    return (
+      <AppLayout>
+        <div className="max-w-md mx-auto min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center p-6">
+            <h2 className="text-xl font-semibold mb-2">Cafe Not Found</h2>
+            <p className="text-muted-foreground mb-4">{error || 'This cafe could not be found.'}</p>
+            <Button onClick={() => navigate('/explore')}>
+              Back to Explore
+            </Button>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout showBottomNav={false}>
@@ -75,7 +161,15 @@ export default function CafeDetail() {
         </div>
 
         {/* Cafe Header */}
-        <CafeHeader cafe={mockCafe} />
+        <CafeHeader cafe={{
+          id: cafe.id,
+          name: cafe.name,
+          neighborhood: cafe.neighborhood,
+          rating: cafe.rating || 0,
+          distance: "0.3 mi", // TODO: Calculate from user location
+          tags: cafe.tags,
+          imageUrl: cafe.photos?.[0] || "/placeholder.svg"
+        }} />
 
         {/* Content Tabs */}
         <div className="max-w-md mx-auto">
