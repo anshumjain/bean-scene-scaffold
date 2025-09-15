@@ -217,7 +217,7 @@ export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
     
     for (const query of queries) {
       // TODO: Implement Google Places Text Search API call
-      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=${29.7604,-95.3698}&radius=50000&key=${GOOGLE_PLACES_API_KEY}`;
+      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=29.7604,-95.3698&radius=50000&key=${GOOGLE_PLACES_API_KEY}`;
       
       console.log(`Syncing cafes for query: ${query}`);
       console.log(`API URL: ${url}`);

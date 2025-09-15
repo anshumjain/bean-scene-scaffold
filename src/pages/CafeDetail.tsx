@@ -162,13 +162,16 @@ export default function CafeDetail() {
 
         {/* Cafe Header */}
         <CafeHeader cafe={{
-          id: cafe.id,
           name: cafe.name,
+          address: cafe.address,
           neighborhood: cafe.neighborhood,
           rating: cafe.rating || 0,
-          distance: "0.3 mi", // TODO: Calculate from user location
-          tags: cafe.tags,
-          imageUrl: cafe.photos?.[0] || "/placeholder.svg"
+          userRating: 4.2, // TODO: Calculate average user rating
+          hours: "Open 6:00 AM - 9:00 PM",
+          phone: cafe.phoneNumber,
+          priceLevel: cafe.priceLevel || 2,
+          topTags: cafe.tags.slice(0, 3),
+          reviewSnippet: "Great coffee and atmosphere!"
         }} />
 
         {/* Content Tabs */}

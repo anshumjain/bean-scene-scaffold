@@ -1,5 +1,11 @@
-import { useState } from "react";
-import { Search, Filter, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Search, Filter, X, MapPin } from "lucide-react";
+import { Post } from "@/services/types";
+import { fetchPosts, filterFeedByTag } from "@/services/postService";
+import { searchCafes } from "@/services/cafeService";
+import { debounce } from "@/services/utils";
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
