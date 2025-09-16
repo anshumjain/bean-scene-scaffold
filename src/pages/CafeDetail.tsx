@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Camera, Heart, Share } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, Share2, Heart, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/Layout/AppLayout";
@@ -8,8 +8,9 @@ import { CafeHeader } from "@/components/Cafe/CafeHeader";
 import { PostCard } from "@/components/Feed/PostCard";
 import { fetchCafeDetails } from "@/services/cafeService";
 import { fetchCafePostsById } from "@/services/postService";
-import { Cafe, Post } from "@/services/types";
+import { addToRecentlyViewed } from "@/pages/RecentlyViewed";
 import { toast } from "@/hooks/use-toast";
+import type { Cafe, Post } from "@/services/types";
 
 // Mock cafe data
 const mockCafe = {
@@ -109,6 +110,22 @@ export default function CafeDetail() {
     loadCafeData();
   }, [placeId]);
 
+  // Add to recently viewed when cafe data loads
+  useEffect(() => {
+    if (cafe) {
+      addToRecentlyViewed({
+        id: cafe.id,
+        placeId: cafe.placeId,
+        name: cafe.name,
+        neighborhood: cafe.neighborhood,
+        rating: cafe.googleRating || cafe.rating,
+        tags: cafe.tags,
+        image: cafe.photos?.[0] || "/placeholder.svg",
+        priceLevel: cafe.priceLevel
+      });
+    }
+  }, [cafe]);
+
   if (loading) {
     return (
       <AppLayout>
@@ -140,91 +157,169 @@ export default function CafeDetail() {
 
   return (
     <AppLayout showBottomNav={false}>
-      <div className="min-h-screen bg-background">
-        {/* Header with Back Button */}
-        <div className="sticky top-0 z-50 flex items-center justify-between p-4 bg-background/95 backdrop-blur-md">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="icon">
-              <Heart className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="icon">
-              <Share className="w-5 h-5" />
-            </Button>
+      <div className="max-w-md mx-auto min-h-screen bg-background">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="rounded-full"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg font-semibold truncate">
+                  {loading ? "Loading..." : cafe?.name || "Cafe Details"}
+                </h1>
+                {cafe && (
+                  <p className="text-sm text-muted-foreground">{cafe.neighborhood}</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Heart className="w-5 h-5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Share2 className="w-5 h-5" />
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Cafe Header */}
-        <CafeHeader cafe={{
-          name: cafe.name,
-          address: cafe.address,
-          neighborhood: cafe.neighborhood,
-          rating: cafe.rating || 0,
-          userRating: 4.2, // TODO: Calculate average user rating
-          hours: "Open 6:00 AM - 9:00 PM",
-          phone: cafe.phoneNumber,
-          priceLevel: cafe.priceLevel || 2,
-          topTags: cafe.tags.slice(0, 3),
-          reviewSnippet: "Great coffee and atmosphere!"
-        }} />
+        {/* Cafe Content */}
+        {!loading && !error && cafe && (
+          <>
+            {/* Cafe Header */}
+            <div className="p-6">
+              <CafeHeader 
+                cafe={{
+                  name: cafe.name,
+                  address: cafe.address,
+                  neighborhood: cafe.neighborhood,
+                  rating: cafe.googleRating || cafe.rating || 0,
+                  userRating: 4.2, // TODO: Calculate average user rating
+                  hours: cafe.openingHours?.[0] || "Hours not available",
+                  phone: cafe.phoneNumber,
+                  website: cafe.website,
+                  priceLevel: cafe.priceLevel || 2,
+                  topTags: cafe.tags.slice(0, 3),
+                  reviewSnippet: "Great coffee and atmosphere! Perfect for working or catching up with friends.",
+                  isOpen: Math.random() > 0.3, // Mock open status
+                  heroImage: cafe.photos?.[0]
+                }}
+                loading={false}
+              />
+            </div>
 
-        {/* Content Tabs */}
-        <div className="max-w-md mx-auto">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-muted/50 mx-4 mt-4">
-              <TabsTrigger value="posts">Posts</TabsTrigger>
-              <TabsTrigger value="photos">Photos</TabsTrigger>
-              <TabsTrigger value="info">Info</TabsTrigger>
-            </TabsList>
+            {/* Content Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 bg-muted/50 mx-4 mt-4">
+                <TabsTrigger value="posts">Posts ({posts.length})</TabsTrigger>
+                <TabsTrigger value="photos">Photos</TabsTrigger>
+                <TabsTrigger value="info">Info</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="posts" className="p-4 space-y-6">
-              {mockPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </TabsContent>
-
-            <TabsContent value="photos" className="p-4">
-              <div className="grid grid-cols-2 gap-2">
-                {Array.from({ length: 8 }, (_, i) => (
-                  <div
-                    key={i}
-                    className="aspect-square bg-muted rounded-lg overflow-hidden"
-                  >
-                    <img 
-                      src="/placeholder.svg" 
-                      alt={`Photo ${i + 1}`}
-                      className="w-full h-full object-cover"
+              <TabsContent value="posts" className="p-4 space-y-6">
+                {posts.length > 0 ? (
+                  posts.map((post) => (
+                    <PostCard 
+                      key={post.id} 
+                      post={{
+                        id: post.id,
+                        cafeName: post.cafe?.name || cafe.name,
+                        neighborhood: post.cafe?.neighborhood || cafe.neighborhood,
+                        imageUrl: post.imageUrl,
+                        tags: post.tags,
+                        rating: post.rating,
+                        textReview: post.textReview,
+                        createdAt: new Date(post.createdAt).toLocaleString(),
+                        likes: post.likes,
+                        comments: post.comments
+                      }} 
                     />
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <Camera className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Be the first to check in at {cafe.name}!
+                    </p>
+                    <Button 
+                      onClick={() => navigate('/checkin')}
+                      className="coffee-gradient text-white"
+                    >
+                      Check In
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </TabsContent>
+                )}
+              </TabsContent>
 
-            <TabsContent value="info" className="p-4 space-y-4">
-              <div className="bg-card rounded-lg p-4 shadow-coffee">
-                <h3 className="font-semibold mb-2">About</h3>
-                <p className="text-sm text-muted-foreground">
-                  A neighborhood coffee shop in the heart of Montrose, serving carefully crafted espresso drinks and fresh pastries. Known for exceptional latte art and a welcoming atmosphere for both remote workers and casual coffee lovers.
-                </p>
-              </div>
-              
-              <div className="bg-card rounded-lg p-4 shadow-coffee">
-                <h3 className="font-semibold mb-2">Popular Times</h3>
-                <p className="text-sm text-muted-foreground">
-                  Busiest: 8-10 AM, 2-4 PM weekdays
-                  <br />
-                  Quietest: 10 AM-12 PM, after 6 PM
-                </p>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+              <TabsContent value="photos" className="p-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <div
+                      key={i}
+                      className="aspect-square bg-muted rounded-lg overflow-hidden"
+                    >
+                      <img 
+                        src={cafe.photos?.[i % (cafe.photos?.length || 1)] || "/placeholder.svg"} 
+                        alt={`${cafe.name} photo ${i + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="info" className="p-4 space-y-4">
+                <div className="bg-card rounded-lg p-4 shadow-coffee border border-border">
+                  <h3 className="font-semibold mb-2">About</h3>
+                  <p className="text-sm text-muted-foreground">
+                    A neighborhood coffee shop in the heart of {cafe.neighborhood}, serving carefully crafted espresso drinks and fresh pastries. Known for exceptional quality and welcoming atmosphere.
+                  </p>
+                </div>
+                
+                <div className="bg-card rounded-lg p-4 shadow-coffee border border-border">
+                  <h3 className="font-semibold mb-2">Hours</h3>
+                  <div className="space-y-1 text-sm">
+                    {cafe.openingHours?.slice(0, 7).map((hour, i) => (
+                      <div key={i} className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}
+                        </span>
+                        <span>{hour}</span>
+                      </div>
+                    )) || (
+                      <p className="text-muted-foreground">Hours not available</p>
+                    )}
+                  </div>
+                </div>
+
+                {cafe.tags.length > 0 && (
+                  <div className="bg-card rounded-lg p-4 shadow-coffee border border-border">
+                    <h3 className="font-semibold mb-2">Popular Tags</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {cafe.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </>
+        )}
 
         {/* Floating Check-in Button */}
         <div className="fixed bottom-6 right-6 z-50">

@@ -7,7 +7,7 @@ import Home from "./pages/Home";
 import Feed from "./pages/Feed";
 import Search from "./pages/Search";
 import CheckIn from "./pages/CheckIn";
-import Favorites from "./pages/Favorites";
+import RecentlyViewed from "./pages/RecentlyViewed";
 import Profile from "./pages/Profile";
 import CafeDetail from "./pages/CafeDetail";
 import NotFound from "./pages/NotFound";
@@ -25,7 +25,7 @@ const App = () => (
           <Route path="/explore" element={<Feed />} />
           <Route path="/search" element={<Search />} />
           <Route path="/checkin" element={<CheckIn />} />
-          <Route path="/favorites" element={<Favorites />} />
+          <Route path="/recent" element={<RecentlyViewed />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/cafe/:id" element={<CafeDetail />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
