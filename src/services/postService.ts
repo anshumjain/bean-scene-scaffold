@@ -2,6 +2,9 @@ import { Post, SearchFilters, ApiResponse, CheckInData } from './types';
 import { fetchCafeDetails } from './cafeService';
 import { uploadImage } from './cloudinaryService';
 import { generateId, formatTimeAgo } from './utils';
+import { ImageOptimizationService } from './imageOptimizationService';
+import { ValidationService } from './validationService';
+import { MonitoringService } from './monitoringService';
 
 /**
  * Fetch posts for the main feed with optional filters

@@ -6,6 +6,9 @@ import {
   HOUSTON_BOUNDS 
 } from './types';
 import { calculateDistance, isWithinHoustonMetro, detectNeighborhood } from './utils';
+import { GooglePlacesService } from './googlePlacesService';
+import { ImageOptimizationService } from './imageOptimizationService';
+import { MonitoringService } from './monitoringService';
 
 // NOTE: Insert your Google Places API key here when ready to go live
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || 'INSERT_YOUR_GOOGLE_PLACES_API_KEY_HERE';
