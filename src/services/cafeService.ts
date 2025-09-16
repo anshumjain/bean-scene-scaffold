@@ -40,7 +40,7 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
         openingHours: ["Monday: 6:00 AM – 9:00 PM", "Tuesday: 6:00 AM – 9:00 PM"],
         photos: ["/placeholder.svg"],
         tags: ["latte-art", "cozy-vibes", "laptop-friendly"],
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
         updatedAt: new Date().toISOString(),
         isActive: true
       },
@@ -58,7 +58,7 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
         phoneNumber: "(713) 942-7444",
         photos: ["/placeholder.svg"],
         tags: ["third-wave", "cold-brew", "rooftop"],
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(), // 4 hours ago
         updatedAt: new Date().toISOString(),
         isActive: true
       },
@@ -76,7 +76,7 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
         phoneNumber: "(713) 524-7744",
         photos: ["/placeholder.svg"],
         tags: ["pastries", "instagram-worthy", "busy"],
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(), // 6 hours ago
         updatedAt: new Date().toISOString(),
         isActive: true
       }

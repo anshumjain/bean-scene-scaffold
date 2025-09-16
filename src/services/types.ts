@@ -58,6 +58,16 @@ export interface CheckInData {
   };
 }
 
+export interface FeedItem {
+  type: "cafe" | "post";
+  id: string;
+  createdAt: string;
+  // Cafe-specific fields (when type === "cafe")
+  cafe?: Cafe;
+  // Post-specific fields (when type === "post") 
+  post?: Post;
+}
+
 export interface GooglePlacesResult {
   place_id: string;
   name: string;

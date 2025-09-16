@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Heart, MessageCircle, MapPin, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/hooks/use-toast";
 
 interface PostCardProps {
   post: {
@@ -19,6 +21,53 @@ interface PostCardProps {
 }
 
 export function PostCard({ post }: PostCardProps) {
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(post.likes);
+  const [liking, setLiking] = useState(false);
+
+  // Handle like functionality
+  const handleLike = async () => {
+    if (liking) return;
+    
+    setLiking(true);
+    const newLiked = !liked;
+    const newCount = newLiked ? likeCount + 1 : likeCount - 1;
+    
+    // Optimistic update
+    setLiked(newLiked);
+    setLikeCount(newCount);
+    
+    try {
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      toast({
+        title: newLiked ? "Liked!" : "Unliked",
+        description: newLiked ? "Added to your favorites" : "Removed from favorites",
+      });
+    } catch (error) {
+      // Revert on error
+      setLiked(!newLiked);
+      setLikeCount(liked ? likeCount + 1 : likeCount - 1);
+      
+      toast({
+        title: "Error",
+        description: "Failed to update like. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLiking(false);
+    }
+  };
+
+  // Handle disabled comments
+  const handleComments = () => {
+    toast({
+      title: "Coming Soon",
+      description: "Comments feature will be available soon!",
+    });
+  };
+
   return (
     <Card className="overflow-hidden shadow-coffee border-0 bg-card/80 backdrop-blur-sm">
       {/* Header */}
@@ -70,11 +119,25 @@ export function PostCard({ post }: PostCardProps) {
         {/* Actions */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" className="h-8 px-2">
-              <Heart className="w-4 h-4 mr-1" />
-              <span className="text-sm">{post.likes}</span>
+            {/* Functional Like Button */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className={`h-8 px-2 transition-smooth ${liked ? 'text-red-500' : ''}`}
+              onClick={handleLike}
+              disabled={liking}
+            >
+              <Heart className={`w-4 h-4 mr-1 transition-smooth ${liked ? 'fill-current' : ''} ${liking ? 'scale-110' : ''}`} />
+              <span className="text-sm">{likeCount}</span>
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 px-2">
+            
+            {/* Disabled Comments Button */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 px-2 opacity-50 cursor-not-allowed"
+              onClick={handleComments}
+            >
               <MessageCircle className="w-4 h-4 mr-1" />
               <span className="text-sm">{post.comments}</span>
             </Button>

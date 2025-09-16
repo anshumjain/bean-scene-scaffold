@@ -1,123 +1,165 @@
-import { Coffee, MapPin, Camera, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Coffee, RefreshCw } from "lucide-react";
+import { FeedItem } from "@/services/types";
+import { fetchFeedItems, filterFeedByTag } from "@/services/feedService";
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/Layout/AppLayout";
-import heroImage from "@/assets/hero-coffee.jpg";
-import { useNavigate } from "react-router-dom";
-
-const features = [
-  {
-    icon: MapPin,
-    title: "Discover Cafes",
-    description: "Find the best coffee spots in Houston"
-  },
-  {
-    icon: Camera,
-    title: "Share Moments",
-    description: "Check in and share your coffee experiences"
-  },
-  {
-    icon: Users,
-    title: "Join Community",
-    description: "Connect with fellow coffee enthusiasts"
-  }
-];
-
-const trendingTags = [
-  "latte-art", "cozy-vibes", "laptop-friendly", "third-wave", 
-  "cold-brew", "pastries", "rooftop", "instagram-worthy"
-];
+import { FeedItemCard } from "@/components/Feed/FeedItemCard";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get tag filter from URL
+  const tagFilter = searchParams.get('tag');
+
+  // Load feed items
+  const loadFeed = async (showRefreshSpinner = false) => {
+    try {
+      if (showRefreshSpinner) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      
+      let result;
+      if (tagFilter) {
+        result = await filterFeedByTag(tagFilter);
+      } else {
+        result = await fetchFeedItems();
+      }
+      
+      if (result.success) {
+        setFeedItems(result.data);
+      } else {
+        setError(result.error || 'Failed to load feed');
+        toast({
+          title: "Error",
+          description: result.error || 'Failed to load feed',
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load feed';
+      setError(errorMessage);
+      toast({
+        title: "Error", 
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Handle tag click for filtering
+  const handleTagClick = (tag: string) => {
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tag', tag);
+    window.history.pushState({}, '', `?${newSearchParams.toString()}`);
+    loadFeed();
+  };
+
+  // Pull to refresh (placeholder)
+  const handleRefresh = () => {
+    loadFeed(true);
+  };
+
+  // Load data on component mount and when tag changes
+  useEffect(() => {
+    loadFeed();
+  }, [tagFilter]);
 
   return (
     <AppLayout>
-      <div className="min-h-screen">
-        {/* Hero Section */}
-        <section className="relative h-screen flex items-center justify-center overflow-hidden">
-          <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${heroImage})` }}
-          >
-            <div className="absolute inset-0 coffee-gradient opacity-80" />
-          </div>
-          
-          <div className="relative z-10 text-center text-white px-6 max-w-lg">
-            <div className="mb-6">
-              <Coffee className="w-16 h-16 mx-auto mb-4 text-yellow-200" />
+      <div className="max-w-md mx-auto min-h-screen bg-background">
+        {/* Header */}
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <Coffee className="w-8 h-8 text-primary" />
+              <h1 className="text-2xl font-bold">Bean Scene</h1>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-              Bean Scene
-            </h1>
-            <p className="text-xl mb-8 text-cream-200 leading-relaxed">
-              Discover Houston's best coffee spots and share your cafe experiences
-            </p>
-            <div className="space-y-4">
-              <Button 
-                size="lg"
-                onClick={() => navigate('/explore')}
-                className="w-full bg-white/20 text-white border border-white/30 hover:bg-white/30 backdrop-blur-md shadow-glow transition-smooth"
-              >
-                Start Exploring
-              </Button>
-              <Button 
-                variant="outline"
-                size="lg"
-                onClick={() => navigate('/checkin')}
-                className="w-full glass-effect text-white border-white/30 hover:bg-white/10"
-              >
-                Check In Now
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section className="py-16 px-6 cream-gradient">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-center mb-12">
-              Your Coffee Community
-            </h2>
-            <div className="grid md:grid-cols-3 gap-8">
-              {features.map(({ icon: Icon, title, description }) => (
-                <Card key={title} className="text-center shadow-coffee border-0">
-                  <CardContent className="p-8">
-                    <Icon className="w-12 h-12 mx-auto mb-4 text-primary" />
-                    <h3 className="text-xl font-semibold mb-3">{title}</h3>
-                    <p className="text-muted-foreground">{description}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Trending Tags */}
-        <section className="py-16 px-6">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl font-bold mb-8">Trending in Houston</h2>
-            <div className="flex flex-wrap justify-center gap-3 mb-8">
-              {trendingTags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="secondary"
-                  className="px-4 py-2 text-sm bg-accent/30 text-accent-foreground border-0 cursor-pointer hover:bg-accent/50 transition-smooth"
-                  onClick={() => navigate(`/explore?tag=${tag}`)}
-                >
-                  #{tag}
-                </Badge>
-              ))}
-            </div>
-            <Button 
-              onClick={() => navigate('/explore')}
-              className="coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth"
+            
+            {/* Pull to Refresh Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2"
             >
-              Explore All Tags
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
-        </section>
+          
+          <p className="text-sm text-muted-foreground">
+            Houston's coffee community feed
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="p-4 space-y-6 pb-20">
+          {loading && (
+            <>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="h-48 w-full rounded-lg" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ))}
+            </>
+          )}
+
+          {error && !loading && (
+            <div className="text-center py-12">
+              <Coffee className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Something went wrong</h3>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button onClick={() => loadFeed()}>
+                Try Again
+              </Button>
+            </div>
+          )}
+
+          {!loading && !error && feedItems.length === 0 && (
+            <div className="text-center py-12">
+              <Coffee className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
+              <p className="text-muted-foreground mb-4">
+                {tagFilter 
+                  ? `No posts found for #${tagFilter}`
+                  : 'Be the first to check in at a Houston cafe!'
+                }
+              </p>
+            </div>
+          )}
+
+          {!loading && feedItems.map((item) => (
+            <FeedItemCard
+              key={item.id}
+              item={item}
+              onTagClick={handleTagClick}
+            />
+          ))}
+
+          {!loading && feedItems.length > 0 && (
+            <div className="text-center py-8">
+              <Button variant="ghost" className="text-muted-foreground">
+                Load more...
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </AppLayout>
   );

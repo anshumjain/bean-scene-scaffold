@@ -217,6 +217,7 @@ export default function Feed() {
 
   // Handle cafe navigation
   const handleCafeClick = (cafe: Cafe) => {
+    console.log('Cafe clicked:', cafe.name, cafe.placeId); // Debug log
     navigate(`/cafe/${cafe.placeId}`);
   };
 
