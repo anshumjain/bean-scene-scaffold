@@ -14,7 +14,237 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      api_usage_logs: {
+        Row: {
+          api_service: string
+          created_at: string
+          date: string
+          endpoint: string
+          error_message: string | null
+          id: string
+          request_count: number
+          response_status: number | null
+        }
+        Insert: {
+          api_service: string
+          created_at?: string
+          date?: string
+          endpoint: string
+          error_message?: string | null
+          id?: string
+          request_count?: number
+          response_status?: number | null
+        }
+        Update: {
+          api_service?: string
+          created_at?: string
+          date?: string
+          endpoint?: string
+          error_message?: string | null
+          id?: string
+          request_count?: number
+          response_status?: number | null
+        }
+        Relationships: []
+      }
+      cafes: {
+        Row: {
+          address: string
+          created_at: string
+          google_photo_reference: string | null
+          google_rating: number | null
+          hero_photo_url: string | null
+          id: string
+          is_active: boolean
+          latitude: number
+          longitude: number
+          name: string
+          neighborhood: string
+          opening_hours: string[] | null
+          phone_number: string | null
+          photos: string[] | null
+          place_id: string
+          price_level: number | null
+          rating: number | null
+          tags: string[]
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          google_photo_reference?: string | null
+          google_rating?: number | null
+          hero_photo_url?: string | null
+          id?: string
+          is_active?: boolean
+          latitude: number
+          longitude: number
+          name: string
+          neighborhood: string
+          opening_hours?: string[] | null
+          phone_number?: string | null
+          photos?: string[] | null
+          place_id: string
+          price_level?: number | null
+          rating?: number | null
+          tags?: string[]
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          google_photo_reference?: string | null
+          google_rating?: number | null
+          hero_photo_url?: string | null
+          id?: string
+          is_active?: boolean
+          latitude?: number
+          longitude?: number
+          name?: string
+          neighborhood?: string
+          opening_hours?: string[] | null
+          phone_number?: string | null
+          photos?: string[] | null
+          place_id?: string
+          price_level?: number | null
+          rating?: number | null
+          tags?: string[]
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      posts: {
+        Row: {
+          cafe_id: string
+          comments: number
+          created_at: string
+          id: string
+          image_url: string
+          likes: number
+          place_id: string
+          rating: number
+          tags: string[]
+          text_review: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cafe_id: string
+          comments?: number
+          created_at?: string
+          id?: string
+          image_url: string
+          likes?: number
+          place_id: string
+          rating: number
+          tags?: string[]
+          text_review: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cafe_id?: string
+          comments?: number
+          created_at?: string
+          id?: string
+          image_url?: string
+          likes?: number
+          place_id?: string
+          rating?: number
+          tags?: string[]
+          text_review?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_cafe_id_fkey"
+            columns: ["cafe_id"]
+            isOneToOne: false
+            referencedRelation: "cafes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          auth_user_id: string | null
+          avatar: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          auth_user_id?: string | null
+          avatar?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          auth_user_id?: string | null
+          avatar?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      validation_logs: {
+        Row: {
+          action_type: string
+          cafe_id: string | null
+          created_at: string
+          error_reason: string | null
+          id: string
+          ip_address: unknown | null
+          place_id: string | null
+          user_agent: string | null
+          user_id: string | null
+          validation_result: boolean
+        }
+        Insert: {
+          action_type: string
+          cafe_id?: string | null
+          created_at?: string
+          error_reason?: string | null
+          id?: string
+          ip_address?: unknown | null
+          place_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          validation_result: boolean
+        }
+        Update: {
+          action_type?: string
+          cafe_id?: string | null
+          created_at?: string
+          error_reason?: string | null
+          id?: string
+          ip_address?: unknown | null
+          place_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          validation_result?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
