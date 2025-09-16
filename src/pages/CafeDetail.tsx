@@ -240,7 +240,8 @@ export default function CafeDetail() {
                         createdAt: new Date(post.createdAt).toLocaleString(),
                         likes: post.likes,
                         comments: post.comments
-                      }} 
+                      }}
+                      placeId={post.placeId}
                     />
                   ))
                 ) : (

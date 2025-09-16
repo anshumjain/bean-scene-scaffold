@@ -29,7 +29,8 @@ export function FeedItemCard({ item, onTagClick }: FeedItemCardProps) {
           createdAt: new Date(item.createdAt).toLocaleString(),
           likes: item.post.likes,
           comments: item.post.comments
-        }} 
+        }}
+        placeId={item.post.placeId}
       />
     );
   }
