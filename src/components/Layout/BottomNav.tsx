@@ -1,13 +1,12 @@
-import { Eye, Home, MapPin, Search, User } from "lucide-react";
+import { Eye, Coffee, MapPin, Search } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { icon: Home, label: "Home", href: "/" },
   { icon: Search, label: "Explore", href: "/explore" },
   { icon: MapPin, label: "Check In", href: "/checkin" },
   { icon: Eye, label: "Recent", href: "/recent" },
-  { icon: User, label: "Profile", href: "/profile" },
+  { icon: Coffee, label: "Origins", href: "/" },
 ];
 
 export function BottomNav() {
