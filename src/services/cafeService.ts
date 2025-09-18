@@ -271,9 +271,9 @@ async function saveCafeToDatabase(placeResult: GooglePlacesResult): Promise<void
     phoneNumber: placeResult.formatted_phone_number,
     website: placeResult.website,
     openingHours: placeResult.opening_hours?.weekday_text,
-    photos: placeResult.photos?.map(photo => 
-      `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
-    ),
+    photos: placeResult.photos?.slice(0,1).map(photo => 
+  `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
+),
     tags: [], // Will be populated by user posts
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
