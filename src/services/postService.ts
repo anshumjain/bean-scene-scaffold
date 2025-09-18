@@ -33,7 +33,7 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
 /**
  * Fetch posts for a specific cafe by placeId
  */
-export async function fetchCafePostsById(placeId: string): Promise<ApiResponse<Post[]>> {
+export async function fetchCafePostsById(place_id: string): Promise<ApiResponse<Post[]>> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/posts?placeId=${encodeURIComponent(placeId)}`);
     const data: Post[] = await response.json();
