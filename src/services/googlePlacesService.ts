@@ -35,10 +35,10 @@ export class GooglePlacesService {
 
       // Mock response with random photo
       const mockDetails: PlaceDetails = {
-        place_id: placeId,
-        name: `Cafe ${placeId.slice(-4)}`,
+        place_id: place_id,
+        name: `Cafe ${place_id.slice(-4)}`,
         photos: [{
-          photo_reference: `photo_ref_${placeId}`,
+          photo_reference: `photo_ref_${place_id}`,
           width: 800,
           height: 600
         }]
@@ -90,13 +90,13 @@ export class GooglePlacesService {
       const results: Record<string, string> = {};
       
       // Process in batches of 5 to simulate rate limiting
-      for (let i = 0; i < placeIds.length; i += 5) {
-        const batch = placeIds.slice(i, i + 5);
+      for (let i = 0; i < place_ids.length; i += 5) {
+        const batch = place_ids.slice(i, i + 5);
         
-        for (const placeId of batch) {
+        for (const place_id of batch) {
           const photoResult = await this.getHeroPhotoUrl(place_id);
           if (photoResult.success && photoResult.data) {
-            results[placeId] = photoResult.data;
+            results[place_id] = photoResult.data;
           }
         }
         
