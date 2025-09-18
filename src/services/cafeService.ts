@@ -67,12 +67,12 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
 /**
  * Fetch specific cafe details by place ID
  */
-export async function fetchCafeDetails(placeId: string): Promise<ApiResponse<Cafe | null>> {
+export async function fetchCafeDetails(place_id: string): Promise<ApiResponse<Cafe | null>> {
   try {
     const { data, error } = await supabase
       .from('cafes')
       .select('id, place_id, name, address, neighborhood, latitude, longitude, rating, google_rating, price_level, phone_number, website, opening_hours, photos, hero_photo_url, google_photo_reference, tags, is_active, created_at, updated_at')
-      .eq('place_id', placeId)
+      .eq('place_id', place_id)
       .single();
 
     if (error) {
