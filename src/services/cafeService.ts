@@ -17,7 +17,7 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
   try {
     const { data, error } = await supabase
       .from('cafes')
-      .select('id, placeid, name, address, neighborhood, latitude, longitude, rating, google_rating, price_level, phone_number, website, opening_hours, photos, hero_photo_url, google_photo_reference, tags, is_active, created_at, updated_at')
+      .select('id, place_id, name, address, neighborhood, latitude, longitude, rating, google_rating, price_level, phone_number, website, opening_hours, photos, hero_photo_url, google_photo_reference, tags, is_active, created_at, updated_at')
       .eq('is_active', true);
 
     if (error) {
@@ -71,8 +71,8 @@ export async function fetchCafeDetails(placeId: string): Promise<ApiResponse<Caf
   try {
     const { data, error } = await supabase
       .from('cafes')
-      .select('id, placeid, name, address, neighborhood, latitude, longitude, rating, google_rating, price_level, phone_number, website, opening_hours, photos, hero_photo_url, google_photo_reference, tags, is_active, created_at, updated_at')
-      .eq('placeid', placeId)
+      .select('id, place_id, name, address, neighborhood, latitude, longitude, rating, google_rating, price_level, phone_number, website, opening_hours, photos, hero_photo_url, google_photo_reference, tags, is_active, created_at, updated_at')
+      .eq('place_id', placeId)
       .single();
 
     if (error) {
@@ -173,7 +173,7 @@ export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
  */
 async function saveCafeToDatabase(placeResult: GooglePlacesResult): Promise<void> {
   const cafe = {
-    placeid: placeResult.place_id,
+    place_id: placeResult.place_id,
     name: placeResult.name,
     address: placeResult.formatted_address,
     neighborhood: detectNeighborhood(
@@ -199,7 +199,7 @@ async function saveCafeToDatabase(placeResult: GooglePlacesResult): Promise<void
 
   const { error } = await supabase
     .from('cafes')
-    .upsert(cafe, { onConflict: ['placeid'] });
+    .upsert(cafe, { onConflict: ['place_id'] });
 
   if (error) {
     console.error('Supabase error inserting cafe:', error.message);
