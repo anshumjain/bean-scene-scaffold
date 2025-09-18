@@ -20,10 +20,10 @@ const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || 'INSERT_YOUR_
 export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiResponse<Cafe[]>> {
   try {
     // TODO: Replace with Supabase query when connected
-    // const { data, error } = await supabase
-    //   .from('cafes')
-    //   .select('*')
-    //   .eq('isActive', true);
+    const { data, error } = await supabase
+       .from('cafes')
+       .select('*')
+       .eq('isActive', true);
     
     // For now, return mock data that matches Houston cafes
     const mockCafes: Cafe[] = [
@@ -134,11 +134,11 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
 export async function fetchCafeDetails(placeId: string): Promise<ApiResponse<Cafe | null>> {
   try {
     // TODO: Replace with Supabase query when connected
-    // const { data, error } = await supabase
-    //   .from('cafes')
-    //   .select('*')
-    //   .eq('placeId', placeId)
-    //   .single();
+     const { data, error } = await supabase
+       .from('cafes')
+       .select('*')
+       .eq('placeId', placeId)
+       .single();
     
     const { data: cafes } = await fetchCafes();
     const cafe = cafes.find(c => c.placeId === placeId || c.id === placeId);
@@ -226,16 +226,16 @@ export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
       console.log(`API URL: ${url}`);
       
       // TODO: Uncomment when ready to use Google Places API
-      // const response = await fetch(url);
-      // const data = await response.json();
+      const response = await fetch(url);
+       const data = await response.json();
       
-      // if (data.results) {
-      //   for (const place of data.results) {
-      //     if (isWithinHoustonMetro(place.geometry.location.lat, place.geometry.location.lng)) {
-      //       await saveCafeToDatabase(place);
-      //       totalSynced++;
-      //     }
-      //   }
+       if (data.results) {
+         for (const place of data.results) {
+           if (isWithinHoustonMetro(place.geometry.location.lat, place.geometry.location.lng)) {
+             await saveCafeToDatabase(place);
+             totalSynced++;
+           }
+         }
       // }
     }
     
