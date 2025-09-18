@@ -1,10 +1,9 @@
 // src/services/cloudinaryService.ts
-
 import { ApiResponse } from './types';
 
-// Pull Cloudinary credentials from environment variables
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'INSERT_YOUR_CLOUDINARY_CLOUD_NAME_HERE';
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'INSERT_YOUR_CLOUDINARY_UPLOAD_PRESET_HERE';
+// Use Vite env variables
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
 
 export interface CloudinaryUploadResult {
   public_id: string;
@@ -26,11 +25,11 @@ export interface CloudinaryUploadResult {
  * Upload a single image to Cloudinary
  */
 export async function uploadImage(file: File): Promise<ApiResponse<CloudinaryUploadResult>> {
-  if (CLOUDINARY_CLOUD_NAME === 'INSERT_YOUR_CLOUDINARY_CLOUD_NAME_HERE') {
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
     return {
       data: {} as CloudinaryUploadResult,
       success: false,
-      error: 'Cloudinary credentials not configured. Add CLOUDINARY_CLOUD_NAME and UPLOAD_PRESET to environment variables.'
+      error: 'Cloudinary credentials not configured. Add VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET to .env'
     };
   }
 
@@ -41,15 +40,11 @@ export async function uploadImage(file: File): Promise<ApiResponse<CloudinaryUpl
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    // Coffee-optimized transformations
     formData.append('transformation', JSON.stringify([
       { width: 800, height: 800, crop: 'limit', quality: 'auto:good' },
       { effect: 'sharpen:100' },
       { format: 'auto' }
     ]));
-
-    // Tags and context
     formData.append('tags', 'coffee,houston,checkin,bean-scene');
     formData.append('context', `user_id=${getCurrentUserId()}`);
 
@@ -77,8 +72,8 @@ export async function uploadImage(file: File): Promise<ApiResponse<CloudinaryUpl
 export async function uploadMultipleImages(files: File[]): Promise<ApiResponse<CloudinaryUploadResult[]>> {
   try {
     const results = await Promise.all(files.map(file => uploadImage(file)));
-    const failedUploads = results.filter(r => !r.success);
-    if (failedUploads.length > 0) throw new Error(`Failed to upload ${failedUploads.length} images`);
+    const failed = results.filter(r => !r.success);
+    if (failed.length) throw new Error(`Failed to upload ${failed.length} image(s)`);
 
     return { data: results.map(r => r.data!), success: true };
   } catch (error) {
@@ -90,17 +85,12 @@ export async function uploadMultipleImages(files: File[]): Promise<ApiResponse<C
  * Delete image (server-side recommended)
  */
 export async function deleteImage(publicId: string): Promise<ApiResponse<boolean>> {
-  if (CLOUDINARY_CLOUD_NAME === 'INSERT_YOUR_CLOUDINARY_CLOUD_NAME_HERE') {
+  if (!CLOUDINARY_CLOUD_NAME) {
     return { data: false, success: false, error: 'Cloudinary credentials not configured' };
   }
-
-  try {
-    // NOTE: Requires server-side API with Cloudinary admin credentials
-    console.log(`Would delete image: ${publicId}`);
-    return { data: true, success: true };
-  } catch (error) {
-    return { data: false, success: false, error: error instanceof Error ? error.message : 'Failed to delete image' };
-  }
+  // Must implement server-side deletion using API secret
+  console.log(`Would delete image: ${publicId}`);
+  return { data: true, success: true };
 }
 
 /**
@@ -110,8 +100,7 @@ export function getOptimizedImageUrl(
   publicId: string,
   options: { width?: number; height?: number; crop?: 'fill' | 'fit' | 'scale' | 'limit'; quality?: string; format?: string } = {}
 ): string {
-  if (CLOUDINARY_CLOUD_NAME === 'INSERT_YOUR_CLOUDINARY_CLOUD_NAME_HERE') return '/placeholder.svg';
-
+  if (!CLOUDINARY_CLOUD_NAME) return '/placeholder.svg';
   const { width = 400, height = 400, crop = 'fill', quality = 'auto:good', format = 'auto' } = options;
   return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/w_${width},h_${height},c_${crop},q_${quality},f_${format}/${publicId}`;
 }
@@ -120,13 +109,13 @@ export function getOptimizedImageUrl(
  * Generate thumbnail URL
  */
 export function getThumbnailUrl(publicId: string, size: 'small' | 'medium' | 'large' = 'medium'): string {
-  const sizeMap = { small: { width: 150, height: 150 }, medium: { width: 300, height: 300 }, large: { width: 500, height: 500 } };
-  const { width, height } = sizeMap[size];
+  const map = { small: { width: 150, height: 150 }, medium: { width: 300, height: 300 }, large: { width: 500, height: 500 } };
+  const { width, height } = map[size];
   return getOptimizedImageUrl(publicId, { width, height, crop: 'fill', quality: 'auto:good' });
 }
 
 /**
- * Cloudinary Upload Widget configuration
+ * Upload widget configuration
  */
 export function getUploadWidgetConfig() {
   return {
@@ -134,7 +123,7 @@ export function getUploadWidgetConfig() {
     uploadPreset: CLOUDINARY_UPLOAD_PRESET,
     sources: ['local', 'camera'],
     multiple: false,
-    maxFileSize: 10000000,
+    maxFileSize: 10_000_000,
     acceptedFiles: '.jpg,.jpeg,.png,.webp',
     transformation: [
       { width: 800, height: 800, crop: 'limit', quality: 'auto:good' },
@@ -147,8 +136,8 @@ export function getUploadWidgetConfig() {
 }
 
 /**
- * Placeholder for auth user ID
+ * Placeholder for current user
  */
 function getCurrentUserId(): string {
-  return 'anonymous_user'; // TODO: Replace with real auth context
+  return 'anonymous_user';
 }
