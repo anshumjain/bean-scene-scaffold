@@ -31,11 +31,11 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
 }
 
 /**
- * Fetch posts for a specific cafe by placeId
+ * Fetch posts for a specific cafe by place_id
  */
 export async function fetchCafePostsById(place_id: string): Promise<ApiResponse<Post[]>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/posts?placeId=${encodeURIComponent(placeId)}`);
+    const response = await fetch(`${API_BASE_URL}/api/posts?place_id=${encodeURIComponent(place_id)}`);
     const data: Post[] = await response.json();
 
     return { data, success: true };
@@ -83,7 +83,7 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
     }
 
     // Fetch cafe details
-    const cafeResult = await fetchCafeDetails(checkinData.placeId);
+    const cafeResult = await fetchCafeDetails(checkinData.place_id);
     const cafe = cafeResult.data;
     if (!cafe) throw new Error('Cafe not found');
 
