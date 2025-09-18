@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import { 
   Cafe, 
   GooglePlacesResult, 
@@ -22,71 +23,71 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
     // TODO: Replace with Supabase query when connected
     const { data, error } = await supabase
        .from('cafes')
-       .select('*')
-       .eq('isActive', true);
+       .select('id, placeid, name, address, neighborhood, latitude, longitude, rating, google_rating, price_level, phone_number, website, opening_hours, photos, hero_photo_url, google_photo_reference, tags, is_active, created_at,updated_at')
+       .eq('is_active', true);
     
     // For now, return mock data that matches Houston cafes
-    const mockCafes: Cafe[] = [
-      {
-        id: "1",
-        placeId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
-        name: "Blacksmith Coffee",
-        address: "1018 Westheimer Rd, Houston, TX 77006",
-        neighborhood: "Montrose",
-        latitude: 29.7421,
-        longitude: -95.3914,
-        rating: 4.8,
-        googleRating: 4.6,
-        priceLevel: 2,
-        phoneNumber: "(713) 999-2811",
-        website: "https://blacksmithhouston.com",
-        openingHours: ["Monday: 6:00 AM – 9:00 PM", "Tuesday: 6:00 AM – 9:00 PM"],
-        photos: ["/placeholder.svg"],
-        tags: ["latte-art", "cozy-vibes", "laptop-friendly"],
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+     // {const mockCafes: Cafe[] = [ 
+      //{
+       // id: "1",
+        //placeId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
+        //name: "Blacksmith Coffee",
+ //       address: "1018 Westheimer Rd, Houston, TX 77006",
+  //     neighborhood: "Montrose",
+    //    latitude: 29.7421,
+      //  longitude: -95.3914,
+ //       rating: 4.8,
+   //     googleRating: 4.6,
+     //   priceLevel: 2,
+       // phoneNumber: "(713) 999-2811",
+//        website: "https://blacksmithhouston.com",
+  //      openingHours: ["Monday: 6:00 AM – 9:00 PM", "Tuesday: 6:00 AM – 9:00 PM"],
+    //    photos: ["/placeholder.svg"],
+      //  tags: ["latte-art", "cozy-vibes", "laptop-friendly"],
+       // createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+//        updatedAt: new Date().toISOString(),
+  //      isActive: true
+    //  },
+      //{
+//        id: "2",
+  //      placeId: "ChIJd8BlQ2u5EmsRxjaOBJUaYmQ",
+    //    name: "Greenway Coffee",
+      //  address: "2240 Richmond Ave, Houston, TX 77098",
+//        neighborhood: "Heights", 
+  //      latitude: 29.7755,
+    //    longitude: -95.4089,
+      //  rating: 4.6,
+        //googleRating: 4.4,
+//        priceLevel: 2,
+ //       phoneNumber: "(713) 942-7444",
+  //      photos: ["/placeholder.svg"],
+ //       tags: ["third-wave", "cold-brew", "rooftop"],
+  //      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(), // 4 hours ago
+  //      updatedAt: new Date().toISOString(),
+ //       isActive: true
+ //     },
+ //     {
+  //      id: "3",
+ //       placeId: "ChIJKa7wl2u2EmsRQypMbycKUJo",
+  //      name: "Hugo's Coffee",
+  //      address: "1600 Westheimer Rd, Houston, TX 77006",
+  //      neighborhood: "Downtown",
+  //      latitude: 29.7460,
+  //      longitude: -95.3892,
+   //     rating: 4.4,
+  //      googleRating: 4.2,
+  //      priceLevel: 2,
+   //     phoneNumber: "(713) 524-7744",
+   //     photos: ["/placeholder.svg"],
+    //    tags: ["pastries", "instagram-worthy", "busy"],
+    //    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(), // 6 hours ago
         updatedAt: new Date().toISOString(),
-        isActive: true
-      },
-      {
-        id: "2",
-        placeId: "ChIJd8BlQ2u5EmsRxjaOBJUaYmQ",
-        name: "Greenway Coffee",
-        address: "2240 Richmond Ave, Houston, TX 77098",
-        neighborhood: "Heights", 
-        latitude: 29.7755,
-        longitude: -95.4089,
-        rating: 4.6,
-        googleRating: 4.4,
-        priceLevel: 2,
-        phoneNumber: "(713) 942-7444",
-        photos: ["/placeholder.svg"],
-        tags: ["third-wave", "cold-brew", "rooftop"],
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(), // 4 hours ago
-        updatedAt: new Date().toISOString(),
-        isActive: true
-      },
-      {
-        id: "3",
-        placeId: "ChIJKa7wl2u2EmsRQypMbycKUJo",
-        name: "Hugo's Coffee",
-        address: "1600 Westheimer Rd, Houston, TX 77006",
-        neighborhood: "Downtown",
-        latitude: 29.7460,
-        longitude: -95.3892,
-        rating: 4.4,
-        googleRating: 4.2,
-        priceLevel: 2,
-        phoneNumber: "(713) 524-7744",
-        photos: ["/placeholder.svg"],
-        tags: ["pastries", "instagram-worthy", "busy"],
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(), // 6 hours ago
-        updatedAt: new Date().toISOString(),
-        isActive: true
-      }
-    ];
+    //    isActive: true
+    //  }
+ //   ];
     
     // Apply filters
-    let filteredCafes = mockCafes;
+    let filteredCafes = data || [];
     
     if (filters.query) {
       const query = filters.query.toLowerCase();
@@ -136,8 +137,8 @@ export async function fetchCafeDetails(placeId: string): Promise<ApiResponse<Caf
     // TODO: Replace with Supabase query when connected
      const { data, error } = await supabase
        .from('cafes')
-       .select('*')
-       .eq('placeId', placeId)
+       .select('id, placeid, name, address, neighborhood, latitude, longitude, rating, google_rating, price_level, phone_number, website, opening_hours, photos, hero_photo_url, google_photo_reference, tags, is_active, created_at,updated_at')
+       .eq('placeid', placeId)
        .single();
     
     const { data: cafes } = await fetchCafes();
@@ -256,36 +257,38 @@ const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?locati
  * TODO: Implement when Supabase is connected
  */
 async function saveCafeToDatabase(placeResult: GooglePlacesResult): Promise<void> {
-  const cafe: Omit<Cafe, 'id'> = {
-    placeId: placeResult.place_id,
-    name: placeResult.name,
-    address: placeResult.formatted_address,
-    neighborhood: detectNeighborhood(
-      placeResult.geometry.location.lat, 
-      placeResult.geometry.location.lng
-    ),
-    latitude: placeResult.geometry.location.lat,
-    longitude: placeResult.geometry.location.lng,
-    googleRating: placeResult.rating,
-    priceLevel: placeResult.price_level,
-    phoneNumber: placeResult.formatted_phone_number,
-    website: placeResult.website,
-    openingHours: placeResult.opening_hours?.weekday_text,
-    photos: placeResult.photos?.slice(0,1).map(photo => 
-  `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
-),
-    tags: [], // Will be populated by user posts
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    isActive: true
-  };
+ const cafe = {
+  placeid: placeResult.place_id,
+  name: placeResult.name,
+  address: placeResult.formatted_address,
+  neighborhood: detectNeighborhood(
+    placeResult.geometry.location.lat, 
+    placeResult.geometry.location.lng
+  ),
+  latitude: placeResult.geometry.location.lat,
+  longitude: placeResult.geometry.location.lng,
+  google_rating: placeResult.rating,
+  price_level: placeResult.price_level,
+  phone_number: placeResult.formatted_phone_number,
+  website: placeResult.website,
+  opening_hours: placeResult.opening_hours?.weekday_text,
+  hero_photo_url: placeResult.photos?.[0]
+    ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${placeResult.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
+    : null,
+  google_photo_reference: placeResult.photos?.[0]?.photo_reference || null,
+  tags: [],
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  is_active: true
+};
+
   
   // TODO: Insert into Supabase
 import { supabase } from '@/lib/supabase';
 
 const { error } = await supabase
   .from('cafes')
-  .upsert(cafe, { onConflict: ['placeId'] });
+  .upsert(cafe, { onConflict: ['placeid'] });
 
 if (error) {
   console.error('Supabase error inserting cafe:', error.message);
