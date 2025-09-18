@@ -28,7 +28,7 @@ export class GooglePlacesService {
   /**
    * Fetch place details with photos (placeholder implementation)
    */
-  static async fetchPlaceDetails(placeId: string): Promise<ApiResponse<PlaceDetails | null>> {
+  static async fetchPlaceDetails(place_id: string): Promise<ApiResponse<PlaceDetails | null>> {
     try {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -60,7 +60,7 @@ export class GooglePlacesService {
   /**
    * Get hero photo URL for a place (placeholder implementation)
    */
-  static async getHeroPhotoUrl(placeId: string): Promise<ApiResponse<string | null>> {
+  static async getHeroPhotoUrl(place_id: string): Promise<ApiResponse<string | null>> {
     try {
       // Simulate processing time
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -85,7 +85,7 @@ export class GooglePlacesService {
   /**
    * Batch fetch hero photos for multiple cafes
    */
-  static async batchFetchHeroPhotos(placeIds: string[]): Promise<ApiResponse<Record<string, string>>> {
+  static async batchFetchHeroPhotos(place_ids: string[]): Promise<ApiResponse<Record<string, string>>> {
     try {
       const results: Record<string, string> = {};
       
@@ -94,14 +94,14 @@ export class GooglePlacesService {
         const batch = placeIds.slice(i, i + 5);
         
         for (const placeId of batch) {
-          const photoResult = await this.getHeroPhotoUrl(placeId);
+          const photoResult = await this.getHeroPhotoUrl(place_id);
           if (photoResult.success && photoResult.data) {
             results[placeId] = photoResult.data;
           }
         }
         
         // Add delay between batches
-        if (i + 5 < placeIds.length) {
+        if (i + 5 < place_ids.length) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
