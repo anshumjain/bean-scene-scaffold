@@ -281,9 +281,16 @@ async function saveCafeToDatabase(placeResult: GooglePlacesResult): Promise<void
   };
   
   // TODO: Insert into Supabase
-  // const { error } = await supabase
-  //   .from('cafes')
-  //   .upsert(cafe, { onConflict: 'placeId' });
+import { supabase } from '@/lib/supabase';
+
+const { error } = await supabase
+  .from('cafes')
+  .upsert(cafe, { onConflict: ['placeId'] });
+
+if (error) {
+  console.error('Supabase error inserting cafe:', error.message);
+}
+
   
   console.log('Would save cafe:', cafe.name);
 }
