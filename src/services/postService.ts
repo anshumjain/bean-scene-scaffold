@@ -91,7 +91,7 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
       id: generateId(),
       userId: 'current_user', // TODO: Replace with actual user auth
       cafeId: checkinData.cafeId,
-      placeId: checkinData.placeId,
+      place_id: checkinData.place_id,
       imageUrl,
       rating: checkinData.rating,
       textReview: checkinData.review,
@@ -100,7 +100,7 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
       cafe: {
         name: cafe.name,
         neighborhood: cafe.neighborhood,
-        placeId: cafe.placeId
+        place_id: cafe.place_id
       }
     };
 
