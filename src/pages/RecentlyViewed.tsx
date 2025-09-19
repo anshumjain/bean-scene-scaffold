@@ -22,44 +22,6 @@ interface RecentCafe {
 const STORAGE_KEY = "bean-scene-recently-viewed";
 const MAX_RECENT_CAFES = 20;
 
-// Mock data for demonstration
-const mockRecentCafes: RecentCafe[] = [
-  {
-    id: "1",
-    placeId: "mock-place-1",
-    name: "Blacksmith Coffee",
-    neighborhood: "Montrose", 
-    rating: 4.8,
-    userRating: 5.0,
-    tags: ["latte-art", "cozy-vibes", "laptop-friendly"],
-    image: "/placeholder.svg",
-    visitedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-    priceLevel: 3
-  },
-  {
-    id: "2",
-    placeId: "mock-place-2", 
-    name: "Greenway Coffee",
-    neighborhood: "Heights",
-    rating: 4.6,
-    userRating: 4.5,
-    tags: ["third-wave", "cold-brew", "rooftop"],
-    image: "/placeholder.svg",
-    visitedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-    priceLevel: 2
-  },
-  {
-    id: "3",
-    placeId: "mock-place-3",
-    name: "Hugo's Coffee", 
-    neighborhood: "Downtown",
-    rating: 4.4,
-    tags: ["pastries", "instagram-worthy", "busy"],
-    image: "/placeholder.svg",
-    visitedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-    priceLevel: 2
-  }
-];
 
 // Utility functions for local storage
 export function addToRecentlyViewed(cafe: Omit<RecentCafe, 'visitedAt'>) {
@@ -85,10 +47,10 @@ export function addToRecentlyViewed(cafe: Omit<RecentCafe, 'visitedAt'>) {
 export function getRecentlyViewed(): RecentCafe[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : mockRecentCafes;
+    return stored ? JSON.parse(stored) : [];
   } catch (error) {
     console.error('Failed to load recently viewed:', error);
-    return mockRecentCafes;
+    return [];
   }
 }
 
@@ -249,7 +211,7 @@ export default function RecentlyViewed() {
               <Eye className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">No recent visits</h3>
               <p className="text-muted-foreground mb-6">
-                Start exploring cafes and they'll appear here for quick access!
+                Find the perfect cozy coffee spot
               </p>
               <Button 
                 onClick={() => navigate('/explore')}

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Camera, MapPin, Star, Plus, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Camera, MapPin, Star, Plus, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,6 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { fetchNearbyCafes } from "@/services/cafeService";
+import { submitCheckin } from "@/services/postService";
+import { getCurrentLocation, formatDistance } from "@/services/utils";
+import type { Cafe } from "@/services/types";
 
 const predefinedTags = [
   "latte-art", "cozy-vibes", "laptop-friendly", "third-wave", "cold-brew",
@@ -14,20 +19,21 @@ const predefinedTags = [
   "pet-friendly", "outdoor-seating", "wifi", "study-spot"
 ];
 
-const nearbyCafes = [
-  { id: "1", name: "Blacksmith Coffee", neighborhood: "Montrose", distance: "0.2 mi" },
-  { id: "2", name: "Greenway Coffee", neighborhood: "Heights", distance: "0.5 mi" },
-  { id: "3", name: "Hugo's Coffee", neighborhood: "Downtown", distance: "0.8 mi" }
-];
-
 export default function CheckIn() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedCafe, setSelectedCafe] = useState<string>("");
   const [rating, setRating] = useState<number>(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState("");
   const [review, setReview] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [nearbyCafes, setNearbyCafes] = useState<Cafe[]>([]);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [isLoadingCafes, setIsLoadingCafes] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags(prev => 
@@ -51,18 +57,99 @@ export default function CheckIn() {
     }
   };
 
-  const handleSubmit = () => {
-    // Here you would normally upload to Cloudinary and save to Supabase
-    console.log({
-      selectedCafe,
-      rating,
-      selectedTags,
-      review,
-      imageFile
-    });
+  useEffect(() => {
+    const requestLocationAndFetchCafes = async () => {
+      try {
+        setIsLoadingLocation(true);
+        const position = await getCurrentLocation();
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ lat: latitude, lng: longitude });
+        
+        setIsLoadingCafes(true);
+        const result = await fetchNearbyCafes(latitude, longitude, 2);
+        
+        if (result.success && result.data) {
+          setNearbyCafes(result.data);
+        } else {
+          setLocationError("Failed to load nearby cafes");
+        }
+      } catch (error) {
+        setLocationError("Enable location to find what's brewing nearby");
+      } finally {
+        setIsLoadingLocation(false);
+        setIsLoadingCafes(false);
+      }
+    };
+
+    requestLocationAndFetchCafes();
+  }, []);
+
+  const calculateDistance = (cafe: Cafe): string => {
+    if (!userLocation) return "";
+    const lat1 = userLocation.lat;
+    const lng1 = userLocation.lng;
+    const lat2 = parseFloat(cafe.latitude.toString());
+    const lng2 = parseFloat(cafe.longitude.toString());
     
-    // Show success and navigate back
-    navigate('/explore');
+    const R = 3959; // Earth's radius in miles
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLng = (lng2 - lng1) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    
+    return formatDistance(distance);
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedCafe || !rating || !imageFile) return;
+    
+    try {
+      setIsSubmitting(true);
+      
+      const selectedCafeData = nearbyCafes.find(cafe => cafe.id === selectedCafe);
+      if (!selectedCafeData) {
+        toast({
+          title: "Error",
+          description: "Selected cafe not found",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const result = await submitCheckin({
+        cafeId: selectedCafe,
+        placeId: selectedCafeData.placeId,
+        rating,
+        tags: selectedTags,
+        review: review,
+        imageFile
+      });
+
+      if (result.success) {
+        toast({
+          title: "Check-in shared!",
+          description: "Your cafe experience has been posted"
+        });
+        navigate('/explore');
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to share check-in",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error", 
+        description: "Failed to share check-in",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -84,25 +171,46 @@ export default function CheckIn() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {nearbyCafes.map((cafe) => (
-                <div
-                  key={cafe.id}
-                  onClick={() => setSelectedCafe(cafe.id)}
-                  className={`p-3 rounded-lg border cursor-pointer transition-smooth ${
-                    selectedCafe === cafe.id
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:bg-muted/50"
-                  }`}
-                >
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="font-medium">{cafe.name}</h3>
-                      <p className="text-sm text-muted-foreground">{cafe.neighborhood}</p>
-                    </div>
-                    <span className="text-xs text-muted-foreground">{cafe.distance}</span>
-                  </div>
+              {isLoadingLocation ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-sm text-muted-foreground">Getting your location...</span>
                 </div>
-              ))}
+              ) : locationError ? (
+                <div className="text-center py-8">
+                  <MapPin className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">{locationError}</p>
+                </div>
+              ) : isLoadingCafes ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-sm text-muted-foreground">Finding nearby cafes...</span>
+                </div>
+              ) : nearbyCafes.length > 0 ? (
+                nearbyCafes.map((cafe) => (
+                  <div
+                    key={cafe.id}
+                    onClick={() => setSelectedCafe(cafe.id)}
+                    className={`p-3 rounded-lg border cursor-pointer transition-smooth ${
+                      selectedCafe === cafe.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-medium">{cafe.name}</h3>
+                        <p className="text-sm text-muted-foreground">{cafe.neighborhood}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{calculateDistance(cafe)}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground">No nearby cafes found</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -241,11 +349,18 @@ export default function CheckIn() {
           {/* Submit Button */}
           <Button
             onClick={handleSubmit}
-            disabled={!selectedCafe || !rating}
+            disabled={!selectedCafe || !rating || !imageFile || isSubmitting}
             className="w-full coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth"
             size="lg"
           >
-            Share Check-In
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Sharing...
+              </>
+            ) : (
+              "Share Check-In"
+            )}
           </Button>
         </div>
       </div>
