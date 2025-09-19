@@ -6,12 +6,13 @@ import {
   HOUSTON_BOUNDS 
 } from './types';
 import { calculateDistance, isWithinHoustonMetro, detectNeighborhood } from './utils';
-const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || import.meta.env?.VITE_GOOGLE_PLACES_API_KEY;import { ImageOptimizationService } from './imageOptimizationService';
+import { GooglePlacesService } from './googlePlacesService';
+import { ImageOptimizationService } from './imageOptimizationService';
 import { MonitoringService } from './monitoringService';
 import { supabase } from '@/integrations/supabase/client';
 
-// Environment variables with graceful fallbacks
-const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+// Environment variables with graceful fallbacks for both Node.js and browser environments
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || import.meta.env?.VITE_GOOGLE_PLACES_API_KEY;
 
 // Check if environment variables are available
 const hasGooglePlacesKey = GOOGLE_PLACES_API_KEY && GOOGLE_PLACES_API_KEY !== 'undefined';
@@ -193,8 +194,11 @@ export async function fetchNearbyCafes(
  */
 export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
   if (!hasGooglePlacesKey) {
+    console.error('Google Places API key not found');
     return apiErrorResponse(0);
   }
+  
+  console.log('Starting Google Places sync with API key:', GOOGLE_PLACES_API_KEY ? 'Found' : 'Missing');
   
   try {
     await MonitoringService.logApiUsage('google_places', 'sync_cafes');
@@ -209,27 +213,48 @@ export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
     let totalSynced = 0;
     
     for (const query of queries) {
+      console.log(`Searching for: ${query}`);
+      
       const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=29.7604,-95.3698&radius=50000&key=${GOOGLE_PLACES_API_KEY}`;
       
       const response = await fetch(url);
       const data = await response.json();
       
+      console.log(`Google API response status:`, response.status);
+      console.log(`Results found:`, data.results?.length || 0);
+      
+      if (data.error_message) {
+        console.error('Google API Error:', data.error_message);
+        continue;
+      }
+      
       if (data.results) {
         for (const place of data.results) {
           if (isWithinHoustonMetro(place.geometry.location.lat, place.geometry.location.lng)) {
+            console.log(`Processing cafe: ${place.name}`);
             await saveCafeToDatabase(place);
             totalSynced++;
           }
         }
       }
+      
+      // Rate limiting - wait between API calls
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
+    
+    console.log(`Sync completed. Total cafes synced: ${totalSynced}`);
     
     return {
       data: totalSynced,
       success: true
     };
   } catch (error) {
-    return apiErrorResponse(0);
+    console.error('Sync error:', error);
+    return {
+      data: 0,
+      success: false,
+      error: error instanceof Error ? error.message : 'Sync failed'
+    };
   }
 }
 
@@ -267,12 +292,16 @@ async function saveCafeToDatabase(placeResult: GooglePlacesResult): Promise<void
       is_active: true
     };
     
+    console.log(`Saving cafe to database: ${cafeData.name}`);
+    
     const { error } = await supabase
       .from('cafes')
       .upsert(cafeData, { onConflict: 'place_id' });
     
     if (error) {
       console.error('Error saving cafe:', error);
+    } else {
+      console.log(`Successfully saved: ${cafeData.name}`);
     }
   } catch (error) {
     console.error('Error processing cafe data:', error);
