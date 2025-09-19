@@ -1,7 +1,7 @@
 // content of seed-cafes.tsseed-cafes.ts
 
 import type { NextApiRequest, NextApiResponse } from "next";
-import { onFirstApiKeySetup } from "@/services/scheduledService";
+import { onFirstApiKeySetup } from "../../src/services/scheduledService";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
