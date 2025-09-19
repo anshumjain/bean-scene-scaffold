@@ -6,8 +6,7 @@ import {
   HOUSTON_BOUNDS 
 } from './types';
 import { calculateDistance, isWithinHoustonMetro, detectNeighborhood } from './utils';
-import { GooglePlacesService } from './googlePlacesService';
-import { ImageOptimizationService } from './imageOptimizationService';
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || import.meta.env?.VITE_GOOGLE_PLACES_API_KEY;import { ImageOptimizationService } from './imageOptimizationService';
 import { MonitoringService } from './monitoringService';
 import { supabase } from '@/integrations/supabase/client';
 
