@@ -5,107 +5,70 @@ import { generateId, formatTimeAgo } from './utils';
 import { ImageOptimizationService } from './imageOptimizationService';
 import { ValidationService } from './validationService';
 import { MonitoringService } from './monitoringService';
+import { supabase } from '@/integrations/supabase/client';
+
+function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
+  return {
+    data: defaultValue,
+    success: false,
+    error: 'Failed to call API'
+  };
+}
 
 /**
  * Fetch posts for the main feed with optional filters
  */
 export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiResponse<Post[]>> {
   try {
-    // TODO: Replace with Supabase query when connected
-    // const { data, error } = await supabase
-    //   .from('posts')
-    //   .select(`
-    //     *,
-    //     cafes (name, neighborhood, placeId)
-    //   `)
-    //   .order('createdAt', { ascending: false });
-    
-    // Mock data for development - matches real Houston cafes
-    const mockPosts: Post[] = [
-      {
-        id: "1",
-        userId: "user1",
-        cafeId: "1",
-        placeId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
-        imageUrl: "/placeholder.svg",
-        rating: 5,
-        textReview: "Amazing cortado with beautiful latte art! The atmosphere is perfect for working, and the baristas really know their craft. Highly recommend the house blend.",
-        tags: ["latte-art", "cozy-vibes", "laptop-friendly"],
-        likes: 24,
-        comments: 8,
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2h ago
-        cafe: {
-          name: "Blacksmith Coffee",
-          neighborhood: "Montrose", 
-          placeId: "ChIJN1t_tDeuEmsRUsoyG83frY4"
-        }
-      },
-      {
-        id: "2",
-        userId: "user2",
-        cafeId: "2",
-        placeId: "ChIJd8BlQ2u5EmsRxjaOBJUaYmQ",
-        imageUrl: "/placeholder.svg",
-        rating: 4,
-        textReview: "Love their cold brew setup! Great outdoor seating with a view. Perfect spot to catch up with friends over some specialty drinks.",
-        tags: ["third-wave", "cold-brew", "rooftop"],
-        likes: 18,
-        comments: 5,
-        createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4h ago
-        cafe: {
-          name: "Greenway Coffee",
-          neighborhood: "Heights",
-          placeId: "ChIJd8BlQ2u5EmsRxjaOBJUaYmQ"
-        }
-      },
-      {
-        id: "3", 
-        userId: "user3",
-        cafeId: "3",
-        placeId: "ChIJKa7wl2u2EmsRQypMbycKUJo",
-        imageUrl: "/placeholder.svg",
-        rating: 4,
-        textReview: "Their croissants are to die for! Got here early and it was already buzzing with the morning crowd. Great energy and even better coffee.",
-        tags: ["pastries", "instagram-worthy", "busy"],
-        likes: 31,
-        comments: 12,
-        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6h ago
-        cafe: {
-          name: "Hugo's Coffee", 
-          neighborhood: "Downtown",
-          placeId: "ChIJKa7wl2u2EmsRQypMbycKUJo"
-        }
-      }
-    ];
-    
-    let filteredPosts = mockPosts;
-    
-    // Apply tag filter
+    let query = supabase
+      .from('posts')
+      .select(`
+        *,
+        cafes (name, neighborhood, place_id)
+      `)
+      .order('created_at', { ascending: false });
+
+    // Apply filters
     if (filters.tags && filters.tags.length > 0) {
-      filteredPosts = filteredPosts.filter(post =>
-        post.tags.some(tag => filters.tags!.includes(tag))
-      );
+      query = query.overlaps('tags', filters.tags);
     }
     
-    // Apply neighborhood filter
     if (filters.neighborhoods && filters.neighborhoods.length > 0) {
-      filteredPosts = filteredPosts.filter(post =>
-        post.cafe && filters.neighborhoods!.includes(post.cafe.neighborhood)
-      );
+      query = query.in('cafes.neighborhood', filters.neighborhoods);
     }
     
-    // Apply search query
     if (filters.query) {
-      const query = filters.query.toLowerCase();
-      filteredPosts = filteredPosts.filter(post =>
-        post.textReview.toLowerCase().includes(query) ||
-        (post.cafe?.name.toLowerCase().includes(query)) ||
-        post.tags.some(tag => tag.toLowerCase().includes(query))
-      );
+      query = query.or(`text_review.ilike.%${filters.query}%,cafes.name.ilike.%${filters.query}%,tags.cs.{${filters.query}}`);
     }
-    
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Transform database format to app format
+    const posts: Post[] = (data || []).map(post => ({
+      id: post.id,
+      userId: post.user_id,
+      cafeId: post.cafe_id,
+      placeId: post.place_id,
+      imageUrl: post.image_url,
+      rating: post.rating,
+      textReview: post.text_review,
+      tags: post.tags || [],
+      likes: post.likes,
+      comments: post.comments,
+      createdAt: post.created_at,
+      cafe: post.cafes ? {
+        name: post.cafes.name,
+        neighborhood: post.cafes.neighborhood,
+        placeId: post.cafes.place_id
+      } : undefined
+    }));
+
     return {
-      data: filteredPosts,
+      data: posts,
       success: true
     };
   } catch (error) {
@@ -122,18 +85,41 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
  */
 export async function fetchCafePostsById(placeId: string): Promise<ApiResponse<Post[]>> {
   try {
-    // TODO: Replace with Supabase query when connected
-    // const { data, error } = await supabase
-    //   .from('posts')
-    //   .select('*, cafes (name, neighborhood, placeId)')
-    //   .eq('placeId', placeId)
-    //   .order('createdAt', { ascending: false });
-    
-    const { data: allPosts } = await fetchPosts();
-    const cafePosts = allPosts.filter(post => post.placeId === placeId || post.cafeId === placeId);
+    const { data, error } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        cafes (name, neighborhood, place_id)
+      `)
+      .or(`place_id.eq.${placeId},cafe_id.eq.${placeId}`)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Transform database format to app format
+    const posts: Post[] = (data || []).map(post => ({
+      id: post.id,
+      userId: post.user_id,
+      cafeId: post.cafe_id,
+      placeId: post.place_id,
+      imageUrl: post.image_url,
+      rating: post.rating,
+      textReview: post.text_review,
+      tags: post.tags || [],
+      likes: post.likes,
+      comments: post.comments,
+      createdAt: post.created_at,
+      cafe: post.cafes ? {
+        name: post.cafes.name,
+        neighborhood: post.cafes.neighborhood,
+        placeId: post.cafes.place_id
+      } : undefined
+    }));
     
     return {
-      data: cafePosts,
+      data: posts,
       success: true
     };
   } catch (error) {
@@ -163,48 +149,84 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
     if (checkinData.imageFile) {
       const uploadResult = await uploadImage(checkinData.imageFile);
       if (uploadResult.success && uploadResult.data) {
-        imageUrl = uploadResult.data.url;
+        imageUrl = uploadResult.data.secure_url;
       } else {
         throw new Error(uploadResult.error || 'Failed to upload image');
       }
     }
     
-    // Get cafe details to populate the post
-    const cafeResult = await fetchCafeDetails(checkinData.placeId);
-    const cafe = cafeResult.data;
-    
-    if (!cafe) {
-      throw new Error('Cafe not found');
+    // Get current user (TODO: implement auth)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Get or create user profile
+    let { data: userProfile } = await supabase
+      .from('users')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    if (!userProfile) {
+      // Create user profile if it doesn't exist
+      const { data: newProfile, error: profileError } = await supabase
+        .from('users')
+        .insert({
+          auth_user_id: user.id,
+          name: user.user_metadata?.name || 'Anonymous User',
+          email: user.email || ''
+        })
+        .select('id')
+        .single();
+
+      if (profileError) throw new Error(profileError.message);
+      userProfile = newProfile;
     }
     
-    // Create new post
-    const newPost: Post = {
-      id: generateId(),
-      userId: 'current_user', // TODO: Get from auth context
-      cafeId: checkinData.cafeId,
-      placeId: checkinData.placeId,
-      imageUrl,
+    // Create post data
+    const postData = {
+      user_id: userProfile.id,
+      cafe_id: checkinData.cafeId,
+      place_id: checkinData.placeId,
+      image_url: imageUrl,
       rating: checkinData.rating,
-      textReview: checkinData.review,
-      tags: checkinData.tags,
-      likes: 0,
-      comments: 0,
-      createdAt: new Date().toISOString(),
-      cafe: {
-        name: cafe.name,
-        neighborhood: cafe.neighborhood,
-        placeId: cafe.placeId
-      }
+      text_review: checkinData.review,
+      tags: checkinData.tags
     };
     
-    // TODO: Insert into Supabase when connected
-    // const { data, error } = await supabase
-    //   .from('posts')
-    //   .insert(newPost)
-    //   .select()
-    //   .single();
+    const { data, error } = await supabase
+      .from('posts')
+      .insert(postData)
+      .select(`
+        *,
+        cafes (name, neighborhood, place_id)
+      `)
+      .single();
     
-    console.log('Would create post:', newPost);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Transform to app format
+    const newPost: Post = {
+      id: data.id,
+      userId: data.user_id,
+      cafeId: data.cafe_id,
+      placeId: data.place_id,
+      imageUrl: data.image_url,
+      rating: data.rating,
+      textReview: data.text_review,
+      tags: data.tags || [],
+      likes: data.likes,
+      comments: data.comments,
+      createdAt: data.created_at,
+      cafe: data.cafes ? {
+        name: data.cafes.name,
+        neighborhood: data.cafes.neighborhood,
+        placeId: data.cafes.place_id
+      } : undefined
+    };
     
     return {
       data: newPost,
@@ -224,10 +246,23 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
  */
 export async function likePost(postId: string): Promise<ApiResponse<boolean>> {
   try {
-    // TODO: Implement with Supabase when connected
-    // const { error } = await supabase.rpc('increment_post_likes', { post_id: postId });
+    // First get current likes count
+    const { data: currentPost, error: fetchError } = await supabase
+      .from('posts')
+      .select('likes')
+      .eq('id', postId)
+      .single();
+
+    if (fetchError) throw new Error(fetchError.message);
+
+    const { error } = await supabase
+      .from('posts')
+      .update({ likes: (currentPost?.likes || 0) + 1 })
+      .eq('id', postId);
     
-    console.log(`Would like post: ${postId}`);
+    if (error) {
+      throw new Error(error.message);
+    }
     
     return {
       data: true,
@@ -247,10 +282,25 @@ export async function likePost(postId: string): Promise<ApiResponse<boolean>> {
  */
 export async function unlikePost(postId: string): Promise<ApiResponse<boolean>> {
   try {
-    // TODO: Implement with Supabase when connected
-    // const { error } = await supabase.rpc('decrement_post_likes', { post_id: postId });
+    // First get current likes count
+    const { data: currentPost, error: fetchError } = await supabase
+      .from('posts')
+      .select('likes')
+      .eq('id', postId)
+      .single();
+
+    if (fetchError) throw new Error(fetchError.message);
+
+    const newLikes = Math.max((currentPost?.likes || 0) - 1, 0);
+
+    const { error } = await supabase
+      .from('posts')
+      .update({ likes: newLikes })
+      .eq('id', postId);
     
-    console.log(`Would unlike post: ${postId}`);
+    if (error) {
+      throw new Error(error.message);
+    }
     
     return {
       data: true,
@@ -277,16 +327,45 @@ export async function searchPosts(query: string): Promise<ApiResponse<Post[]>> {
  */
 export async function fetchTrendingPosts(): Promise<ApiResponse<Post[]>> {
   try {
-    // TODO: Implement trending algorithm with Supabase when connected
-    const { data: allPosts } = await fetchPosts();
-    
-    // Simple trending: sort by likes (in production, factor in time and engagement)
-    const trendingPosts = allPosts
-      .sort((a, b) => b.likes - a.likes)
-      .slice(0, 10);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const { data, error } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        cafes (name, neighborhood, place_id)
+      `)
+      .gte('created_at', sevenDaysAgo.toISOString())
+      .order('likes', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Transform database format to app format
+    const posts: Post[] = (data || []).map(post => ({
+      id: post.id,
+      userId: post.user_id,
+      cafeId: post.cafe_id,
+      placeId: post.place_id,
+      imageUrl: post.image_url,
+      rating: post.rating,
+      textReview: post.text_review,
+      tags: post.tags || [],
+      likes: post.likes,
+      comments: post.comments,
+      createdAt: post.created_at,
+      cafe: post.cafes ? {
+        name: post.cafes.name,
+        neighborhood: post.cafes.neighborhood,
+        placeId: post.cafes.place_id
+      } : undefined
+    }));
     
     return {
-      data: trendingPosts,
+      data: posts,
       success: true
     };
   } catch (error) {

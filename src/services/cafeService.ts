@@ -9,114 +9,80 @@ import { calculateDistance, isWithinHoustonMetro, detectNeighborhood } from './u
 import { GooglePlacesService } from './googlePlacesService';
 import { ImageOptimizationService } from './imageOptimizationService';
 import { MonitoringService } from './monitoringService';
+import { supabase } from '@/integrations/supabase/client';
 
-// NOTE: Insert your Google Places API key here when ready to go live
-const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || 'INSERT_YOUR_GOOGLE_PLACES_API_KEY_HERE';
+// Environment variables with graceful fallbacks
+const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+
+// Check if environment variables are available
+const hasGooglePlacesKey = GOOGLE_PLACES_API_KEY && GOOGLE_PLACES_API_KEY !== 'undefined';
+
+function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
+  return {
+    data: defaultValue,
+    success: false,
+    error: 'Failed to call API'
+  };
+}
 
 /**
  * Fetch cafes from database with optional filters
- * Once Supabase is connected, this will query the database
  */
 export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiResponse<Cafe[]>> {
   try {
-    // TODO: Replace with Supabase query when connected
-    // const { data, error } = await supabase
-    //   .from('cafes')
-    //   .select('*')
-    //   .eq('isActive', true);
-    
-    // For now, return mock data that matches Houston cafes
-    const mockCafes: Cafe[] = [
-      {
-        id: "1",
-        placeId: "ChIJN1t_tDeuEmsRUsoyG83frY4",
-        name: "Blacksmith Coffee",
-        address: "1018 Westheimer Rd, Houston, TX 77006",
-        neighborhood: "Montrose",
-        latitude: 29.7421,
-        longitude: -95.3914,
-        rating: 4.8,
-        googleRating: 4.6,
-        priceLevel: 2,
-        phoneNumber: "(713) 999-2811",
-        website: "https://blacksmithhouston.com",
-        openingHours: ["Monday: 6:00 AM – 9:00 PM", "Tuesday: 6:00 AM – 9:00 PM"],
-        photos: ["/placeholder.svg"],
-        tags: ["latte-art", "cozy-vibes", "laptop-friendly"],
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-        updatedAt: new Date().toISOString(),
-        isActive: true
-      },
-      {
-        id: "2",
-        placeId: "ChIJd8BlQ2u5EmsRxjaOBJUaYmQ",
-        name: "Greenway Coffee",
-        address: "2240 Richmond Ave, Houston, TX 77098",
-        neighborhood: "Heights", 
-        latitude: 29.7755,
-        longitude: -95.4089,
-        rating: 4.6,
-        googleRating: 4.4,
-        priceLevel: 2,
-        phoneNumber: "(713) 942-7444",
-        photos: ["/placeholder.svg"],
-        tags: ["third-wave", "cold-brew", "rooftop"],
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(), // 4 hours ago
-        updatedAt: new Date().toISOString(),
-        isActive: true
-      },
-      {
-        id: "3",
-        placeId: "ChIJKa7wl2u2EmsRQypMbycKUJo",
-        name: "Hugo's Coffee",
-        address: "1600 Westheimer Rd, Houston, TX 77006",
-        neighborhood: "Downtown",
-        latitude: 29.7460,
-        longitude: -95.3892,
-        rating: 4.4,
-        googleRating: 4.2,
-        priceLevel: 2,
-        phoneNumber: "(713) 524-7744",
-        photos: ["/placeholder.svg"],
-        tags: ["pastries", "instagram-worthy", "busy"],
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(), // 6 hours ago
-        updatedAt: new Date().toISOString(),
-        isActive: true
-      }
-    ];
-    
+    let query = supabase
+      .from('cafes')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
     // Apply filters
-    let filteredCafes = mockCafes;
-    
     if (filters.query) {
-      const query = filters.query.toLowerCase();
-      filteredCafes = filteredCafes.filter(cafe => 
-        cafe.name.toLowerCase().includes(query) ||
-        cafe.neighborhood.toLowerCase().includes(query) ||
-        cafe.tags.some(tag => tag.toLowerCase().includes(query))
-      );
+      query = query.or(`name.ilike.%${filters.query}%,neighborhood.ilike.%${filters.query}%,tags.cs.{${filters.query}}`);
     }
     
     if (filters.neighborhoods && filters.neighborhoods.length > 0) {
-      filteredCafes = filteredCafes.filter(cafe =>
-        filters.neighborhoods!.includes(cafe.neighborhood)
-      );
+      query = query.in('neighborhood', filters.neighborhoods);
     }
     
     if (filters.tags && filters.tags.length > 0) {
-      filteredCafes = filteredCafes.filter(cafe =>
-        cafe.tags.some(tag => filters.tags!.includes(tag))
-      );
+      query = query.overlaps('tags', filters.tags);
     }
     
     if (filters.rating) {
-      filteredCafes = filteredCafes.filter(cafe =>
-        (cafe.rating || 0) >= filters.rating!
-      );
+      query = query.gte('rating', filters.rating);
     }
-    
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Transform database format to app format
+    const cafes: Cafe[] = (data || []).map(cafe => ({
+      id: cafe.id,
+      placeId: cafe.place_id,
+      name: cafe.name,
+      address: cafe.address,
+      neighborhood: cafe.neighborhood,
+      latitude: typeof cafe.latitude === 'number' ? cafe.latitude : parseFloat(cafe.latitude),
+      longitude: typeof cafe.longitude === 'number' ? cafe.longitude : parseFloat(cafe.longitude),
+      rating: cafe.rating ? (typeof cafe.rating === 'number' ? cafe.rating : parseFloat(cafe.rating)) : undefined,
+      googleRating: cafe.google_rating ? (typeof cafe.google_rating === 'number' ? cafe.google_rating : parseFloat(cafe.google_rating)) : undefined,
+      priceLevel: cafe.price_level,
+      phoneNumber: cafe.phone_number,
+      website: cafe.website,
+      openingHours: cafe.opening_hours,
+      photos: cafe.photos || [],
+      tags: cafe.tags || [],
+      createdAt: cafe.created_at,
+      updatedAt: cafe.updated_at,
+      isActive: cafe.is_active
+    }));
+
     return {
-      data: filteredCafes,
+      data: cafes,
       success: true
     };
   } catch (error) {
@@ -133,18 +99,45 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
  */
 export async function fetchCafeDetails(placeId: string): Promise<ApiResponse<Cafe | null>> {
   try {
-    // TODO: Replace with Supabase query when connected
-    // const { data, error } = await supabase
-    //   .from('cafes')
-    //   .select('*')
-    //   .eq('placeId', placeId)
-    //   .single();
-    
-    const { data: cafes } = await fetchCafes();
-    const cafe = cafes.find(c => c.placeId === placeId || c.id === placeId);
+    const { data, error } = await supabase
+      .from('cafes')
+      .select('*')
+      .or(`place_id.eq.${placeId},id.eq.${placeId}`)
+      .eq('is_active', true)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned
+        return { data: null, success: true };
+      }
+      throw new Error(error.message);
+    }
+
+    // Transform database format to app format
+    const cafe: Cafe = {
+      id: data.id,
+      placeId: data.place_id,
+      name: data.name,
+      address: data.address,
+      neighborhood: data.neighborhood,
+      latitude: typeof data.latitude === 'number' ? data.latitude : parseFloat(data.latitude),
+      longitude: typeof data.longitude === 'number' ? data.longitude : parseFloat(data.longitude),
+      rating: data.rating ? (typeof data.rating === 'number' ? data.rating : parseFloat(data.rating)) : undefined,
+      googleRating: data.google_rating ? (typeof data.google_rating === 'number' ? data.google_rating : parseFloat(data.google_rating)) : undefined,
+      priceLevel: data.price_level,
+      phoneNumber: data.phone_number,
+      website: data.website,
+      openingHours: data.opening_hours,
+      photos: data.photos || [],
+      tags: data.tags || [],
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      isActive: data.is_active
+    };
     
     return {
-      data: cafe || null,
+      data: cafe,
       success: true
     };
   } catch (error) {
@@ -196,19 +189,17 @@ export async function fetchNearbyCafes(
 }
 
 /**
- * Sync Houston cafes from Google Places API
+ * Sync Houston cafes from Google Places API - Optimized for single photos
  * This function should be called when API key is first added and monthly thereafter
  */
 export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
-  if (GOOGLE_PLACES_API_KEY === 'INSERT_YOUR_GOOGLE_PLACES_API_KEY_HERE') {
-    return {
-      data: 0,
-      success: false,
-      error: 'Google Places API key not configured. Please add your API key to environment variables.'
-    };
+  if (!hasGooglePlacesKey) {
+    return apiErrorResponse(0);
   }
   
   try {
+    await MonitoringService.logApiUsage('google_places', 'sync_cafes');
+    
     const queries = [
       'coffee shop houston',
       'cafe houston', 
@@ -219,24 +210,19 @@ export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
     let totalSynced = 0;
     
     for (const query of queries) {
-      // TODO: Implement Google Places Text Search API call
       const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=29.7604,-95.3698&radius=50000&key=${GOOGLE_PLACES_API_KEY}`;
       
-      console.log(`Syncing cafes for query: ${query}`);
-      console.log(`API URL: ${url}`);
+      const response = await fetch(url);
+      const data = await response.json();
       
-      // TODO: Uncomment when ready to use Google Places API
-      // const response = await fetch(url);
-      // const data = await response.json();
-      
-      // if (data.results) {
-      //   for (const place of data.results) {
-      //     if (isWithinHoustonMetro(place.geometry.location.lat, place.geometry.location.lng)) {
-      //       await saveCafeToDatabase(place);
-      //       totalSynced++;
-      //     }
-      //   }
-      // }
+      if (data.results) {
+        for (const place of data.results) {
+          if (isWithinHoustonMetro(place.geometry.location.lat, place.geometry.location.lng)) {
+            await saveCafeToDatabase(place);
+            totalSynced++;
+          }
+        }
+      }
     }
     
     return {
@@ -244,47 +230,52 @@ export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
       success: true
     };
   } catch (error) {
-    return {
-      data: 0,
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to sync cafes from Google Places'
-    };
+    return apiErrorResponse(0);
   }
 }
 
 /**
- * Save Google Places result to database
- * TODO: Implement when Supabase is connected
+ * Save Google Places result to database - OPTIMIZED FOR SINGLE PHOTO
  */
 async function saveCafeToDatabase(placeResult: GooglePlacesResult): Promise<void> {
-  const cafe: Omit<Cafe, 'id'> = {
-    placeId: placeResult.place_id,
-    name: placeResult.name,
-    address: placeResult.formatted_address,
-    neighborhood: detectNeighborhood(
-      placeResult.geometry.location.lat, 
-      placeResult.geometry.location.lng
-    ),
-    latitude: placeResult.geometry.location.lat,
-    longitude: placeResult.geometry.location.lng,
-    googleRating: placeResult.rating,
-    priceLevel: placeResult.price_level,
-    phoneNumber: placeResult.formatted_phone_number,
-    website: placeResult.website,
-    openingHours: placeResult.opening_hours?.weekday_text,
-    photos: placeResult.photos?.map(photo => 
-      `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
-    ),
-    tags: [], // Will be populated by user posts
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    isActive: true
-  };
-  
-  // TODO: Insert into Supabase
-  // const { error } = await supabase
-  //   .from('cafes')
-  //   .upsert(cafe, { onConflict: 'placeId' });
-  
-  console.log('Would save cafe:', cafe.name);
+  try {
+    // Get only the first (hero) photo if available
+    let heroPhotoUrl: string | null = null;
+    if (placeResult.photos && placeResult.photos.length > 0 && hasGooglePlacesKey) {
+      const photoRef = placeResult.photos[0].photo_reference;
+      heroPhotoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&maxheight=600&photoreference=${photoRef}&key=${GOOGLE_PLACES_API_KEY}`;
+    }
+
+    const cafeData = {
+      place_id: placeResult.place_id,
+      name: placeResult.name,
+      address: placeResult.formatted_address,
+      neighborhood: detectNeighborhood(
+        placeResult.geometry.location.lat, 
+        placeResult.geometry.location.lng
+      ),
+      latitude: placeResult.geometry.location.lat,
+      longitude: placeResult.geometry.location.lng,
+      google_rating: placeResult.rating,
+      price_level: placeResult.price_level,
+      phone_number: placeResult.formatted_phone_number,
+      website: placeResult.website,
+      opening_hours: placeResult.opening_hours?.weekday_text,
+      hero_photo_url: heroPhotoUrl, // Store single optimized photo
+      google_photo_reference: placeResult.photos?.[0]?.photo_reference,
+      photos: [], // Keep empty for user-uploaded photos only
+      tags: [], // Will be populated by user posts
+      is_active: true
+    };
+    
+    const { error } = await supabase
+      .from('cafes')
+      .upsert(cafeData, { onConflict: 'place_id' });
+    
+    if (error) {
+      console.error('Error saving cafe:', error);
+    }
+  } catch (error) {
+    console.error('Error processing cafe data:', error);
+  }
 }

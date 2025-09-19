@@ -1,8 +1,20 @@
 import { ApiResponse } from './types';
 
-// NOTE: Insert your Cloudinary credentials here when ready to go live
-const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'INSERT_YOUR_CLOUDINARY_CLOUD_NAME_HERE';
-const CLOUDINARY_UPLOAD_PRESET = process.env.CLOUDINARY_UPLOAD_PRESET || 'INSERT_YOUR_CLOUDINARY_UPLOAD_PRESET_HERE';
+// Environment variables with graceful fallbacks
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+// Check if environment variables are available
+const hasCloudinaryCredentials = CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET && 
+  CLOUDINARY_CLOUD_NAME !== 'undefined' && CLOUDINARY_UPLOAD_PRESET !== 'undefined';
+
+function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
+  return {
+    data: defaultValue,
+    success: false,
+    error: 'Failed to call API'
+  };
+}
 
 export interface CloudinaryUploadResult {
   public_id: string;
@@ -24,12 +36,8 @@ export interface CloudinaryUploadResult {
  * Upload image to Cloudinary with coffee-optimized transformations
  */
 export async function uploadImage(file: File): Promise<ApiResponse<CloudinaryUploadResult>> {
-  if (CLOUDINARY_CLOUD_NAME === 'INSERT_YOUR_CLOUDINARY_CLOUD_NAME_HERE') {
-    return {
-      data: {} as CloudinaryUploadResult,
-      success: false,
-      error: 'Cloudinary credentials not configured. Please add your Cloudinary cloud name and upload preset to environment variables.'
-    };
+  if (!hasCloudinaryCredentials) {
+    return apiErrorResponse({} as CloudinaryUploadResult);
   }
   
   try {
@@ -99,7 +107,7 @@ export function getOptimizedImageUrl(
     format?: 'auto' | 'webp' | 'jpg' | 'png';
   } = {}
 ): string {
-  if (CLOUDINARY_CLOUD_NAME === 'INSERT_YOUR_CLOUDINARY_CLOUD_NAME_HERE') {
+  if (!hasCloudinaryCredentials) {
     return '/placeholder.svg'; // Fallback for development
   }
   
@@ -149,12 +157,8 @@ export async function uploadMultipleImages(files: File[]): Promise<ApiResponse<C
  * Delete image from Cloudinary
  */
 export async function deleteImage(publicId: string): Promise<ApiResponse<boolean>> {
-  if (CLOUDINARY_CLOUD_NAME === 'INSERT_YOUR_CLOUDINARY_CLOUD_NAME_HERE') {
-    return {
-      data: false,
-      success: false,
-      error: 'Cloudinary credentials not configured'
-    };
+  if (!hasCloudinaryCredentials) {
+    return apiErrorResponse(false);
   }
   
   try {
