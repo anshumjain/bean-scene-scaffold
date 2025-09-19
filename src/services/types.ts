@@ -103,7 +103,6 @@ export interface ApiResponse<T> {
   data: T;
   success: boolean;
   error?: string;
-  message?: string;
 }
 
 // Houston Metro Area Bounds

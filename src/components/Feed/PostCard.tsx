@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Heart, MessageCircle, MapPin, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,10 +18,9 @@ interface PostCardProps {
     likes: number;
     comments: number;
   };
-  placeId?: string;
 }
 
-export function PostCard({ post, placeId }: PostCardProps) {
+export function PostCard({ post }: PostCardProps) {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
   const [liking, setLiking] = useState(false);
@@ -78,16 +76,7 @@ export function PostCard({ post, placeId }: PostCardProps) {
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-primary" />
             <div>
-              {placeId ? (
-                <Link 
-                  to={`/cafe/${placeId}`} 
-                  className="font-semibold text-sm hover:text-primary transition-colors cursor-pointer"
-                >
-                  {post.cafeName}
-                </Link>
-              ) : (
-                <h3 className="font-semibold text-sm">{post.cafeName}</h3>
-              )}
+              <h3 className="font-semibold text-sm">{post.cafeName}</h3>
               <p className="text-xs text-muted-foreground">{post.neighborhood}</p>
             </div>
           </div>

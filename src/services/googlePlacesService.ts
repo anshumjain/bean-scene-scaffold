@@ -8,109 +8,114 @@ interface PlacePhoto {
 
 interface PlaceDetails {
   place_id: string;
-  name: string;
   photos?: PlacePhoto[];
-  latitude: number;
-  longitude: number;
-  address: string;
-  website?: string;
-  google_rating?: number;
-  opening_hours?: string[];
+  name: string;
 }
 
 /**
- * Google Places API service
+ * Placeholder Google Places API service
+ * TODO: Replace with real Google Places API integration
  */
 export class GooglePlacesService {
-  private static API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+  private static mockPhotos = [
+    'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1559496417-e7f25cb247cd?w=800&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=800&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop'
+  ];
 
   /**
-   * Fetch place details using real Google Places API
+   * Fetch place details with photos (placeholder implementation)
    */
-  static async fetchPlaceDetails(place_id: string): Promise<ApiResponse<PlaceDetails | null>> {
+  static async fetchPlaceDetails(placeId: string): Promise<ApiResponse<PlaceDetails | null>> {
     try {
-      if (!this.API_KEY) throw new Error('Google Places API key not configured');
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      const fields = [
-        'name',
-        'geometry',
-        'formatted_address',
-        'photos',
-        'website',
-        'rating',
-        'opening_hours'
-      ].join(',');
-
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=${fields}&key=${this.API_KEY}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.status !== 'OK' || !data.result) {
-        return { data: null, success: false, error: data.error_message || data.status };
-      }
-
-      const result = data.result;
-
-      const details: PlaceDetails = {
-        place_id: result.place_id,
-        name: result.name,
-        latitude: result.geometry.location.lat,
-        longitude: result.geometry.location.lng,
-        address: result.formatted_address,
-        website: result.website,
-        google_rating: result.rating,
-        opening_hours: result.opening_hours?.weekday_text,
-        photos: result.photos?.map((p: any) => ({
-          photo_reference: p.photo_reference,
-          width: p.width,
-          height: p.height
-        }))
+      // Mock response with random photo
+      const mockDetails: PlaceDetails = {
+        place_id: placeId,
+        name: `Cafe ${placeId.slice(-4)}`,
+        photos: [{
+          photo_reference: `photo_ref_${placeId}`,
+          width: 800,
+          height: 600
+        }]
       };
 
-      return { data: details, success: true };
+      return {
+        data: mockDetails,
+        success: true
+      };
     } catch (error) {
-      return { data: null, success: false, error: error instanceof Error ? error.message : 'Failed to fetch place details' };
+      return {
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch place details'
+      };
     }
   }
 
   /**
-   * Get hero photo URL for a place
+   * Get hero photo URL for a place (placeholder implementation)
    */
-  static async getHeroPhotoUrl(place_id: string): Promise<ApiResponse<string | null>> {
+  static async getHeroPhotoUrl(placeId: string): Promise<ApiResponse<string | null>> {
     try {
-      const details = await this.fetchPlaceDetails(place_id);
-      if (!details.success || !details.data || !details.data.photos?.length) return { data: null, success: true };
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-      const photoRef = details.data.photos[0].photo_reference;
-      const url = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoRef}&key=${this.API_KEY}`;
+      // Return a random hero photo
+      const randomIndex = Math.floor(Math.random() * this.mockPhotos.length);
+      const heroUrl = this.mockPhotos[randomIndex];
 
-      return { data: url, success: true };
+      return {
+        data: heroUrl,
+        success: true
+      };
     } catch (error) {
-      return { data: null, success: false, error: error instanceof Error ? error.message : 'Failed to get hero photo' };
+      return {
+        data: null,
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get hero photo'
+      };
     }
   }
 
   /**
    * Batch fetch hero photos for multiple cafes
    */
-  static async batchFetchHeroPhotos(place_ids: string[]): Promise<ApiResponse<Record<string, string>>> {
+  static async batchFetchHeroPhotos(placeIds: string[]): Promise<ApiResponse<Record<string, string>>> {
     try {
       const results: Record<string, string> = {};
-
-      for (let i = 0; i < place_ids.length; i += 5) {
-        const batch = place_ids.slice(i, i + 5);
-        await Promise.all(batch.map(async place_id => {
-          const photoResult = await this.getHeroPhotoUrl(place_id);
-          if (photoResult.success && photoResult.data) results[place_id] = photoResult.data;
-        }));
-
-        // optional delay between batches to respect rate limits
-        if (i + 5 < place_ids.length) await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Process in batches of 5 to simulate rate limiting
+      for (let i = 0; i < placeIds.length; i += 5) {
+        const batch = placeIds.slice(i, i + 5);
+        
+        for (const placeId of batch) {
+          const photoResult = await this.getHeroPhotoUrl(placeId);
+          if (photoResult.success && photoResult.data) {
+            results[placeId] = photoResult.data;
+          }
+        }
+        
+        // Add delay between batches
+        if (i + 5 < placeIds.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
 
-      return { data: results, success: true };
+      return {
+        data: results,
+        success: true
+      };
     } catch (error) {
-      return { data: {}, success: false, error: error instanceof Error ? error.message : 'Failed to batch fetch photos' };
+      return {
+        data: {},
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to batch fetch photos'
+      };
     }
   }
 }
