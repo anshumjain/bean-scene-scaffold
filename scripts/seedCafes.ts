@@ -1,4 +1,4 @@
-import 'dotenv/config';
+
 import { createClient } from '@supabase/supabase-js';
 
 // Node.js compatible Supabase client
