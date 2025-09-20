@@ -1,5 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Node.js compatible Supabase client
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://hhdcequsdmosxzjebdyj.supabase.co";
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZGNlcXVzZG1vc3h6amViZHlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjQwODMsImV4cCI6MjA3MzY0MDA4M30.BJ8tbA2zBC_IgC3Li_uE5P1-cPHA1Gi6mESaJVToPqA";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Convert Google's price level strings to integers for database
 function convertPriceLevel(priceLevel: string): number | null {
   switch (priceLevel) {
     case 'PRICE_LEVEL_FREE': return 0;
@@ -11,13 +17,8 @@ function convertPriceLevel(priceLevel: string): number | null {
   }
 }
 
-// Node.js compatible Supabase client
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://hhdcequsdmosxzjebdyj.supabase.co";
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZGNlcXVzZG1vc3h6amViZHlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjQwODMsImV4cCI6MjA3MzY0MDA4M30.BJ8tbA2zBC_IgC3Li_uE5P1-cPHA1Gi6mESaJVToPqA";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 async function syncGooglePlacesCafes() {
-  const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+  const GOOGLE_PLACES_API_KEY = process.env.VITE_GOOGLE_PLACES_API_KEY;
   
   if (!GOOGLE_PLACES_API_KEY) {
     console.error('Google Places API key not found');
@@ -26,85 +27,110 @@ async function syncGooglePlacesCafes() {
   
   console.log('Starting Google Places sync...');
   
-  const queries = ['coffee shop houston', 'cafe houston', 'espresso bar houston', 'coffee house houston'];
-  let totalSynced = 0;
+  // Houston metro area coordinate grid for comprehensive coverage
+  const houstonCoordinates = [
+    { lat: 29.7604, lng: -95.3698, name: "Downtown Houston" },
+    { lat: 29.8016, lng: -95.3981, name: "Heights/North Houston" },
+    { lat: 29.7372, lng: -95.2891, name: "East Houston" },
+    { lat: 29.7604, lng: -95.4934, name: "West Houston" },
+    { lat: 29.6774, lng: -95.3698, name: "South Houston" },
+    { lat: 29.7755, lng: -95.4095, name: "Montrose/River Oaks" },
+    { lat: 29.7372, lng: -95.4147, name: "Southwest Houston" },
+    { lat: 29.7982, lng: -95.2891, name: "Northeast Houston" },
+    { lat: 29.6774, lng: -95.2891, name: "Southeast Houston" }
+  ];
   
-  for (const query of queries) {
-    console.log(`Searching for: ${query}`);
-    
-    try {
-      const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.photos'
-        },
-        body: JSON.stringify({
-          textQuery: query,
-          locationBias: {
-            circle: {
-              center: { latitude: 29.7604, longitude: -95.3698 },
-              radius: 50000
-            }
+  const searchTerms = ['coffee shop', 'cafe', 'coffee house'];
+  let totalSynced = 0;
+  const processedPlaceIds = new Set(); // Track duplicates
+  
+  for (const location of houstonCoordinates) {
+    for (const searchTerm of searchTerms) {
+      const query = `${searchTerm} ${location.name}`;
+      console.log(`Searching: ${query}`);
+      
+      try {
+        const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+            'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.photos'
           },
-          maxResultCount: 20
-        })
-      });
-      
-      const data = await response.json();
-      console.log(`API Response status:`, response.status);
-      console.log(`Results found:`, data.places?.length || 0);
-      
-      if (data.error) {
-        console.error('Google API Error:', data.error);
-        continue;
-      }
-      
-      if (data.places) {
-        for (const place of data.places) {
-          try {
-            // Get the first photo reference if available
-            let heroPhotoReference = null;
-            if (place.photos && place.photos.length > 0) {
-              heroPhotoReference = place.photos[0].name;
+          body: JSON.stringify({
+            textQuery: query,
+            locationBias: {
+              circle: {
+                center: { latitude: location.lat, longitude: location.lng },
+                radius: 25000 // 25km radius from each point
+              }
+            },
+            maxResultCount: 60 // Google's maximum per query
+          })
+        });
+        
+        const data = await response.json();
+        console.log(`API Response status: ${response.status}`);
+        console.log(`Results found: ${data.places?.length || 0}`);
+        
+        if (data.error) {
+          console.error('Google API Error:', data.error);
+          continue;
+        }
+        
+        if (data.places) {
+          for (const place of data.places) {
+            // Skip duplicates across different searches
+            if (processedPlaceIds.has(place.id)) {
+              console.log(`Skipping duplicate: ${place.displayName?.text || place.displayName}`);
+              continue;
             }
             
-            const cafeData = {
-              place_id: place.id,
-              name: place.displayName?.text || place.displayName,
-              address: place.formattedAddress,
-              latitude: place.location.latitude,
-              longitude: place.location.longitude,
-              google_rating: place.rating,
-              price_level: convertPriceLevel(place.priceLevel),
-              google_photo_reference: heroPhotoReference,
-              is_active: true
-            };
+            processedPlaceIds.add(place.id);
             
-            console.log(`Processing cafe: ${cafeData.name}`);
-            
-            const { error } = await supabase
-              .from('cafes')
-              .upsert(cafeData, { onConflict: 'place_id' });
-            
-            if (error) {
-              console.error('Error saving cafe:', error);
-            } else {
-              console.log(`Saved: ${cafeData.name}`);
-              totalSynced++;
+            try {
+              // Get the first photo reference if available
+              let heroPhotoReference = null;
+              if (place.photos && place.photos.length > 0) {
+                heroPhotoReference = place.photos[0].name;
+              }
+              
+              const cafeData = {
+                place_id: place.id,
+                name: place.displayName?.text || place.displayName,
+                address: place.formattedAddress,
+                latitude: place.location.latitude,
+                longitude: place.location.longitude,
+                google_rating: place.rating,
+                price_level: convertPriceLevel(place.priceLevel), // Convert string to integer
+                google_photo_reference: heroPhotoReference,
+                is_active: true
+              };
+              
+              console.log(`Processing cafe: ${cafeData.name}`);
+              
+              const { error } = await supabase
+                .from('cafes')
+                .upsert(cafeData, { onConflict: 'place_id' });
+              
+              if (error) {
+                console.error('Error saving cafe:', error);
+              } else {
+                console.log(`✅ Saved: ${cafeData.name}`);
+                totalSynced++;
+              }
+            } catch (placeError) {
+              console.error('Error processing place:', placeError);
             }
-          } catch (placeError) {
-            console.error('Error processing place:', placeError);
           }
         }
+        
+        // Rate limiting - wait between API calls to avoid hitting limits
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+      } catch (fetchError) {
+        console.error(`Error fetching data for "${query}":`, fetchError);
       }
-      
-      // Rate limiting - wait between API calls
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-    } catch (fetchError) {
-      console.error(`Error fetching data for query "${query}":`, fetchError);
     }
   }
   
