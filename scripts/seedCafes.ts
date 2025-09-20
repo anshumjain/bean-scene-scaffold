@@ -1,5 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
+function convertPriceLevel(priceLevel: string): number | null {
+  switch (priceLevel) {
+    case 'PRICE_LEVEL_FREE': return 0;
+    case 'PRICE_LEVEL_INEXPENSIVE': return 1;
+    case 'PRICE_LEVEL_MODERATE': return 2;
+    case 'PRICE_LEVEL_EXPENSIVE': return 3;
+    case 'PRICE_LEVEL_VERY_EXPENSIVE': return 4;
+    default: return null;
+  }
+}
+
 // Node.js compatible Supabase client
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://hhdcequsdmosxzjebdyj.supabase.co";
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZGNlcXVzZG1vc3h6amViZHlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjQwODMsImV4cCI6MjA3MzY0MDA4M30.BJ8tbA2zBC_IgC3Li_uE5P1-cPHA1Gi6mESaJVToPqA";
@@ -66,7 +77,7 @@ async function syncGooglePlacesCafes() {
               latitude: place.location.latitude,
               longitude: place.location.longitude,
               google_rating: place.rating,
-              price_level: place.priceLevel,
+              price_level: convertPriceLevel(place.priceLevel),
               google_photo_reference: heroPhotoReference,
               is_active: true
             };
