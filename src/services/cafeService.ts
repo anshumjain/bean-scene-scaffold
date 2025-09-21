@@ -102,7 +102,7 @@ export async function fetchCafeDetails(placeId: string): Promise<ApiResponse<Caf
     const { data, error } = await supabase
       .from('cafes')
       .select('*')
-      .or(`place_id.eq.${placeId},id.eq.${placeId}`)
+      .eq('place_id', placeId)
       .eq('is_active', true)
       .single();
 
