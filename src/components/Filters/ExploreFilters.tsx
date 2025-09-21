@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Filter, X, DollarSign, Star, Clock, MapPin } from "lucide-react";
+import { Filter, X, DollarSign, Star, Clock, MapPin, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,36 +13,39 @@ export interface FilterState {
   rating: number;
   distance: number;
   openNow: boolean;
-  neighborhoods: string[];
+  locationEnabled: boolean;
 }
 
 interface ExploreFiltersProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   onClearFilters: () => void;
+  onRequestLocation: () => void;
+  hasUserLocation: boolean;
+  locationError?: string;
 }
 
-const NEIGHBORHOODS = [
-  "Montrose", "Heights", "Downtown", "Midtown", "Rice Village",
-  "West University", "River Oaks", "Memorial", "Galleria", "EaDo"
-];
-
-export function ExploreFilters({ filters, onFiltersChange, onClearFilters }: ExploreFiltersProps) {
+export function ExploreFilters({ 
+  filters, 
+  onFiltersChange, 
+  onClearFilters,
+  onRequestLocation,
+  hasUserLocation,
+  locationError
+}: ExploreFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const hasActiveFilters = 
     filters.priceLevel.length > 0 ||
     filters.rating > 0 ||
-    filters.distance < 25 ||
-    filters.openNow ||
-    filters.neighborhoods.length > 0;
+    (hasUserLocation && filters.distance < 25) ||
+    filters.openNow;
 
   const activeFilterCount = 
     (filters.priceLevel.length > 0 ? 1 : 0) +
     (filters.rating > 0 ? 1 : 0) +
-    (filters.distance < 25 ? 1 : 0) +
-    (filters.openNow ? 1 : 0) +
-    (filters.neighborhoods.length > 0 ? filters.neighborhoods.length : 0);
+    (hasUserLocation && filters.distance < 25 ? 1 : 0) +
+    (filters.openNow ? 1 : 0);
 
   const renderPriceLevel = (level: number, isSelected: boolean) => {
     return Array.from({ length: 4 }, (_, i) => (
@@ -64,13 +67,6 @@ export function ExploreFilters({ filters, onFiltersChange, onClearFilters }: Exp
       ? filters.priceLevel.filter(p => p !== level)
       : [...filters.priceLevel, level];
     onFiltersChange({ ...filters, priceLevel: newPriceLevels });
-  };
-
-  const toggleNeighborhood = (neighborhood: string) => {
-    const newNeighborhoods = filters.neighborhoods.includes(neighborhood)
-      ? filters.neighborhoods.filter(n => n !== neighborhood)
-      : [...filters.neighborhoods, neighborhood];
-    onFiltersChange({ ...filters, neighborhoods: newNeighborhoods });
   };
 
   return (
@@ -109,6 +105,63 @@ export function ExploreFilters({ filters, onFiltersChange, onClearFilters }: Exp
           </SheetHeader>
 
           <div className="space-y-6">
+            {/* Location Section */}
+            <div className="bg-muted/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Navigation className="w-4 h-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Near Me</Label>
+                </div>
+                {!hasUserLocation && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onRequestLocation}
+                    className="text-xs"
+                  >
+                    Enable Location
+                  </Button>
+                )}
+              </div>
+              
+              {hasUserLocation ? (
+                <div>
+                  <Label className="text-sm font-medium mb-3 block">
+                    Distance: {filters.distance < 25 ? `${filters.distance} miles` : "Show All"}
+                  </Label>
+                  <div className="px-3">
+                    <Slider
+                      value={[filters.distance]}
+                      onValueChange={([value]) => onFiltersChange({ ...filters, distance: value })}
+                      max={25}
+                      min={1}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>1 mi</span>
+                    <span>Show All</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {locationError || "Enable location to find cafes near you"}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onRequestLocation}
+                    className="text-xs"
+                  >
+                    <Navigation className="w-3 h-3 mr-1" />
+                    Try Again
+                  </Button>
+                </div>
+              )}
+            </div>
+
             {/* Price Level */}
             <div>
               <Label className="text-sm font-medium mb-3 block">Price Level</Label>
@@ -148,27 +201,6 @@ export function ExploreFilters({ filters, onFiltersChange, onClearFilters }: Exp
               </div>
             </div>
 
-            {/* Distance */}
-            <div>
-              <Label className="text-sm font-medium mb-3 block">
-                Distance: {filters.distance < 25 ? `${filters.distance} miles` : "Any"}
-              </Label>
-              <div className="px-3">
-                <Slider
-                  value={[filters.distance]}
-                  onValueChange={([value]) => onFiltersChange({ ...filters, distance: value })}
-                  max={25}
-                  min={1}
-                  step={1}
-                  className="w-full"
-                />
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>1 mi</span>
-                <span>25+ mi</span>
-              </div>
-            </div>
-
             {/* Open Now */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -180,24 +212,6 @@ export function ExploreFilters({ filters, onFiltersChange, onClearFilters }: Exp
                 checked={filters.openNow}
                 onCheckedChange={(checked) => onFiltersChange({ ...filters, openNow: checked })}
               />
-            </div>
-
-            {/* Neighborhoods */}
-            <div>
-              <Label className="text-sm font-medium mb-3 block">Neighborhoods</Label>
-              <div className="flex flex-wrap gap-2">
-                {NEIGHBORHOODS.map((neighborhood) => (
-                  <Button
-                    key={neighborhood}
-                    variant={filters.neighborhoods.includes(neighborhood) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleNeighborhood(neighborhood)}
-                    className="text-xs h-8"
-                  >
-                    {neighborhood}
-                  </Button>
-                ))}
-              </div>
             </div>
           </div>
 
@@ -248,7 +262,7 @@ export function ExploreFilters({ filters, onFiltersChange, onClearFilters }: Exp
             </Badge>
           )}
           
-          {filters.distance < 25 && (
+          {hasUserLocation && filters.distance < 25 && (
             <Badge variant="secondary" className="flex items-center gap-1 text-xs">
               <MapPin className="w-3 h-3" />
               {filters.distance} mi
@@ -277,24 +291,6 @@ export function ExploreFilters({ filters, onFiltersChange, onClearFilters }: Exp
               </Button>
             </Badge>
           )}
-          
-          {filters.neighborhoods.map((neighborhood) => (
-            <Badge
-              key={`neighborhood-${neighborhood}`}
-              variant="secondary"
-              className="flex items-center gap-1 text-xs"
-            >
-              {neighborhood}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-4 w-4 p-0 hover:bg-transparent"
-                onClick={() => toggleNeighborhood(neighborhood)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </Badge>
-          ))}
         </div>
       )}
     </>
