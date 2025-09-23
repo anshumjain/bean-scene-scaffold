@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AppLayout } from "@/components/Layout/AppLayout";
-import { ExploreFilters, FilterState } from "@/components/Explore/ExploreFilters";
+import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { useNavigate } from "react-router-dom";
 import { searchCafes, fetchNearbyCafes, fetchCafes } from "@/services/cafeService";
 import { searchPosts } from "@/services/postService";
