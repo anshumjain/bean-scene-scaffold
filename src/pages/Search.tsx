@@ -340,14 +340,6 @@ export default function Search() {
       {searchResults.length} cafe{searchResults.length !== 1 ? 's' : ''}
     </span>
   </div>
-
-  {/* Location Status */}
-  {userLocation && (
-    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-      <Navigation className="w-3 h-3 text-green-500" />
-      <span>Near you</span>
-    </div>
-  )}
 </div>
 
             {/* Location Status */}
