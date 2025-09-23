@@ -14,6 +14,9 @@ import { searchPosts } from "@/services/postService";
 import { Cafe, Post } from "@/services/types";
 import { debounce, formatDistance } from "@/services/utils";
 import { toast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search as SearchIcon, MapPin, Star, Navigation, Coffee, ArrowUpDown, SlidersHorizontal } from "lucide-react";
+
 
 type SortOption = 'rating' | 'distance' | 'price' | 'name';
 
