@@ -1,18 +1,21 @@
 import { useState, useEffect } from "react";
-import { Search as SearchIcon, MapPin, Star, Navigation, Coffee } from "lucide-react";
+import { Search as SearchIcon, MapPin, Star, Navigation, Coffee, ArrowUpDown, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AppLayout } from "@/components/Layout/AppLayout";
-import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
+import { ExploreFilters, FilterState } from "@/components/Explore/ExploreFilters";
 import { useNavigate } from "react-router-dom";
 import { searchCafes, fetchNearbyCafes, fetchCafes } from "@/services/cafeService";
 import { searchPosts } from "@/services/postService";
 import { Cafe, Post } from "@/services/types";
 import { debounce, formatDistance } from "@/services/utils";
 import { toast } from "@/hooks/use-toast";
+
+type SortOption = 'rating' | 'distance' | 'price' | 'name';
 
 const popularTags = [
   "latte-art", "cozy-vibes", "laptop-friendly", "third-wave", "cold-brew",
@@ -30,9 +33,12 @@ export default function Search() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("cafes");
   const [searchResults, setSearchResults] = useState<Cafe[]>([]);
+  const [allCafes, setAllCafes] = useState<Cafe[]>([]); // Store all cafes for sorting/filtering
   const [postResults, setPostResults] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('rating');
   
   // Location state
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
@@ -43,11 +49,107 @@ export default function Search() {
   const [filters, setFilters] = useState<FilterState>({
     priceLevel: [],
     rating: 0,
-    distance: 10,
+    distance: 25, // Default to show all when no location
     openNow: false,
     locationEnabled: false
   });
 
+  // Load all cafes on initial load
+  const loadAllCafes = async () => {
+    try {
+      setInitialLoading(true);
+      const result = await fetchCafes();
+      if (result.success) {
+        setAllCafes(result.data);
+        setSearchResults(result.data); // Show all cafes initially
+        setHasSearched(true);
+      } else {
+        toast({
+          title: "Error loading cafes",
+          description: result.error || "Failed to load cafes",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error loading cafes:', error);
+    } finally {
+      setInitialLoading(false);
+    }
+  };
+
+  // Sort cafes based on selected option
+  const sortCafes = (cafes: Cafe[], sortOption: SortOption): Cafe[] => {
+    const sorted = [...cafes];
+    
+    switch (sortOption) {
+      case 'rating':
+        return sorted.sort((a, b) => {
+          const ratingA = a.googleRating || a.rating || 0;
+          const ratingB = b.googleRating || b.rating || 0;
+          return ratingB - ratingA; // High to low
+        });
+      
+      case 'distance':
+        if (userLocation) {
+          return sorted.sort((a, b) => {
+            const distA = (a as any).distance || 0;
+            const distB = (b as any).distance || 0;
+            return distA - distB; // Near to far
+          });
+        }
+        return sorted; // No sorting if no location
+      
+      case 'price':
+        return sorted.sort((a, b) => {
+          const priceA = a.priceLevel || 0;
+          const priceB = b.priceLevel || 0;
+          return priceA - priceB; // Low to high
+        });
+      
+      case 'name':
+        return sorted.sort((a, b) => a.name.localeCompare(b.name)); // A to Z
+      
+      default:
+        return sorted;
+    }
+  };
+
+  // Apply filters to cafes
+  const applyFilters = (cafes: Cafe[]): Cafe[] => {
+    let filtered = [...cafes];
+
+    // Price level filter
+    if (filters.priceLevel.length > 0) {
+      filtered = filtered.filter(cafe => 
+        cafe.priceLevel && filters.priceLevel.includes(cafe.priceLevel)
+      );
+    }
+
+    // Rating filter
+    if (filters.rating > 0) {
+      filtered = filtered.filter(cafe => {
+        const rating = cafe.googleRating || cafe.rating || 0;
+        return rating >= filters.rating;
+      });
+    }
+
+    // Distance filter (only if location available)
+    if (userLocation && filters.distance < 25) {
+      filtered = filtered.filter(cafe => {
+        const distance = (cafe as any).distance;
+        return !distance || distance <= filters.distance;
+      });
+    }
+
+    // Tag filter
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(cafe =>
+        cafe.tags.some(tag => selectedTags.includes(tag))
+      );
+    }
+
+    return filtered;
+  };
   // Request user's location
   const requestLocation = async () => {
     if (!navigator.geolocation) {
@@ -68,12 +170,24 @@ export default function Search() {
         setLocationError("");
         setLocationLoading(false);
         
-        // Enable location-based filtering
-        setFilters(prev => ({ ...prev, locationEnabled: true }));
+        // Enable location-based filtering and add distance calculations
+        setFilters(prev => ({ ...prev, locationEnabled: true, distance: 10 }));
+        
+        // Add distances to all cafes
+        const cafesWithDistance = allCafes.map(cafe => ({
+          ...cafe,
+          distance: Math.sqrt(
+            Math.pow((cafe.latitude - location.latitude) * 69, 2) +
+            Math.pow((cafe.longitude - location.longitude) * 69 * Math.cos(location.latitude * Math.PI / 180), 2)
+          )
+        }));
+        
+        setAllCafes(cafesWithDistance);
+        updateResults(cafesWithDistance);
         
         toast({
           title: "Location enabled",
-          description: "Now showing cafes near you"
+          description: "Now showing distances to cafes"
         });
       },
       (error) => {
@@ -109,112 +223,45 @@ export default function Search() {
         : [...prev, tag]
     );
   };
-
-  // Perform search with location awareness
-  const performSearch = async () => {
-    try {
-      setLoading(true);
-      setHasSearched(true);
-
-      let cafeResults: Cafe[] = [];
-
-      // Use location-based search if available and no specific search query
-      if (userLocation && !searchQuery.trim()) {
-        const nearbyResult = await fetchNearbyCafes(
-          userLocation.latitude,
-          userLocation.longitude,
-          filters.distance
-        );
-        
-        if (nearbyResult.success) {
-          cafeResults = nearbyResult.data;
-        }
-      } else {
-        // Use regular search with filters
-        const searchFilters = {
-          query: searchQuery.trim() || undefined,
-          tags: selectedTags.length > 0 ? selectedTags : undefined,
-          rating: filters.rating > 0 ? filters.rating : undefined,
-          priceLevel: filters.priceLevel.length > 0 ? filters.priceLevel : undefined
-        };
-
-        const searchResult = await searchCafes(searchQuery, searchFilters);
-        
-        if (searchResult.success) {
-          cafeResults = searchResult.data;
-          
-          // Add distance calculation if we have user location
-          if (userLocation) {
-            cafeResults = cafeResults.map(cafe => ({
-              ...cafe,
-              distance: Math.sqrt(
-                Math.pow(cafe.latitude - userLocation.latitude, 2) +
-                Math.pow(cafe.longitude - userLocation.longitude, 2)
-              ) * 69 // Rough miles conversion
-            }));
-          }
-        }
-      }
-
-      // Apply additional filters
-      if (filters.priceLevel.length > 0) {
-        cafeResults = cafeResults.filter(cafe => 
-          cafe.priceLevel && filters.priceLevel.includes(cafe.priceLevel)
-        );
-      }
-
-      if (filters.rating > 0) {
-        cafeResults = cafeResults.filter(cafe => {
-          const rating = cafe.googleRating || cafe.rating || 0;
-          return rating >= filters.rating;
-        });
-      }
-
-      setSearchResults(cafeResults);
-
-      // Search posts if there's a query
-      if (searchQuery.trim()) {
-        const postResult = await searchPosts(searchQuery);
-        if (postResult.success) {
-          let filteredPosts = postResult.data;
-          
-          if (selectedTags.length > 0) {
-            filteredPosts = filteredPosts.filter(post =>
-              post.tags.some(tag => selectedTags.includes(tag))
-            );
-          }
-          
-          setPostResults(filteredPosts);
-        }
-      } else {
-        setPostResults([]);
-      }
-
-    } catch (error) {
-      console.error('Search error:', error);
-      toast({
-        title: "Search Error",
-        description: "Failed to perform search. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
+  const updateResults = (cafesToUpdate = allCafes) => {
+    let results = cafesToUpdate;
+    
+    // Apply search query filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      results = results.filter(cafe => 
+        cafe.name.toLowerCase().includes(query) ||
+        (cafe.neighborhood && cafe.neighborhood.toLowerCase().includes(query)) ||
+        cafe.tags.some(tag => tag.toLowerCase().includes(query))
+      );
     }
+    
+    // Apply filters
+    results = applyFilters(results);
+    
+    // Apply sorting
+    results = sortCafes(results, sortBy);
+    
+    setSearchResults(results);
   };
-
-  // Debounced search
-  const debouncedSearch = debounce(performSearch, 300);
 
   // Handle search query change
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
-    debouncedSearch();
+    const debouncedUpdate = debounce(() => updateResults(), 300);
+    debouncedUpdate();
   };
 
   // Handle filter changes
   const handleFiltersChange = (newFilters: FilterState) => {
     setFilters(newFilters);
-    debouncedSearch();
+    updateResults();
+  };
+
+  // Handle sort change
+  const handleSortChange = (newSort: SortOption) => {
+    setSortBy(newSort);
+    updateResults();
   };
 
   const clearFilters = () => {
@@ -223,28 +270,28 @@ export default function Search() {
     setFilters({
       priceLevel: [],
       rating: 0,
-      distance: 10,
+      distance: userLocation ? 10 : 25,
       openNow: false,
       locationEnabled: userLocation !== null
     });
-    setSearchResults([]);
-    setPostResults([]);
-    setHasSearched(false);
+    setSortBy('rating');
+    updateResults();
   };
 
-  // Initial load - show nearby cafes if location is available
+  // Load cafes on mount
   useEffect(() => {
-    if (userLocation && !hasSearched) {
-      performSearch();
-    }
-  }, [userLocation]);
+    loadAllCafes();
+  }, []);
 
-  // Trigger search when filters change
+  // Update results when filters change
   useEffect(() => {
-    if (hasSearched || userLocation) {
-      debouncedSearch();
-    }
-  }, [selectedTags, filters]);
+    updateResults();
+  }, [selectedTags, filters, sortBy]);
+
+  // Update results when search changes
+  useEffect(() => {
+    updateResults();
+  }, [searchQuery]);
 
   return (
     <AppLayout>
@@ -264,7 +311,7 @@ export default function Search() {
           </div>
           
           {/* Search Bar */}
-          <div className="relative">
+          <div className="relative mb-3">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search cafes..."
@@ -274,13 +321,35 @@ export default function Search() {
             />
           </div>
 
-          {/* Location Status */}
-          {userLocation && (
-            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-              <Navigation className="w-4 h-4 text-green-500" />
-              <span>Showing cafes near you</span>
+          {/* Sort and Status Row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
+                <SelectTrigger className="w-40 h-8 text-sm">
+                  <ArrowUpDown className="w-3 h-3 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rating">Rating</SelectItem>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="price">Price</SelectItem>
+                  {userLocation && <SelectItem value="distance">Distance</SelectItem>}
+                </SelectContent>
+              </Select>
+              
+              <span className="text-sm text-muted-foreground">
+                {searchResults.length} cafe{searchResults.length !== 1 ? 's' : ''}
+              </span>
             </div>
-          )}
+
+            {/* Location Status */}
+            {userLocation && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Navigation className="w-3 h-3 text-green-500" />
+                <span>Near you</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="p-4">
@@ -313,36 +382,23 @@ export default function Search() {
             </TabsList>
 
             <TabsContent value="cafes" className="space-y-4 mt-4">
-              {loading ? (
+              {initialLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-                  <p className="text-muted-foreground">
-                    {userLocation ? "Finding nearby cafes..." : "Searching cafes..."}
-                  </p>
-                </div>
-              ) : !hasSearched && !userLocation ? (
-                <div className="text-center py-12">
-                  <div className="space-y-4">
-                    <Coffee className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Discover Houston Cafes</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Enable location to find cafes near you, or search by name
-                    </p>
-                    <Button onClick={requestLocation} className="coffee-gradient text-white">
-                      <Navigation className="w-4 h-4 mr-2" />
-                      Find Cafes Near Me
-                    </Button>
-                  </div>
+                  <p className="text-muted-foreground">Loading Houston cafes...</p>
                 </div>
               ) : searchResults.length === 0 ? (
                 <div className="text-center py-12">
                   <SearchIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Cafes Found</h3>
                   <p className="text-muted-foreground mb-4">
-                    Try adjusting your search terms or filters
+                    {searchQuery || selectedTags.length > 0 ? 
+                      "Try adjusting your search terms or filters" : 
+                      "No cafes match your current filters"
+                    }
                   </p>
                   <Button onClick={clearFilters} variant="outline">
-                    Clear Filters
+                    Clear All Filters
                   </Button>
                 </div>
               ) : (
@@ -357,7 +413,7 @@ export default function Search() {
                         <img
                           src={cafe.photos?.[0] || "/placeholder.svg"}
                           alt={cafe.name}
-                          className="w-16 h-16 rounded-lg object-cover"
+className="w-16 h-16 rounded-lg object-cover"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-1">
