@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { useNavigate } from "react-router-dom";
@@ -14,7 +15,6 @@ import { searchPosts } from "@/services/postService";
 import { Cafe, Post } from "@/services/types";
 import { debounce, formatDistance } from "@/services/utils";
 import { toast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search as SearchIcon, MapPin, Star, Navigation, Coffee, ArrowUpDown, SlidersHorizontal } from "lucide-react";
 
 
