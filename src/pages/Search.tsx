@@ -321,26 +321,34 @@ export default function Search() {
             />
           </div>
 
-          {/* Sort and Status Row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
-                <SelectTrigger className="w-40 h-8 text-sm">
-                  <ArrowUpDown className="w-3 h-3 mr-1" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rating">Rating</SelectItem>
-                  <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="price">Price</SelectItem>
-                  {userLocation && <SelectItem value="distance">Distance</SelectItem>}
-                </SelectContent>
-              </Select>
-              
-              <span className="text-sm text-muted-foreground">
-                {searchResults.length} cafe{searchResults.length !== 1 ? 's' : ''}
-              </span>
-            </div>
+         {/* Sort and Status Row */}
+<div className="flex items-center justify-between">
+  <p>DEBUG: Sort section is rendering</p>
+  <div className="flex items-center gap-2">
+    <select 
+      value={sortBy} 
+      onChange={(e) => handleSortChange(e.target.value as SortOption)}
+      className="w-40 h-8 text-sm border rounded px-2 bg-background"
+    >
+      <option value="rating">Rating</option>
+      <option value="name">Name</option>
+      <option value="price">Price</option>
+      {userLocation && <option value="distance">Distance</option>}
+    </select>
+    
+    <span className="text-sm text-muted-foreground">
+      {searchResults.length} cafe{searchResults.length !== 1 ? 's' : ''}
+    </span>
+  </div>
+
+  {/* Location Status */}
+  {userLocation && (
+    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <Navigation className="w-3 h-3 text-green-500" />
+      <span>Near you</span>
+    </div>
+  )}
+</div>
 
             {/* Location Status */}
             {userLocation && (
