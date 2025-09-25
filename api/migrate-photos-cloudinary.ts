@@ -47,18 +47,31 @@ export default async function handler(
         console.log(`Processing: ${cafe.name}`);
         
         try {
-          // Extract photo reference - handle the long format we see in the data
-          let photoRef = cafe.google_photo_reference;
-          
-          // The photo references in your data are already clean IDs, no need to parse
-          console.log(`Using photo reference: ${photoRef.substring(0, 50)}...`);
-
-          // Generate Google Photos API URL
+          const photoRef = cafe.google_photo_reference;
           const googlePhotoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&maxheight=600&photoreference=${photoRef}&key=${GOOGLE_PLACES_API_KEY}`;
 
-          // Upload to Cloudinary using unsigned upload
+          // Step 1: Download the image from Google with proper headers
+          const imageResponse = await fetch(googlePhotoUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Referer': 'https://maps.google.com/',
+              'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+            },
+          });
+
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
+          }
+
+          // Step 2: Get image as buffer
+          const imageBuffer = await imageResponse.arrayBuffer();
+          const imageBlob = new Blob([imageBuffer], { 
+            type: imageResponse.headers.get('content-type') || 'image/jpeg' 
+          });
+
+          // Step 3: Upload buffer to Cloudinary
           const formData = new FormData();
-          formData.append('file', googlePhotoUrl);
+          formData.append('file', imageBlob, `cafe-${cafe.place_id}.jpg`);
           formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
           formData.append('folder', 'cafe-heroes');
           formData.append('public_id', `cafe-${cafe.place_id}`);
@@ -77,12 +90,11 @@ export default async function handler(
           const uploadResult = await uploadResponse.json();
           console.log(`Uploaded to Cloudinary: ${uploadResult.secure_url}`);
 
-          // Update database with Cloudinary URL
+          // Step 4: Update database with Cloudinary URL
           const { error: updateError } = await supabase
             .from('cafes')
             .update({ 
               hero_photo_url: uploadResult.secure_url,
-              google_photo_reference: photoRef
             })
             .eq('id', cafe.id);
 
@@ -90,17 +102,17 @@ export default async function handler(
             console.error(`Error updating cafe ${cafe.name}:`, updateError);
             errorCount++;
           } else {
-            console.log(`Fixed photo for: ${cafe.name}`);
+            console.log(`✅ Fixed photo for: ${cafe.name}`);
             fixedCount++;
           }
 
         } catch (uploadError) {
-          console.error(`Error processing ${cafe.name}:`, uploadError);
+          console.error(`❌ Error processing ${cafe.name}:`, uploadError);
           errorCount++;
         }
 
         // Rate limiting - pause between requests
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
     }
 
