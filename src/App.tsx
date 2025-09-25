@@ -29,6 +29,8 @@ const App = () => (
           <Route path="/recent" element={<RecentlyViewed />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/cafe/:id" element={<CafeDetail />} />
+          <Route path="/test-migration" element={<TestMigration />} /> {/* Add this route */}
+
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
