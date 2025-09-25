@@ -1,6 +1,6 @@
 // /api/migrate-photos.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../src/integrations/supabase/client';
+import { supabase } from './src/integrations/supabase/client';
 
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 
