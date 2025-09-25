@@ -195,27 +195,34 @@ export default function CafeDetail() {
         {/* Cafe Content */}
         {!loading && !error && cafe && (
           <>
-            {/* Cafe Header */}
-            <div className="p-6">
-              <CafeHeader 
-                cafe={{
-                  name: cafe.name,
-                  address: cafe.address,
-                  neighborhood: cafe.neighborhood,
-                  rating: cafe.googleRating || cafe.rating || 0,
-                  userRating: 4.2, // TODO: Calculate average user rating
-                  hours: cafe.openingHours?.[0] || "Hours not available",
-                  phone: cafe.phoneNumber,
-                  website: cafe.website,
-                  priceLevel: cafe.priceLevel || 2,
-                  topTags: cafe.tags.slice(0, 3),
-                  reviewSnippet: "Great coffee and atmosphere! Perfect for working or catching up with friends.",
-                  isOpen: Math.random() > 0.3, // Mock open status
-                  heroImage: cafe.photos?.[0]
-                }}
-                loading={false}
-              />
-            </div>
+          // In your CafeDetail component, replace the CafeHeader section with this:
+
+{/* Cafe Header */}
+<div className="p-6">
+  <CafeHeader 
+    cafe={{
+      id: cafe.id, // Add cafe ID
+      name: cafe.name,
+      address: cafe.address,
+      neighborhood: cafe.neighborhood,
+      rating: cafe.googleRating || cafe.rating || 0,
+      userRating: 4.2, // TODO: Calculate average user rating
+      hours: cafe.openingHours?.[0] || "Hours not available",
+      phone: cafe.phoneNumber,
+      website: cafe.website,
+      priceLevel: cafe.priceLevel || 2,
+      topTags: cafe.tags.slice(0, 3),
+      reviewSnippet: "Great coffee and atmosphere! Perfect for working or catching up with friends.",
+      isOpen: Math.random() > 0.3, // Mock open status
+      heroImage: cafe.hero_photo_url || cafe.photos?.[0] // Use hero_photo_url first, then fallback
+    }}
+    loading={false}
+    onPhotoAdded={(photoUrl) => {
+      // Update the cafe state so the image appears immediately
+      setCafe(prev => prev ? { ...prev, hero_photo_url: photoUrl } : prev);
+    }}
+  />
+</div>
 
             {/* Content Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
