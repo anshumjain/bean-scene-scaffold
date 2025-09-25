@@ -26,34 +26,38 @@ export default async function handler(
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('🔍 Starting Cloudinary photo migration...');
 
-// Replace this section in your migration API:
+    // Get cafes needing photo fixes
+    const { data: cafesNeedingFix, error } = await supabase
+      .from('cafes')
+      .select('id, name, google_photo_reference, hero_photo_url, place_id')
+      .not('google_photo_reference', 'is', null)
+      .is('hero_photo_url', null);
 
-// Get cafes needing photo fixes
-const { data: cafesNeedingFix, error } = await supabase
-  .from('cafes')
-  .select('id, name, google_photo_reference, hero_photo_url, place_id')
-  .not('google_photo_reference', 'is', null)
-  .is('hero_photo_url', null);
+    // Debug response - return this info to see what's happening
+    return res.status(200).json({
+      success: true,
+      message: 'Debug migration query',
+      debug: {
+        hasError: !!error,
+        errorMessage: error?.message || 'No error',
+        dataExists: !!cafesNeedingFix,
+        dataLength: cafesNeedingFix?.length || 0,
+        sampleData: cafesNeedingFix?.slice(0, 3) || [],
+        envVars: {
+          hasSupabaseUrl: !!SUPABASE_URL,
+          hasSupabaseKey: !!SUPABASE_ANON_KEY,
+          hasGoogleKey: !!GOOGLE_PLACES_API_KEY,
+          hasCloudName: !!CLOUDINARY_CLOUD_NAME,
+          hasUploadPreset: !!CLOUDINARY_UPLOAD_PRESET
+        }
+      }
+    });
 
-// Debug response - return this info to see what's happening
-return res.status(200).json({
-  success: false,
-  message: 'Debug migration query',
-  debug: {
-    hasError: !!error,
-    errorMessage: error?.message || 'No error',
-    dataExists: !!cafesNeedingFix,
-    dataLength: cafesNeedingFix?.length || 0,
-    sampleData: cafesNeedingFix?.slice(0, 3) || [],
-    envVars: {
-      hasSupabaseUrl: !!SUPABASE_URL,
-      hasSupabaseKey: !!SUPABASE_ANON_KEY
-    }
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    });
   }
-});
-
-// Remove the rest of the migration logic temporarily
-
-    
+}
