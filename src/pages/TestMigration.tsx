@@ -8,7 +8,7 @@ export default function TestMigration() {
   const runMigration = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/migrate-photos', {
+      const response = await fetch('/api/migrate-photos-cloudinary', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
