@@ -10,6 +10,7 @@ import CheckIn from "./pages/CheckIn";
 import RecentlyViewed from "./pages/RecentlyViewed";
 import Profile from "./pages/Profile";
 import CafeDetail from "./pages/CafeDetail";
+import TestMigration from "./pages/TestMigration"; // Add this import
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
