@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { fixExistingCafePhotos } from '@/services/cafeService';
 
 export default function TestMigration() {
   const [loading, setLoading] = useState(false);
@@ -9,8 +8,20 @@ export default function TestMigration() {
   const runMigration = async () => {
     setLoading(true);
     try {
-      const result = await fixExistingCafePhotos();
-      setResult(`Fixed ${result.data} cafe photos!`);
+      const response = await fetch('/api/migrate-photos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setResult(data.message);
+      } else {
+        setResult(`Error: ${data.error}`);
+      }
     } catch (error) {
       setResult(`Error: ${error}`);
     } finally {
