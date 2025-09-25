@@ -1,8 +1,10 @@
 // /api/migrate-photos.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from './src/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 
 export default async function handler(
   req: NextApiRequest,
@@ -16,7 +18,14 @@ export default async function handler(
     return res.status(500).json({ error: 'Google Places API key not found' });
   }
 
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return res.status(500).json({ error: 'Supabase configuration not found' });
+  }
+
   try {
+    // Create supabase client directly here
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
     console.log('🔍 Starting backend photo migration...');
 
     // Get all cafes that have google_photo_reference but no hero_photo_url
