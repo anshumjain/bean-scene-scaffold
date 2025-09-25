@@ -248,13 +248,6 @@ export default function Search() {
               </span>
             </div>
           </div>
-
-          {userLocation && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-              <Navigation className="w-3 h-3 text-green-500" />
-              <span>Near you</span>
-            </div>
-          )}
         </div>
 
         <div className="p-4">
