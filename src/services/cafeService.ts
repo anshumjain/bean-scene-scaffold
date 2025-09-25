@@ -312,7 +312,15 @@ export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
  * Migration function to fix existing cafes with broken photo URLs
  * Run this once to fix your existing 165 cafes
  */
+/**
+ * DEBUG Migration function to fix existing cafes with broken photo URLs
+ * Run this once to fix your existing 165 cafes
+ */
 export async function fixExistingCafePhotos(): Promise<ApiResponse<number>> {
+  console.log('🔍 Starting photo migration debug...');
+  console.log('🔑 API Key available:', hasGooglePlacesKey);
+  console.log('🔑 API Key value:', GOOGLE_PLACES_API_KEY ? 'EXISTS' : 'MISSING');
+  
   if (!hasGooglePlacesKey) {
     console.error('Google Places API key not found');
     return apiErrorResponse(0);
@@ -320,23 +328,38 @@ export async function fixExistingCafePhotos(): Promise<ApiResponse<number>> {
 
   try {
     // Get all cafes that have google_photo_reference but no hero_photo_url
+    console.log('📋 Querying database for cafes needing fixes...');
     const { data: cafesNeedingFix, error } = await supabase
       .from('cafes')
-      .select('id, name, google_photo_reference')
+      .select('id, name, google_photo_reference, hero_photo_url')
       .not('google_photo_reference', 'is', null)
       .is('hero_photo_url', null);
 
     if (error) {
+      console.error('❌ Database query error:', error);
       throw new Error(error.message);
     }
 
-    console.log(`Found ${cafesNeedingFix?.length || 0} cafes needing photo fixes`);
+    console.log(`📊 Found ${cafesNeedingFix?.length || 0} cafes needing photo fixes`);
+    
+    // Log first few cafes for debugging
+    if (cafesNeedingFix && cafesNeedingFix.length > 0) {
+      console.log('🔍 Sample cafes found:');
+      cafesNeedingFix.slice(0, 3).forEach((cafe, idx) => {
+        console.log(`  ${idx + 1}. ${cafe.name}`);
+        console.log(`     - hero_photo_url: ${cafe.hero_photo_url}`);
+        console.log(`     - google_photo_reference: ${cafe.google_photo_reference}`);
+      });
+    }
+
     let fixedCount = 0;
 
     for (const cafe of cafesNeedingFix || []) {
       if (cafe.google_photo_reference) {
+        console.log(`\n🔧 Processing: ${cafe.name}`);
+        console.log(`   Original photo ref: ${cafe.google_photo_reference}`);
+        
         // Extract photo reference from the Places API path format
-        // Format: "places/ChIJpYkGUYS_QIYRTCRbrtFuf8/photos/AciIO2dmewa21DG_vQrNMGziA"
         let photoRef = cafe.google_photo_reference;
         
         if (photoRef.includes('/photos/')) {
@@ -346,10 +369,14 @@ export async function fixExistingCafePhotos(): Promise<ApiResponse<number>> {
           if (photoRef.includes('?')) {
             photoRef = photoRef.split('?')[0];
           }
+          console.log(`   Extracted photo ref: ${photoRef}`);
+        } else {
+          console.log(`   Using photo ref as-is: ${photoRef}`);
         }
 
         // Generate proper Google Photos API URL
         const heroPhotoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&maxheight=600&photoreference=${photoRef}&key=${GOOGLE_PLACES_API_KEY}`;
+        console.log(`   Generated URL: ${heroPhotoUrl.substring(0, 100)}...`);
 
         // Update the cafe record
         const { error: updateError } = await supabase
@@ -361,9 +388,9 @@ export async function fixExistingCafePhotos(): Promise<ApiResponse<number>> {
           .eq('id', cafe.id);
 
         if (updateError) {
-          console.error(`Error updating cafe ${cafe.name}:`, updateError);
+          console.error(`❌ Error updating cafe ${cafe.name}:`, updateError);
         } else {
-          console.log(`Fixed photo for: ${cafe.name}`);
+          console.log(`✅ Fixed photo for: ${cafe.name}`);
           fixedCount++;
         }
 
@@ -372,7 +399,7 @@ export async function fixExistingCafePhotos(): Promise<ApiResponse<number>> {
       }
     }
 
-    console.log(`Successfully fixed photos for ${fixedCount} cafes`);
+    console.log(`\n🎉 Successfully fixed photos for ${fixedCount} cafes`);
     
     return {
       data: fixedCount,
@@ -380,7 +407,7 @@ export async function fixExistingCafePhotos(): Promise<ApiResponse<number>> {
     };
     
   } catch (error) {
-    console.error('Error fixing cafe photos:', error);
+    console.error('❌ Error fixing cafe photos:', error);
     return {
       data: 0,
       success: false,
