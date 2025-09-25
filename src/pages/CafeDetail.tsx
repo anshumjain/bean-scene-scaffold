@@ -1,3 +1,4 @@
+import CafePhotoUpload from "@/components/Cafe/CafePhotoUpload"; // adjust path as needed
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Share2, Heart, Camera } from "lucide-react";
