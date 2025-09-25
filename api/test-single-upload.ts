@@ -1,4 +1,4 @@
-// Create /api/test-single-upload.ts
+// Replace your /api/test-single-upload.ts with this more detailed version
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
@@ -12,10 +12,6 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
     const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
@@ -35,55 +31,100 @@ export default async function handler(
     }
 
     const cafe = cafes[0];
-    const googlePhotoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&maxheight=600&photoreference=${cafe.google_photo_reference}&key=${GOOGLE_PLACES_API_KEY}`;
+    const photoRef = cafe.google_photo_reference;
+    const googlePhotoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&maxheight=600&photoreference=${photoRef}&key=${GOOGLE_PLACES_API_KEY}`;
 
-    // Test step 1: Can we access the Google Photo URL?
-    let googleUrlTest;
+    let step1Result, step2Result, step3Result;
+
+    // STEP 1: Test basic Google URL access
     try {
-      const googleResponse = await fetch(googlePhotoUrl);
-      googleUrlTest = {
-        success: googleResponse.ok,
-        status: googleResponse.status,
-        statusText: googleResponse.statusText,
-        headers: Object.fromEntries(googleResponse.headers.entries()),
-        contentType: googleResponse.headers.get('content-type')
+      const response1 = await fetch(googlePhotoUrl);
+      step1Result = {
+        success: response1.ok,
+        status: response1.status,
+        statusText: response1.statusText,
+        contentType: response1.headers.get('content-type'),
+        contentLength: response1.headers.get('content-length')
       };
-    } catch (googleError) {
-      googleUrlTest = {
+    } catch (error) {
+      step1Result = {
         success: false,
-        error: googleError instanceof Error ? googleError.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
 
-    // Test step 2: Try Cloudinary upload
-    let cloudinaryTest;
+    // STEP 2: Test with browser headers
     try {
-      const formData = new FormData();
-      formData.append('file', googlePhotoUrl);
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET!);
-      formData.append('folder', 'cafe-heroes');
+      const response2 = await fetch(googlePhotoUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Referer': 'https://maps.google.com/',
+          'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+        },
+      });
 
-      const uploadResponse = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        {
-          method: 'POST',
-          body: formData,
+      if (response2.ok) {
+        const buffer = await response2.arrayBuffer();
+        step2Result = {
+          success: true,
+          status: response2.status,
+          contentType: response2.headers.get('content-type'),
+          imageSize: buffer.byteLength,
+          hasImageData: buffer.byteLength > 0
+        };
+
+        // STEP 3: Try uploading to Cloudinary if we got the image
+        try {
+          const imageBlob = new Blob([buffer], { 
+            type: response2.headers.get('content-type') || 'image/jpeg' 
+          });
+
+          const formData = new FormData();
+          formData.append('file', imageBlob, `test-${cafe.place_id}.jpg`);
+          formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET!);
+          formData.append('folder', 'cafe-heroes-test');
+
+          const uploadResponse = await fetch(
+            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+            {
+              method: 'POST',
+              body: formData,
+            }
+          );
+
+          const responseText = await uploadResponse.text();
+          
+          step3Result = {
+            success: uploadResponse.ok,
+            status: uploadResponse.status,
+            statusText: uploadResponse.statusText,
+            response: uploadResponse.ok ? JSON.parse(responseText) : responseText
+          };
+
+        } catch (cloudinaryError) {
+          step3Result = {
+            success: false,
+            error: cloudinaryError instanceof Error ? cloudinaryError.message : 'Cloudinary error'
+          };
         }
-      );
+      } else {
+        step2Result = {
+          success: false,
+          status: response2.status,
+          statusText: response2.statusText,
+          error: 'Failed with browser headers'
+        };
+      }
 
-      const responseText = await uploadResponse.text();
-      
-      cloudinaryTest = {
-        success: uploadResponse.ok,
-        status: uploadResponse.status,
-        statusText: uploadResponse.statusText,
-        response: uploadResponse.ok ? JSON.parse(responseText) : responseText
-      };
-
-    } catch (cloudinaryError) {
-      cloudinaryTest = {
+    } catch (error) {
+      step2Result = {
         success: false,
-        error: cloudinaryError instanceof Error ? cloudinaryError.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Fetch with headers failed'
       };
     }
 
@@ -92,15 +133,17 @@ export default async function handler(
       testCafe: {
         name: cafe.name,
         place_id: cafe.place_id,
-        photo_reference_length: cafe.google_photo_reference?.length || 0
+        photo_ref_length: photoRef.length
       },
       googlePhotoUrl,
       tests: {
-        googleUrlAccess: googleUrlTest,
-        cloudinaryUpload: cloudinaryTest
+        step1_basicFetch: step1Result,
+        step2_withBrowserHeaders: step2Result,
+        step3_cloudinaryUpload: step3Result
       },
       environment: {
         hasGoogleKey: !!GOOGLE_PLACES_API_KEY,
+        googleKeyLength: GOOGLE_PLACES_API_KEY?.length || 0,
         hasCloudinaryName: !!CLOUDINARY_CLOUD_NAME,
         hasUploadPreset: !!CLOUDINARY_UPLOAD_PRESET,
         cloudinaryName: CLOUDINARY_CLOUD_NAME,
