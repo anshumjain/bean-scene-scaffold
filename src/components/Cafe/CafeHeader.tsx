@@ -2,9 +2,11 @@ import { MapPin, Phone, Clock, Star, DollarSign, Globe, Navigation } from "lucid
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import CafePhotoUpload from "@/components/Cafe/CafePhotoUpload"; // Add this import
 
 interface CafeHeaderProps {
   cafe: {
+    id?: string; // Add cafe ID for photo uploads
     name: string;
     address: string;
     neighborhood: string;
@@ -20,9 +22,10 @@ interface CafeHeaderProps {
     heroImage?: string;
   };
   loading?: boolean;
+  onPhotoAdded?: (photoUrl: string) => void; // Add callback for photo updates
 }
 
-export function CafeHeader({ cafe, loading = false }: CafeHeaderProps) {
+export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderProps) {
   const renderPriceLevel = (level: number) => {
     return Array.from({ length: 4 }, (_, i) => (
       <DollarSign
@@ -63,7 +66,7 @@ export function CafeHeader({ cafe, loading = false }: CafeHeaderProps) {
 
   return (
     <div className="space-y-6">
-      {/* Hero Image */}
+      {/* Hero Image or Photo Upload */}
       {cafe.heroImage ? (
         <div className="relative h-48 -mx-6 -mt-6">
           <img
@@ -80,7 +83,25 @@ export function CafeHeader({ cafe, loading = false }: CafeHeaderProps) {
             </div>
           </div>
         </div>
+      ) : cafe.id ? (
+        // Show photo upload component if no hero image and we have cafe ID
+        <div className="-mx-6 -mt-6">
+          <CafePhotoUpload 
+            cafeId={cafe.id}
+            cafeName={cafe.name}
+            onPhotoAdded={onPhotoAdded}
+          />
+          {/* Cafe name and neighborhood below upload component */}
+          <div className="p-6 pb-0">
+            <h1 className="text-2xl font-bold text-foreground mb-1">{cafe.name}</h1>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <MapPin className="w-4 h-4" />
+              <span className="text-sm">{cafe.neighborhood}</span>
+            </div>
+          </div>
+        </div>
       ) : (
+        // Fallback gradient background if no ID (shouldn't happen in practice)
         <div className="relative h-32 -mx-6 -mt-6 bg-gradient-to-br from-primary/20 via-primary/10 to-accent/20 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-foreground mb-1">{cafe.name}</h1>
