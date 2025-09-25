@@ -34,7 +34,12 @@ export default async function handler(
       .select('id, name, google_photo_reference, hero_photo_url, place_id')
       .not('google_photo_reference', 'is', null)
       .is('hero_photo_url', null);
-
+    
+console.log('🔍 Debug query results:');
+console.log('Error:', error);
+console.log('Data length:', cafesNeedingFix?.length);
+console.log('Sample data:', cafesNeedingFix?.slice(0, 2));
+    
     if (error) {
       throw new Error(error.message);
     }
