@@ -3,8 +3,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, X, MapPin, Grid } from "lucide-react";
 import { Post, Cafe } from "@/services/types";
 import { fetchPosts, filterFeedByTag } from "@/services/postService";
-import { fetchCafes } from "@/services/cafeService";
-import { debounce } from "@/services/utils";
+import { fetchCafes, fetchNearbyCafes } from "@/services/cafeService";
+import { debounce, getCurrentLocation } from "@/services/utils";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { PostCard } from "@/components/Feed/PostCard";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
+import { RadiusFilter } from "@/components/Filters/RadiusFilter";
 
 // Mock data for development
 const mockPosts = [
@@ -67,12 +68,16 @@ export default function Feed() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("posts");
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     priceLevel: [],
     rating: 0,
     distance: 25,
     openNow: false,
-    neighborhoods: []
+    neighborhoods: [],
+    sortBy: 'newest',
+    sortOrder: 'desc'
   });
 
   // Get tag from URL parameters
@@ -138,16 +143,42 @@ export default function Feed() {
     }
   };
 
+  // Request location permission
+  const requestLocation = async () => {
+    try {
+      setLocationError(null);
+      const position = await getCurrentLocation();
+      const { latitude, longitude } = position.coords;
+      setUserLocation({ lat: latitude, lng: longitude });
+    } catch (error) {
+      setLocationError("Enable location to find cafes near you");
+    }
+  };
+
   // Apply filters to cafes
   const applyFilters = (searchTerm = searchQuery) => {
     let filtered = [...cafes];
+
+    // Location-based filtering
+    if (userLocation && filters.distance < 25) {
+      filtered = filtered.filter(cafe => {
+        const distance = calculateDistance(
+          userLocation.lat,
+          userLocation.lng,
+          cafe.latitude,
+          cafe.longitude
+        );
+        return distance <= filters.distance;
+      });
+    }
 
     // Search by name or neighborhood
     if (searchTerm.trim()) {
       const query = searchTerm.toLowerCase();
       filtered = filtered.filter(cafe => 
         cafe.name.toLowerCase().includes(query) ||
-        cafe.neighborhood.toLowerCase().includes(query)
+        cafe.neighborhood.toLowerCase().includes(query) ||
+        cafe.tags.some(tag => tag.toLowerCase().includes(query))
       );
     }
 
@@ -161,7 +192,7 @@ export default function Feed() {
     // Rating filter
     if (filters.rating > 0) {
       filtered = filtered.filter(cafe => 
-        (cafe.rating || 0) >= filters.rating
+        (cafe.googleRating || cafe.rating || 0) >= filters.rating
       );
     }
 
@@ -178,7 +209,55 @@ export default function Feed() {
       filtered = filtered.filter(cafe => Math.random() > 0.3); // Mock: 70% are "open"
     }
 
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (filters.sortBy) {
+        case 'rating':
+          const aRating = a.googleRating || a.rating || 0;
+          const bRating = b.googleRating || b.rating || 0;
+          comparison = aRating - bRating;
+          break;
+        case 'price':
+          const aPrice = a.priceLevel || 0;
+          const bPrice = b.priceLevel || 0;
+          comparison = aPrice - bPrice;
+          break;
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'distance':
+          if (userLocation) {
+            const aDistance = calculateDistance(userLocation.lat, userLocation.lng, a.latitude, a.longitude);
+            const bDistance = calculateDistance(userLocation.lat, userLocation.lng, b.latitude, b.longitude);
+            comparison = aDistance - bDistance;
+          } else {
+            comparison = Math.random() - 0.5;
+          }
+          break;
+        case 'newest':
+        default:
+          comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          break;
+      }
+      
+      return filters.sortOrder === 'asc' ? comparison : -comparison;
+    });
+
     setFilteredCafes(filtered);
+  };
+
+  // Calculate distance between two coordinates
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 3959; // Earth's radius in miles
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   };
 
   // Debounced search function
@@ -204,9 +283,13 @@ export default function Feed() {
       rating: 0,
       distance: 25,
       openNow: false,
-      neighborhoods: []
+      neighborhoods: [],
+      sortBy: 'newest',
+      sortOrder: 'desc'
     });
     setSearchQuery("");
+    setUserLocation(null);
+    setLocationError(null);
   };
 
   // Clear tag filter
@@ -272,6 +355,15 @@ export default function Feed() {
               onClearFilters={clearAllFilters}
             />
           </div>
+
+          {/* Radius Filter */}
+          <RadiusFilter
+            radius={filters.distance}
+            onRadiusChange={(radius) => handleFiltersChange({ ...filters, distance: radius })}
+            userLocation={userLocation}
+            onRequestLocation={requestLocation}
+            locationError={locationError}
+          />
 
           {/* Active Tag Filter */}
           {selectedTag && (

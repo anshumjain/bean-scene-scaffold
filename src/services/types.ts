@@ -15,6 +15,7 @@ export interface Cafe {
   website?: string;
   openingHours?: string[];
   photos?: string[];
+  heroPhotoUrl?: string;
   tags: string[];
   createdAt: string;
   updatedAt: string;

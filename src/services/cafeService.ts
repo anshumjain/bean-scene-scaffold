@@ -11,11 +11,8 @@ import { ImageOptimizationService } from './imageOptimizationService';
 import { MonitoringService } from './monitoringService';
 import { supabase } from '@/integrations/supabase/client';
 
-// Environment variables with graceful fallbacks for both Node.js and browser environments
-const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || import.meta.env?.VITE_GOOGLE_PLACES_API_KEY;
-
-// Check if environment variables are available
-const hasGooglePlacesKey = GOOGLE_PLACES_API_KEY && GOOGLE_PLACES_API_KEY !== 'undefined';
+// Note: Google Places API calls should only be made server-side
+// Client-side code should call API routes instead of directly accessing Google Places API
 
 function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
   return {
@@ -45,6 +42,7 @@ function transformCafeData(cafe: any): Cafe {
     openingHours: cafe.opening_hours,
     // Use hero_photo_url as the primary photo, fallback to photos array
     photos: cafe.hero_photo_url ? [cafe.hero_photo_url, ...(cafe.photos || [])] : (cafe.photos || []),
+    heroPhotoUrl: cafe.hero_photo_url,
     tags: cafe.tags || [],
     createdAt: cafe.created_at,
     updatedAt: cafe.updated_at,
@@ -177,125 +175,36 @@ export async function fetchNearbyCafes(
   }
 }
 
-/**
- * Save Google Places result to database - OPTIMIZED FOR SINGLE PHOTO
- */
-async function saveCafeToDatabase(placeResult: GooglePlacesResult): Promise<void> {
-  try {
-    // Get only the first (hero) photo if available
-    let heroPhotoUrl: string | null = null;
-    let photoReference: string | null = null;
-    
-    if (placeResult.photos && placeResult.photos.length > 0 && hasGooglePlacesKey) {
-      // Extract the actual photo reference from the places API result
-      const photoRef = placeResult.photos[0].photo_reference;
-      photoReference = photoRef;
-      
-      // Generate the proper Google Photos API URL
-      heroPhotoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&maxheight=600&photoreference=${photoRef}&key=${GOOGLE_PLACES_API_KEY}`;
-      
-      console.log(`Generated photo URL for ${placeResult.name}:`, heroPhotoUrl);
-    }
-
-    const cafeData = {
-      place_id: placeResult.place_id,
-      name: placeResult.name,
-      address: placeResult.formatted_address,
-      neighborhood: detectNeighborhood(
-        placeResult.geometry.location.lat, 
-        placeResult.geometry.location.lng
-      ),
-      latitude: placeResult.geometry.location.lat,
-      longitude: placeResult.geometry.location.lng,
-      google_rating: placeResult.rating,
-      price_level: placeResult.price_level,
-      phone_number: placeResult.formatted_phone_number,
-      website: placeResult.website,
-      opening_hours: placeResult.opening_hours?.weekday_text,
-      hero_photo_url: heroPhotoUrl, // Now properly generated
-      google_photo_reference: photoReference, // Store clean reference
-      photos: [], // Keep empty for user-uploaded photos only
-      tags: [], // Will be populated by user posts
-      is_active: true
-    };
-    
-    console.log(`Saving cafe to database: ${cafeData.name}`, {
-      has_photo: !!heroPhotoUrl,
-      photo_ref: photoReference
-    });
-    
-    const { error } = await supabase
-      .from('cafes')
-      .upsert(cafeData, { onConflict: 'place_id' });
-    
-    if (error) {
-      console.error('Error saving cafe:', error);
-    } else {
-      console.log(`Successfully saved: ${cafeData.name}`);
-    }
-  } catch (error) {
-    console.error('Error processing cafe data:', error);
-  }
-}
+// Note: saveCafeToDatabase function moved to server-side API routes
+// Client-side code should not directly save to database with Google Places data
 
 /**
- * Sync Houston cafes from Google Places API - Optimized for single photos
- * This function should be called when API key is first added and monthly thereafter
+ * Sync Houston cafes from Google Places API - Server-side only
+ * This function calls the server-side API route instead of making direct Google Places calls
  */
 export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
-  if (!hasGooglePlacesKey) {
-    console.error('Google Places API key not found');
-    return apiErrorResponse(0);
-  }
-  
-  console.log('Starting Google Places sync with API key:', GOOGLE_PLACES_API_KEY ? 'Found' : 'Missing');
-  
   try {
-    await MonitoringService.logApiUsage('google_places', 'sync_cafes');
+    console.log('Starting Google Places sync via server API...');
     
-    const queries = [
-      'coffee shop houston',
-      'cafe houston', 
-      'espresso bar houston',
-      'coffee house houston'
-    ];
-    
-    let totalSynced = 0;
-    
-    for (const query of queries) {
-      console.log(`Searching for: ${query}`);
-      
-      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=29.7604,-95.3698&radius=50000&key=${GOOGLE_PLACES_API_KEY}`;
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      console.log(`Google API response status:`, response.status);
-      console.log(`Results found:`, data.results?.length || 0);
-      
-      if (data.error_message) {
-        console.error('Google API Error:', data.error_message);
-        continue;
+    // Call the server-side API route
+    const response = await fetch('/api/seed-cafes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': 'admin-key-placeholder' // This should be set by the admin
       }
-      
-      if (data.results) {
-        for (const place of data.results) {
-          if (isWithinHoustonMetro(place.geometry.location.lat, place.geometry.location.lng)) {
-            console.log(`Processing cafe: ${place.name}`);
-            await saveCafeToDatabase(place);
-            totalSynced++;
-          }
-        }
-      }
-      
-      // Rate limiting - wait between API calls
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to sync cafes');
     }
     
-    console.log(`Sync completed. Total cafes synced: ${totalSynced}`);
+    console.log(`Sync completed via server API. Result:`, result);
     
     return {
-      data: totalSynced,
+      data: result.result?.totalSynced || 0,
       success: true
     };
   } catch (error) {
@@ -313,96 +222,32 @@ export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
  * Run this once to fix your existing 165 cafes
  */
 /**
- * DEBUG Migration function to fix existing cafes with broken photo URLs
- * Run this once to fix your existing 165 cafes
+ * Migration function to fix existing cafes with broken photo URLs
+ * This function calls the server-side API route instead of making direct database calls
  */
 export async function fixExistingCafePhotos(): Promise<ApiResponse<number>> {
-  console.log('🔍 Starting photo migration debug...');
-  console.log('🔑 API Key available:', hasGooglePlacesKey);
-  console.log('🔑 API Key value:', GOOGLE_PLACES_API_KEY ? 'EXISTS' : 'MISSING');
-  
-  if (!hasGooglePlacesKey) {
-    console.error('Google Places API key not found');
-    return apiErrorResponse(0);
-  }
-
   try {
-    // Get all cafes that have google_photo_reference but no hero_photo_url
-    console.log('📋 Querying database for cafes needing fixes...');
-    const { data: cafesNeedingFix, error } = await supabase
-      .from('cafes')
-      .select('id, name, google_photo_reference, hero_photo_url')
-      .not('google_photo_reference', 'is', null)
-      .is('hero_photo_url', null);
-
-    if (error) {
-      console.error('❌ Database query error:', error);
-      throw new Error(error.message);
-    }
-
-    console.log(`📊 Found ${cafesNeedingFix?.length || 0} cafes needing photo fixes`);
+    console.log('🔍 Starting photo migration via server API...');
     
-    // Log first few cafes for debugging
-    if (cafesNeedingFix && cafesNeedingFix.length > 0) {
-      console.log('🔍 Sample cafes found:');
-      cafesNeedingFix.slice(0, 3).forEach((cafe, idx) => {
-        console.log(`  ${idx + 1}. ${cafe.name}`);
-        console.log(`     - hero_photo_url: ${cafe.hero_photo_url}`);
-        console.log(`     - google_photo_reference: ${cafe.google_photo_reference}`);
-      });
-    }
-
-    let fixedCount = 0;
-
-    for (const cafe of cafesNeedingFix || []) {
-      if (cafe.google_photo_reference) {
-        console.log(`\n🔧 Processing: ${cafe.name}`);
-        console.log(`   Original photo ref: ${cafe.google_photo_reference}`);
-        
-        // Extract photo reference from the Places API path format
-        let photoRef = cafe.google_photo_reference;
-        
-        if (photoRef.includes('/photos/')) {
-          // Extract just the photo reference ID after '/photos/'
-          photoRef = photoRef.split('/photos/')[1];
-          // Remove any query parameters if present
-          if (photoRef.includes('?')) {
-            photoRef = photoRef.split('?')[0];
-          }
-          console.log(`   Extracted photo ref: ${photoRef}`);
-        } else {
-          console.log(`   Using photo ref as-is: ${photoRef}`);
-        }
-
-        // Generate proper Google Photos API URL
-        const heroPhotoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&maxheight=600&photoreference=${photoRef}&key=${GOOGLE_PLACES_API_KEY}`;
-        console.log(`   Generated URL: ${heroPhotoUrl.substring(0, 100)}...`);
-
-        // Update the cafe record
-        const { error: updateError } = await supabase
-          .from('cafes')
-          .update({ 
-            hero_photo_url: heroPhotoUrl,
-            google_photo_reference: photoRef // Store clean reference for future use
-          })
-          .eq('id', cafe.id);
-
-        if (updateError) {
-          console.error(`❌ Error updating cafe ${cafe.name}:`, updateError);
-        } else {
-          console.log(`✅ Fixed photo for: ${cafe.name}`);
-          fixedCount++;
-        }
-
-        // Rate limiting - small delay between updates
-        await new Promise(resolve => setTimeout(resolve, 100));
+    // Call the server-side API route
+    const response = await fetch('/api/fix-cafe-photos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': 'admin-key-placeholder' // This should be set by the admin
       }
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to fix cafe photos');
     }
-
-    console.log(`\n🎉 Successfully fixed photos for ${fixedCount} cafes`);
+    
+    console.log(`🎉 Photo migration completed via server API. Result:`, result);
     
     return {
-      data: fixedCount,
+      data: result.fixedCount || 0,
       success: true
     };
     

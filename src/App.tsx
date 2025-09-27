@@ -10,6 +10,8 @@ import CheckIn from "./pages/CheckIn";
 import RecentlyViewed from "./pages/RecentlyViewed";
 import Profile from "./pages/Profile";
 import CafeDetail from "./pages/CafeDetail";
+import ImageUpload from "./pages/ImageUpload";
+import DataValidation from "./pages/DataValidation";
 import TestMigration from "./pages/TestMigration"; // Add this import
 import NotFound from "./pages/NotFound";
 
@@ -29,6 +31,8 @@ const App = () => (
           <Route path="/recent" element={<RecentlyViewed />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/cafe/:id" element={<CafeDetail />} />
+          <Route path="/cafe/:id/upload" element={<ImageUpload />} />
+          <Route path="/admin/validation" element={<DataValidation />} />
           <Route path="/test-migration" element={<TestMigration />} /> {/* Add this route */}
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

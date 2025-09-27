@@ -26,23 +26,6 @@ export default async function handler(
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Add photo to cafe_photos table (you'll need to create this)
-    const { data: photoData, error: photoError } = await supabase
-      .from('cafe_photos')
-      .insert({
-        cafe_id: cafeId,
-        photo_url: photoUrl,
-        uploaded_by: uploadedBy || 'anonymous',
-        uploaded_at: new Date().toISOString(),
-        is_approved: true, // Auto-approve for now, add moderation later
-      })
-      .select()
-      .single();
-
-    if (photoError) {
-      throw new Error(photoError.message);
-    }
-
     // Check if this cafe needs a hero photo
     const { data: cafe } = await supabase
       .from('cafes')
@@ -50,17 +33,28 @@ export default async function handler(
       .eq('id', cafeId)
       .single();
 
-    // If no hero photo exists, make this the hero
-    if (cafe && !cafe.hero_photo_url) {
-      const { error: updateError } = await supabase
-        .from('cafes')
-        .update({ hero_photo_url: photoUrl })
-        .eq('id', cafeId);
+    if (!cafe) {
+      throw new Error('Cafe not found');
+    }
 
-      if (updateError) {
-        console.error('Failed to set hero photo:', updateError);
-        // Don't fail the request, just log it
-      }
+    // Determine if this should be the hero photo (first photo for this cafe)
+    const shouldBeHero = !cafe.hero_photo_url;
+
+    // Add photo to cafe_photos table
+    const { data: photoData, error: photoError } = await supabase
+      .from('cafe_photos')
+      .insert({
+        cafe_id: cafeId,
+        photo_url: photoUrl,
+        uploaded_by: uploadedBy || null,
+        is_approved: true, // Auto-approve for now, add moderation later
+        is_hero: shouldBeHero // Set as hero if this is the first photo
+      })
+      .select()
+      .single();
+
+    if (photoError) {
+      throw new Error(photoError.message);
     }
 
     res.status(200).json({

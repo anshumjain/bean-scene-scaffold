@@ -1,12 +1,16 @@
-import { MapPin, Phone, Clock, Star, DollarSign, Globe, Navigation } from "lucide-react";
+import { MapPin, Phone, Clock, Star, DollarSign, Globe, Navigation, Share2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import CafePhotoUpload from "@/components/Cafe/CafePhotoUpload"; // Add this import
+import { CafePhotoUpload } from "@/components/Cafe/CafePhotoUpload"; // Correct named import
+import { ParkingInfoComponent } from "@/components/Cafe/ParkingInfo";
+import { WeatherWidget } from "@/components/Cafe/WeatherWidget";
+import { useToast } from "@/hooks/use-toast";
 
 interface CafeHeaderProps {
   cafe: {
     id?: string; // Add cafe ID for photo uploads
+    placeId?: string; // Add place ID for parking info
     name: string;
     address: string;
     neighborhood: string;
@@ -26,6 +30,8 @@ interface CafeHeaderProps {
 }
 
 export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderProps) {
+  const { toast } = useToast();
+
   const renderPriceLevel = (level: number) => {
     return Array.from({ length: 4 }, (_, i) => (
       <DollarSign
@@ -35,6 +41,60 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
         }`}
       />
     ));
+  };
+
+  const handleDirections = () => {
+    const address = encodeURIComponent(`${cafe.address}, ${cafe.neighborhood}, Houston, TX`);
+    const mapsUrl = `https://maps.google.com/maps?q=${address}`;
+    window.open(mapsUrl, '_blank');
+  };
+
+  const handleCall = () => {
+    if (cafe.phone) {
+      window.location.href = `tel:${cafe.phone}`;
+    }
+  };
+
+  const handleVisitWebsite = () => {
+    if (cafe.website) {
+      window.open(cafe.website, '_blank');
+    }
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: cafe.name,
+      text: `Check out ${cafe.name} in ${cafe.neighborhood}!`,
+      url: window.location.href
+    };
+
+    try {
+      if (navigator.share && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback to clipboard
+        await navigator.clipboard.writeText(shareData.url);
+        toast({
+          title: "Link copied!",
+          description: "Cafe link copied to clipboard"
+        });
+      }
+    } catch (error) {
+      // Final fallback - copy to clipboard
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        toast({
+          title: "Link copied!",
+          description: "Cafe link copied to clipboard"
+        });
+      } catch (clipboardError) {
+        toast({
+          title: "Share failed",
+          description: "Unable to share or copy link",
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   const getOpenStatus = (hours: string, isOpen?: boolean) => {
@@ -88,6 +148,7 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
         <div className="-mx-6 -mt-6">
           <CafePhotoUpload 
             cafeId={cafe.id}
+            placeId={cafe.placeId}
             cafeName={cafe.name}
             onPhotoAdded={onPhotoAdded}
           />
@@ -123,7 +184,12 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
                 <p className="text-sm font-medium">{cafe.address}</p>
                 <p className="text-xs text-muted-foreground">{cafe.neighborhood}, Houston</p>
               </div>
-              <Button size="sm" variant="ghost" className="h-8 px-2 text-primary">
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="h-8 px-2 text-primary"
+                onClick={handleDirections}
+              >
                 <Navigation className="w-4 h-4 mr-1" />
                 Directions
               </Button>
@@ -133,7 +199,12 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
               <div className="flex items-center gap-2 pt-2 border-t border-border">
                 <Phone className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm">{cafe.phone}</span>
-                <Button size="sm" variant="ghost" className="h-8 px-2 text-primary ml-auto">
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-8 px-2 text-primary ml-auto"
+                  onClick={handleCall}
+                >
                   Call
                 </Button>
               </div>
@@ -143,7 +214,12 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
               <div className="flex items-center gap-2 pt-2 border-t border-border">
                 <Globe className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm truncate flex-1">{cafe.website}</span>
-                <Button size="sm" variant="ghost" className="h-8 px-2 text-primary">
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-8 px-2 text-primary"
+                  onClick={handleVisitWebsite}
+                >
                   Visit
                 </Button>
               </div>
@@ -164,6 +240,17 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
             {openStatus}
           </Badge>
         </div>
+
+        {/* Weather Widget */}
+        <WeatherWidget />
+
+        {/* Parking Info */}
+        {cafe.placeId && (
+          <ParkingInfoComponent 
+            placeId={cafe.placeId} 
+            cafeName={cafe.name} 
+          />
+        )}
 
         {/* Ratings and Price */}
         <div className="flex items-center justify-between p-4 bg-card border border-border rounded-lg shadow-warm">
@@ -206,10 +293,20 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
           </p>
         </div>
 
-        {/* Action Button */}
-        <Button className="w-full coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth">
-          Check In Here
-        </Button>
+        {/* Action Buttons */}
+        <div className="flex gap-3">
+          <Button 
+            variant="outline" 
+            className="flex-1"
+            onClick={handleShare}
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share
+          </Button>
+          <Button className="flex-1 coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth">
+            Check In Here
+          </Button>
+        </div>
       </div>
     </div>
   );

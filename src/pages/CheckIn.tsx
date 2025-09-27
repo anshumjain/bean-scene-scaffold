@@ -61,6 +61,9 @@ export default function CheckIn() {
     const requestLocationAndFetchCafes = async () => {
       try {
         setIsLoadingLocation(true);
+        setLocationError(null);
+        
+        // Auto-request location permission
         const position = await getCurrentLocation();
         const { latitude, longitude } = position.coords;
         setUserLocation({ lat: latitude, lng: longitude });
@@ -74,6 +77,7 @@ export default function CheckIn() {
           setLocationError("Failed to load nearby cafes");
         }
       } catch (error) {
+        console.error('Location error:', error);
         setLocationError("Enable location to find what's brewing nearby");
       } finally {
         setIsLoadingLocation(false);
@@ -81,6 +85,7 @@ export default function CheckIn() {
       }
     };
 
+    // Auto-trigger location request on page load
     requestLocationAndFetchCafes();
   }, []);
 
@@ -179,7 +184,38 @@ export default function CheckIn() {
               ) : locationError ? (
                 <div className="text-center py-8">
                   <MapPin className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">{locationError}</p>
+                  <p className="text-sm text-muted-foreground mb-4">{locationError}</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setLocationError(null);
+                      setIsLoadingLocation(true);
+                      // Retry location request
+                      getCurrentLocation()
+                        .then(position => {
+                          const { latitude, longitude } = position.coords;
+                          setUserLocation({ lat: latitude, lng: longitude });
+                          return fetchNearbyCafes(latitude, longitude, 2);
+                        })
+                        .then(result => {
+                          if (result.success && result.data) {
+                            setNearbyCafes(result.data);
+                          } else {
+                            setLocationError("Failed to load nearby cafes");
+                          }
+                        })
+                        .catch(error => {
+                          console.error('Location retry error:', error);
+                          setLocationError("Enable location to find what's brewing nearby");
+                        })
+                        .finally(() => {
+                          setIsLoadingLocation(false);
+                        });
+                    }}
+                  >
+                    Try Again
+                  </Button>
                 </div>
               ) : isLoadingCafes ? (
                 <div className="flex items-center justify-center py-8">
