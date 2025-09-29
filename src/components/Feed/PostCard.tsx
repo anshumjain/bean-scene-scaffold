@@ -18,9 +18,10 @@ interface PostCardProps {
     likes: number;
     comments: number;
   };
+  type?: 'check-in' | 'post';
 }
 
-export function PostCard({ post }: PostCardProps) {
+export function PostCard({ post, type = 'post' }: PostCardProps) {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
   const [liking, setLiking] = useState(false);
@@ -70,6 +71,10 @@ export function PostCard({ post }: PostCardProps) {
 
   return (
     <Card className="overflow-hidden shadow-coffee border-0 bg-card/80 backdrop-blur-sm">
+      {/* Label */}
+      <div className="px-4 pt-4">
+        <span className={`inline-block text-xs font-bold rounded px-2 py-1 mb-2 ${type === 'check-in' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{type === 'check-in' ? 'Check-In' : 'Shared Photo'}</span>
+      </div>
       {/* Header */}
       <div className="p-4 pb-3">
         <div className="flex items-center justify-between">

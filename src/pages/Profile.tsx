@@ -6,28 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { PostCard } from "@/components/Feed/PostCard";
 
-const userStats = {
-  checkins: 42,
-  favorites: 12,
-  photos: 38,
-  badges: ["Coffee Connoisseur", "Houston Explorer", "Early Bird"]
-};
-
-const userPosts = [
-  {
-    id: "1",
-    cafeName: "Blacksmith Coffee",
-    neighborhood: "Montrose",
-    imageUrl: "/placeholder.svg", 
-    tags: ["latte-art", "morning-coffee"],
-    rating: 5.0,
-    textReview: "Perfect way to start the weekend! Their cortado is incredible.",
-    createdAt: "2 days ago",
-    likes: 15,
-    comments: 4
-  }
-];
-
 export default function Profile() {
   return (
     <AppLayout>

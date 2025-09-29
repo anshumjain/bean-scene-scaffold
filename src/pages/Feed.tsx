@@ -16,46 +16,6 @@ import { PostCard } from "@/components/Feed/PostCard";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { RadiusFilter } from "@/components/Filters/RadiusFilter";
 
-// Mock data for development
-const mockPosts = [
-  {
-    id: "1",
-    cafeName: "Blacksmith Coffee",
-    neighborhood: "Montrose",
-    imageUrl: "/placeholder.svg",
-    tags: ["latte-art", "cozy-vibes", "laptop-friendly"],
-    rating: 4.8,
-    textReview: "Amazing cortado with beautiful latte art! The atmosphere is perfect for working, and the baristas really know their craft. Highly recommend the house blend.",
-    createdAt: "2h ago",
-    likes: 24,
-    comments: 8
-  },
-  {
-    id: "2", 
-    cafeName: "Greenway Coffee",
-    neighborhood: "Heights",
-    imageUrl: "/placeholder.svg",
-    tags: ["third-wave", "cold-brew", "rooftop"],
-    rating: 4.6,
-    textReview: "Love their cold brew setup! Great outdoor seating with a view. Perfect spot to catch up with friends over some specialty drinks.",
-    createdAt: "4h ago",
-    likes: 18,
-    comments: 5
-  },
-  {
-    id: "3",
-    cafeName: "Hugo's Coffee",
-    neighborhood: "Downtown",
-    imageUrl: "/placeholder.svg", 
-    tags: ["pastries", "instagram-worthy", "busy"],
-    rating: 4.4,
-    textReview: "Their croissants are to die for! Got here early and it was already buzzing with the morning crowd. Great energy and even better coffee.",
-    createdAt: "6h ago",
-    likes: 31,
-    comments: 12
-  }
-];
-
 export default function Feed() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();

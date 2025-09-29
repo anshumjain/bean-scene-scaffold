@@ -82,3 +82,4 @@ export function getParkingStatus(parkingInfo: ParkingInfo): {
       return { status: 'limited', color: 'text-orange-500', icon: '⚠️' };
   }
 }
+

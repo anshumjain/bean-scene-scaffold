@@ -60,13 +60,23 @@ export interface CheckInData {
 }
 
 export interface FeedItem {
-  type: "cafe" | "post";
+  type: "cafe" | "post" | "check-in";
   id: string;
   createdAt: string;
   // Cafe-specific fields (when type === "cafe")
   cafe?: Cafe;
-  // Post-specific fields (when type === "post") 
+  // Post-specific fields (when type === "post")
   post?: Post;
+  // Check-in-specific fields (when type === "check-in")
+  checkIn?: {
+    cafeId: string;
+    coords: { lat: number; lng: number };
+    timestamp: number;
+    image?: string;
+    caption?: string;
+    tags?: string[];
+    anonId: string;
+  };
 }
 
 export interface GooglePlacesResult {

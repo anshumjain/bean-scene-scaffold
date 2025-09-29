@@ -95,3 +95,4 @@ export function ParkingInfoComponent({ placeId, cafeName }: ParkingInfoProps) {
     </Card>
   );
 }
+

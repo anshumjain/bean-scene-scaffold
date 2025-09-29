@@ -12,6 +12,7 @@ import { fetchCafePostsById } from "@/services/postService";
 import { addToRecentlyViewed } from "@/pages/RecentlyViewed";
 import { toast } from "@/hooks/use-toast";
 import type { Cafe, Post } from "@/services/types";
+import { WeatherWidget } from "@/components/Cafe/WeatherWidget";
 
 export default function CafeDetail() {
   const navigate = useNavigate();
@@ -153,15 +154,13 @@ export default function CafeDetail() {
               name: cafe.name,
               address: cafe.address,
               neighborhood: cafe.neighborhood,
-              rating: cafe.googleRating || 0, // Google Places API rating
-              userRating: cafe.rating || 0,     // BeanScene user rating
+              rating: cafe.googleRating || 0,
+              userRating: cafe.rating || 0,
               hours: cafe.openingHours?.[0] || "Hours not available",
               phone: cafe.phoneNumber,
               website: cafe.website,
               priceLevel: cafe.priceLevel || 2,
               topTags: cafe.tags?.slice(0, 3) || [],
-              reviewSnippet: "Great coffee and atmosphere! Perfect for working or catching up with friends.",
-              isOpen: Math.random() > 0.3, // Mock open status for now
               heroImage: cafe.heroPhotoUrl || cafe.photos?.[0],
             }}
             loading={false}
@@ -244,6 +243,8 @@ export default function CafeDetail() {
           </TabsContent>
 
           <TabsContent value="info" className="p-4 space-y-4">
+            {/* Weather summary */}
+            <WeatherWidget />
             <div className="bg-card rounded-lg p-4 shadow-coffee border border-border">
               <h3 className="font-semibold mb-2">About</h3>
               <p className="text-sm text-muted-foreground">

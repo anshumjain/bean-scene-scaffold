@@ -6,63 +6,100 @@ export interface WeatherData {
   icon: string;
   humidity: number;
   windSpeed: number;
+  precipitation: number;
+  summary: string;
   cachedAt: string;
 }
 
-// Mock weather data - in real implementation, this would call Open-Meteo API
-const MOCK_WEATHER_DATA: WeatherData = {
-  temperature: 72,
-  condition: 'Partly Cloudy',
-  icon: '⛅',
-  humidity: 65,
-  windSpeed: 8,
-  cachedAt: new Date().toISOString()
-};
+// In-memory cache (per session)
+const weatherCache: Record<string, { data: WeatherData; expires: number }> = {};
 
-/**
- * Get weather information for Houston
- * In real implementation, this would call Open-Meteo API server-side
- */
-export async function getHoustonWeather(): Promise<ApiResponse<WeatherData>> {
+const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
+
+function getCacheKey(lat: number, lng: number) {
+  return `${lat.toFixed(3)},${lng.toFixed(3)}`;
+}
+
+export async function getWeatherForLatLng(lat: number, lng: number): Promise<ApiResponse<WeatherData>> {
+  const cacheKey = getCacheKey(lat, lng);
+  const now = Date.now();
+  if (weatherCache[cacheKey] && weatherCache[cacheKey].expires > now) {
+    return { data: weatherCache[cacheKey].data, success: true };
+  }
   try {
-    // Mock implementation - in real app, this would call server-side API
-    // that fetches from Open-Meteo API with 1-hour caching
-    
-    return {
-      data: MOCK_WEATHER_DATA,
-      success: true
+    // Open-Meteo API: hourly=temperature_2m,precipitation,weathercode,relative_humidity_2m,windspeed_10m
+    const url = `${OPEN_METEO_URL}?latitude=${lat}&longitude=${lng}&current_weather=true&hourly=precipitation&timezone=auto`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('Failed to fetch weather');
+    const json = await resp.json();
+    const current = json.current_weather;
+    const precipitation = json.hourly?.precipitation?.[0] ?? 0;
+    const summary = getWeatherSummary(current.weathercode);
+    const icon = getWeatherIcon(summary);
+    const data: WeatherData = {
+      temperature: current.temperature,
+      condition: summary,
+      icon,
+      humidity: current.relative_humidity ?? 0,
+      windSpeed: current.windspeed,
+      precipitation,
+      summary,
+      cachedAt: new Date().toISOString(),
     };
-  } catch (error) {
+    weatherCache[cacheKey] = { data, expires: now + 60 * 60 * 1000 };
+    return { data, success: true };
+  } catch (error: any) {
     return {
-      data: MOCK_WEATHER_DATA, // Fallback to mock data
+      data: weatherCache[cacheKey]?.data || {
+        temperature: 0,
+        condition: 'Unavailable',
+        icon: '',
+        humidity: 0,
+        windSpeed: 0,
+        precipitation: 0,
+        summary: 'Unavailable',
+        cachedAt: new Date().toISOString(),
+      },
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to get weather data'
+      error: error.message || 'Failed to fetch weather',
     };
   }
 }
 
-/**
- * Get weather icon based on condition
- */
-export function getWeatherIcon(condition: string): string {
-  const conditionLower = condition.toLowerCase();
-  
-  if (conditionLower.includes('sunny') || conditionLower.includes('clear')) return '☀️';
-  if (conditionLower.includes('cloudy')) return '⛅';
-  if (conditionLower.includes('rain')) return '🌧️';
-  if (conditionLower.includes('storm')) return '⛈️';
-  if (conditionLower.includes('snow')) return '❄️';
-  if (conditionLower.includes('fog')) return '🌫️';
-  
-  return '🌤️'; // Default
+export async function getHoustonWeather(): Promise<ApiResponse<WeatherData>> {
+  // Houston center: 29.7604, -95.3698
+  return getWeatherForLatLng(29.7604, -95.3698);
 }
 
-/**
- * Get weather color based on temperature
- */
+// Open-Meteo weathercode to summary
+function getWeatherSummary(code: number): string {
+  // See https://open-meteo.com/en/docs#api_form for codes
+  if ([0].includes(code)) return 'Clear';
+  if ([1, 2, 3].includes(code)) return 'Partly Cloudy';
+  if ([45, 48].includes(code)) return 'Fog';
+  if ([51, 53, 55, 56, 57].includes(code)) return 'Drizzle';
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'Rain';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Snow';
+  if ([95, 96, 99].includes(code)) return 'Thunderstorm';
+  return 'Unknown';
+}
+
+export function getWeatherIcon(condition: string): string {
+  const conditionLower = condition.toLowerCase();
+  if (conditionLower.includes('sunny') || conditionLower.includes('clear')) return '\u2600\ufe0f';
+  if (conditionLower.includes('cloudy')) return '\u26c5';
+  if (conditionLower.includes('rain')) return '\ud83c\udf27\ufe0f';
+  if (conditionLower.includes('storm')) return '\u26c8\ufe0f';
+  if (conditionLower.includes('snow')) return '\u2744\ufe0f';
+  if (conditionLower.includes('fog')) return '\ud83c\udf2b\ufe0f';
+  return '\ud83c\udf24\ufe0f'; // Default
+}
+
 export function getWeatherColor(temperature: number): string {
   if (temperature < 50) return 'text-blue-500';
   if (temperature < 70) return 'text-green-500';
   if (temperature < 85) return 'text-yellow-500';
   return 'text-red-500';
 }
+
+

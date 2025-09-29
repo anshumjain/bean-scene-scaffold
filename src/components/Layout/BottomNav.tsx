@@ -1,10 +1,11 @@
-import { Eye, Coffee, MapPin, Search } from "lucide-react";
+import { Eye, Coffee, MapPin, Search, Plus } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { icon: Search, label: "Explore", href: "/explore" },
   { icon: MapPin, label: "Check In", href: "/checkin" },
+  { icon: Plus, label: "Create Post", href: "/create-post" },
   { icon: Eye, label: "Recent", href: "/recent" },
   { icon: Coffee, label: "Origins", href: "/" },
 ];
