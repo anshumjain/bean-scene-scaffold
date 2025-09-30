@@ -47,20 +47,105 @@ export type Database = {
         }
         Relationships: []
       }
+      cafe_photos: {
+        Row: {
+          cafe_id: string | null
+          id: string
+          is_approved: boolean | null
+          is_hero: boolean | null
+          photo_url: string
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          cafe_id?: string | null
+          id?: string
+          is_approved?: boolean | null
+          is_hero?: boolean | null
+          photo_url: string
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          cafe_id?: string | null
+          id?: string
+          is_approved?: boolean | null
+          is_hero?: boolean | null
+          photo_url?: string
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cafe_photos_cafe_id_fkey"
+            columns: ["cafe_id"]
+            isOneToOne: false
+            referencedRelation: "cafes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cafe_reviews: {
+        Row: {
+          cafe_id: string
+          created_at: string | null
+          id: string
+          profile_photo_url: string | null
+          rating: number
+          review_text: string
+          reviewer_name: string
+          time: string
+          updated_at: string | null
+        }
+        Insert: {
+          cafe_id: string
+          created_at?: string | null
+          id?: string
+          profile_photo_url?: string | null
+          rating: number
+          review_text: string
+          reviewer_name: string
+          time: string
+          updated_at?: string | null
+        }
+        Update: {
+          cafe_id?: string
+          created_at?: string | null
+          id?: string
+          profile_photo_url?: string | null
+          rating?: number
+          review_text?: string
+          reviewer_name?: string
+          time?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cafe_reviews_cafe_id_fkey"
+            columns: ["cafe_id"]
+            isOneToOne: false
+            referencedRelation: "cafes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cafes: {
         Row: {
           address: string
+          cached_weather_data: Json | null
           created_at: string
           google_photo_reference: string | null
           google_rating: number | null
           hero_photo_url: string | null
+          hero_updated_at: string | null
           id: string
           is_active: boolean
           latitude: number
           longitude: number
           name: string
-          neighborhood: string
+          neighborhood: string | null
           opening_hours: string[] | null
+          parking_info: string | null
           phone_number: string | null
           photos: string[] | null
           place_id: string
@@ -68,21 +153,26 @@ export type Database = {
           rating: number | null
           tags: string[]
           updated_at: string
+          user_rating: number | null
+          weather_cached_at: string | null
           website: string | null
         }
         Insert: {
           address: string
+          cached_weather_data?: Json | null
           created_at?: string
           google_photo_reference?: string | null
           google_rating?: number | null
           hero_photo_url?: string | null
+          hero_updated_at?: string | null
           id?: string
           is_active?: boolean
           latitude: number
           longitude: number
           name: string
-          neighborhood: string
+          neighborhood?: string | null
           opening_hours?: string[] | null
+          parking_info?: string | null
           phone_number?: string | null
           photos?: string[] | null
           place_id: string
@@ -90,21 +180,26 @@ export type Database = {
           rating?: number | null
           tags?: string[]
           updated_at?: string
+          user_rating?: number | null
+          weather_cached_at?: string | null
           website?: string | null
         }
         Update: {
           address?: string
+          cached_weather_data?: Json | null
           created_at?: string
           google_photo_reference?: string | null
           google_rating?: number | null
           hero_photo_url?: string | null
+          hero_updated_at?: string | null
           id?: string
           is_active?: boolean
           latitude?: number
           longitude?: number
           name?: string
-          neighborhood?: string
+          neighborhood?: string | null
           opening_hours?: string[] | null
+          parking_info?: string | null
           phone_number?: string | null
           photos?: string[] | null
           place_id?: string
@@ -112,6 +207,8 @@ export type Database = {
           rating?: number | null
           tags?: string[]
           updated_at?: string
+          user_rating?: number | null
+          weather_cached_at?: string | null
           website?: string | null
         }
         Relationships: []
@@ -175,6 +272,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sync_history: {
+        Row: {
+          cafes_processed: number | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          status: string
+          sync_date: string
+          sync_type: string
+        }
+        Insert: {
+          cafes_processed?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          status: string
+          sync_date: string
+          sync_type: string
+        }
+        Update: {
+          cafes_processed?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          status?: string
+          sync_date?: string
+          sync_type?: string
+        }
+        Relationships: []
       }
       users: {
         Row: {
@@ -250,7 +377,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_cafe_user_rating: {
+        Args: { cafe_uuid: string }
+        Returns: number
+      }
+      update_cafe_hero_image: {
+        Args: { cafe_uuid: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

@@ -1,16 +1,16 @@
 import { ApiResponse } from './types';
 
 // Mock parking data - in real implementation, this would come from Google Places Details API
-const MOCK_PARKING_DATA = {
+const MOCK_PARKING_DATA: Record<string, ParkingInfo> = {
   'ChIJd8BlQ2BZwokRAFQEcDlJRAI': { // Example place ID
     available: true,
-    type: 'street',
+    type: 'street' as const,
     cost: 'Free',
     notes: 'Street parking available'
   },
   'ChIJN1t_tDeuEmsRUsoyG83frY4': {
     available: true,
-    type: 'lot',
+    type: 'lot' as const,
     cost: '$2/hour',
     notes: 'Paid parking lot nearby'
   }
