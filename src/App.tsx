@@ -17,6 +17,8 @@ import Moments from "./pages/Moments";
 import Share from "./pages/Share";
 import CreatePost from "./pages/CreatePost";
 import NotFound from "./pages/NotFound";
+import AdminLogin from "./pages/admin/Login";
+import AdminDashboard from "./pages/admin/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +42,8 @@ const App = () => (
           <Route path="/cafe/:id/upload" element={<ImageUpload />} />
           <Route path="/admin/validation" element={<DataValidation />} />
           <Route path="/test-migration" element={<TestMigration />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

@@ -1,1 +1,10 @@
 project_id = "hhdcequsdmosxzjebdyj"
+
+[functions.add-reviews]
+verify_jwt = false
+
+[functions.refresh-amenities]
+verify_jwt = false
+
+[functions.enrich-cafes]
+verify_jwt = false
