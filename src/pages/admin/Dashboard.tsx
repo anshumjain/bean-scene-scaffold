@@ -4,13 +4,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Database, TrendingUp, MapPin } from 'lucide-react';
+import { LogOut, Database, TrendingUp, MapPin, AlertCircle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
-interface EnrichmentProgress {
-  current: number;
-  total: number;
-  cafeName: string;
-  status: string;
+interface OperationResult {
+  success: boolean;
+  message: string;
+  stats?: {
+    processed: number;
+    succeeded: number;
+    failed: number;
+    reviewsAdded?: number;
+    apiCalls: number;
+    estimatedCost: number;
+  };
+  errors?: Array<{ cafe: string; error: string }>;
 }
 
 export default function AdminDashboard() {
@@ -23,6 +40,7 @@ export default function AdminDashboard() {
     cafesWithPhone: 0,
     cafesWithWebsite: 0,
     totalReviews: 0,
+    cafesNeedingEnrichment: 0,
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [operations, setOperations] = useState({
@@ -31,17 +49,48 @@ export default function AdminDashboard() {
     enrichCafes: false,
     fullEnrichment: false,
   });
-  const [progress, setProgress] = useState<EnrichmentProgress | null>(null);
+  const [apiKeyStatus, setApiKeyStatus] = useState<'unknown' | 'configured' | 'missing'>('unknown');
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    operation: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    operation: '',
+    message: '',
+    onConfirm: () => {},
+  });
+  const [lastResult, setLastResult] = useState<OperationResult | null>(null);
 
   useEffect(() => {
-    // Check authentication
-    if (sessionStorage.getItem('admin_authenticated') !== 'true') {
+    // Check authentication with token expiry
+    const token = sessionStorage.getItem('admin_token');
+    const expiry = sessionStorage.getItem('admin_token_expiry');
+    
+    if (!token || !expiry || Date.now() > parseInt(expiry)) {
+      sessionStorage.removeItem('admin_token');
+      sessionStorage.removeItem('admin_token_expiry');
       navigate('/admin/login');
       return;
     }
 
     fetchStats();
+    checkApiKeyStatus();
   }, [navigate]);
+
+  const checkApiKeyStatus = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('check-api-key');
+      if (error || !data?.configured) {
+        setApiKeyStatus('missing');
+      } else {
+        setApiKeyStatus('configured');
+      }
+    } catch {
+      setApiKeyStatus('unknown');
+    }
+  };
 
   const fetchStats = async () => {
     setIsLoadingStats(true);
@@ -52,6 +101,10 @@ export default function AdminDashboard() {
       ]);
 
       if (cafesResult.data) {
+        const cafesNeedingEnrichment = cafesResult.data.filter(
+          c => !c.opening_hours || !c.opening_hours.length
+        ).length;
+
         setStats({
           totalCafes: cafesResult.data.length,
           cafesWithHours: cafesResult.data.filter(c => c.opening_hours?.length).length,
@@ -59,6 +112,7 @@ export default function AdminDashboard() {
           cafesWithPhone: cafesResult.data.filter(c => c.phone_number).length,
           cafesWithWebsite: cafesResult.data.filter(c => c.website).length,
           totalReviews: reviewsResult.count || 0,
+          cafesNeedingEnrichment,
         });
       }
     } catch (error) {
@@ -68,8 +122,18 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem('admin_authenticated');
+    sessionStorage.removeItem('admin_token');
+    sessionStorage.removeItem('admin_token_expiry');
     navigate('/admin/login');
+  };
+
+  const showConfirmation = (operation: string, message: string, onConfirm: () => void) => {
+    setConfirmDialog({
+      open: true,
+      operation,
+      message,
+      onConfirm,
+    });
   };
 
   const runOperation = async (operation: 'add-reviews' | 'refresh-amenities' | 'enrich-cafes') => {
@@ -77,7 +141,7 @@ export default function AdminDashboard() {
                    operation === 'refresh-amenities' ? 'refreshAmenities' : 'enrichCafes';
     
     setOperations(prev => ({ ...prev, [opKey]: true }));
-    setProgress(null);
+    setLastResult(null);
 
     try {
       const { data, error } = await supabase.functions.invoke(operation, {
@@ -86,12 +150,26 @@ export default function AdminDashboard() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Operation completed',
-        description: data.message || 'Operation finished successfully',
-      });
+      setLastResult(data as OperationResult);
 
-      // Refresh stats after operation
+      if (data.success) {
+        const stats = data.stats;
+        const details = stats 
+          ? `Processed: ${stats.processed} | Success: ${stats.succeeded} | Failed: ${stats.failed}${stats.reviewsAdded ? ` | Reviews: ${stats.reviewsAdded}` : ''} | API Calls: ${stats.apiCalls} | Cost: $${stats.estimatedCost.toFixed(2)}`
+          : data.message;
+
+        toast({
+          title: 'Operation completed',
+          description: details,
+        });
+      } else {
+        toast({
+          title: 'Operation failed',
+          description: data.message || 'An error occurred',
+          variant: 'destructive',
+        });
+      }
+
       await fetchStats();
     } catch (error: any) {
       toast({
@@ -101,29 +179,51 @@ export default function AdminDashboard() {
       });
     } finally {
       setOperations(prev => ({ ...prev, [opKey]: false }));
-      setProgress(null);
     }
   };
 
   const runFullEnrichment = async () => {
     setOperations(prev => ({ ...prev, fullEnrichment: true }));
+    setLastResult(null);
     
     try {
-      await runOperation('add-reviews');
-      await runOperation('refresh-amenities');
+      // Run add-reviews
+      toast({ title: 'Starting reviews...', description: 'Fetching reviews from Google Places' });
+      const reviewsResult = await supabase.functions.invoke('add-reviews', {
+        body: { action: 'start' }
+      });
+      
+      if (reviewsResult.error) throw new Error('Reviews failed: ' + reviewsResult.error.message);
+      
+      // Run refresh-amenities
+      toast({ title: 'Starting amenities...', description: 'Refreshing amenities data' });
+      const amenitiesResult = await supabase.functions.invoke('refresh-amenities', {
+        body: { action: 'start' }
+      });
+      
+      if (amenitiesResult.error) throw new Error('Amenities failed: ' + amenitiesResult.error.message);
+      
+      const reviewStats = reviewsResult.data?.stats;
+      const amenitiesStats = amenitiesResult.data?.stats;
       
       toast({
         title: 'Full enrichment completed',
-        description: 'Both reviews and amenities have been updated',
+        description: `Reviews: ${reviewStats?.processed || 0} cafés | Amenities: ${amenitiesStats?.processed || 0} cafés`,
       });
-    } catch (error) {
-      console.error('Full enrichment error:', error);
+      
+      await fetchStats();
+    } catch (error: any) {
+      toast({
+        title: 'Full enrichment failed',
+        description: error.message,
+        variant: 'destructive',
+      });
     } finally {
       setOperations(prev => ({ ...prev, fullEnrichment: false }));
     }
   };
 
-  const apiKeyConfigured = import.meta.env.VITE_GOOGLE_PLACES_API_KEY ? true : false;
+  const estimatedCost = (stats.totalCafes * 0.017).toFixed(2);
 
   return (
     <div className="min-h-screen bg-background">
@@ -151,34 +251,50 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
-              {apiKeyConfigured ? (
+              {apiKeyStatus === 'configured' && (
                 <span className="text-sm text-green-600">✅ API Key: Configured</span>
-              ) : (
-                <span className="text-sm text-destructive">❌ API Key: Missing (add VITE_GOOGLE_PLACES_API_KEY)</span>
               )}
-              <span className="text-sm text-muted-foreground">| Estimated cost: ~$0.017 per café</span>
+              {apiKeyStatus === 'missing' && (
+                <span className="text-sm text-destructive">❌ API Key: Missing in Edge Functions</span>
+              )}
+              {apiKeyStatus === 'unknown' && (
+                <span className="text-sm text-muted-foreground">⏳ Checking API key...</span>
+              )}
+              <span className="text-sm text-muted-foreground">| Est. cost: ~${estimatedCost} for all cafés</span>
             </div>
 
             <div className="grid gap-3">
               <Button
-                onClick={() => runOperation('add-reviews')}
-                disabled={operations.addReviews || !apiKeyConfigured}
+                onClick={() => showConfirmation(
+                  'Add Reviews',
+                  `This will fetch reviews from Google Places for ${stats.totalCafes} cafés. Estimated cost: $${estimatedCost}. Continue?`,
+                  () => runOperation('add-reviews')
+                )}
+                disabled={operations.addReviews || apiKeyStatus !== 'configured'}
                 className="w-full justify-start"
               >
                 {operations.addReviews ? 'Adding Reviews...' : 'Add Reviews from Google Places'}
               </Button>
 
               <Button
-                onClick={() => runOperation('refresh-amenities')}
-                disabled={operations.refreshAmenities || !apiKeyConfigured}
+                onClick={() => showConfirmation(
+                  'Refresh Amenities',
+                  `This will refresh amenities for ${stats.totalCafes} cafés. Estimated cost: $${estimatedCost}. Continue?`,
+                  () => runOperation('refresh-amenities')
+                )}
+                disabled={operations.refreshAmenities || apiKeyStatus !== 'configured'}
                 className="w-full justify-start"
               >
                 {operations.refreshAmenities ? 'Refreshing Amenities...' : 'Refresh Amenities & Hours'}
               </Button>
 
               <Button
-                onClick={runFullEnrichment}
-                disabled={operations.fullEnrichment || !apiKeyConfigured}
+                onClick={() => showConfirmation(
+                  'Full Enrichment',
+                  `This will run both reviews and amenities operations. Estimated cost: $${(parseFloat(estimatedCost) * 2).toFixed(2)}. Continue?`,
+                  runFullEnrichment
+                )}
+                disabled={operations.fullEnrichment || apiKeyStatus !== 'configured'}
                 variant="secondary"
                 className="w-full justify-start"
               >
@@ -186,12 +302,24 @@ export default function AdminDashboard() {
               </Button>
             </div>
 
-            {progress && (
-              <div className="mt-4 p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium">{progress.status}</p>
-                <p className="text-sm text-muted-foreground">
-                  Processing: {progress.cafeName} ({progress.current}/{progress.total})
-                </p>
+            {lastResult && lastResult.errors && lastResult.errors.length > 0 && (
+              <div className="mt-4 p-4 border border-destructive/50 rounded-lg bg-destructive/10">
+                <div className="flex items-start gap-2 mb-2">
+                  <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+                  <div>
+                    <p className="font-medium text-destructive">Failed Cafés ({lastResult.errors.length})</p>
+                    <div className="mt-2 space-y-1 text-sm">
+                      {lastResult.errors.slice(0, 5).map((err, i) => (
+                        <p key={i} className="text-muted-foreground">
+                          • {err.cafe}: {err.error}
+                        </p>
+                      ))}
+                      {lastResult.errors.length > 5 && (
+                        <p className="text-muted-foreground">...and {lastResult.errors.length - 5} more</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
@@ -209,9 +337,16 @@ export default function AdminDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">
+              {stats.cafesNeedingEnrichment} cafés need enrichment
+            </p>
             <Button
-              onClick={() => runOperation('enrich-cafes')}
-              disabled={operations.enrichCafes || !apiKeyConfigured}
+              onClick={() => showConfirmation(
+                'Enrich Missing Data',
+                `This will enrich ${stats.cafesNeedingEnrichment} cafés missing data. Estimated cost: $${(stats.cafesNeedingEnrichment * 0.017).toFixed(2)}. Continue?`,
+                () => runOperation('enrich-cafes')
+              )}
+              disabled={operations.enrichCafes || apiKeyStatus !== 'configured' || stats.cafesNeedingEnrichment === 0}
               className="w-full"
             >
               {operations.enrichCafes ? 'Enriching Cafés...' : 'Run Enrichment Script'}
@@ -230,7 +365,14 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             {isLoadingStats ? (
-              <p className="text-sm text-muted-foreground">Loading statistics...</p>
+              <div className="grid grid-cols-2 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-4 bg-muted rounded w-24 mb-2"></div>
+                    <div className="h-8 bg-muted rounded w-16"></div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -262,6 +404,27 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm {confirmDialog.operation}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialog.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              confirmDialog.onConfirm();
+              setConfirmDialog(prev => ({ ...prev, open: false }));
+            }}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
