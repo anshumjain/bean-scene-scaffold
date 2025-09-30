@@ -161,6 +161,7 @@ export default function CafeDetail() {
               website: cafe.website,
               priceLevel: cafe.priceLevel || 2,
               topTags: cafe.tags?.slice(0, 3) || [],
+              reviewSnippet: "",
               heroImage: cafe.heroPhotoUrl || cafe.photos?.[0],
             }}
             loading={false}

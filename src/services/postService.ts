@@ -3,7 +3,6 @@ import { fetchCafeDetails } from './cafeService';
 import { uploadImage } from './cloudinaryService';
 import { generateId, formatTimeAgo } from './utils';
 import { ImageOptimizationService } from './imageOptimizationService';
-import { ValidationService } from './validationService';
 import { MonitoringService } from './monitoringService';
 import { supabase } from '@/integrations/supabase/client';
 

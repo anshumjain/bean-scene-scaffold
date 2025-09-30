@@ -51,7 +51,9 @@ export default function Search() {
     rating: 0,
     distance: 25,
     openNow: false,
-    locationEnabled: false,
+    neighborhoods: [],
+    sortBy: 'rating',
+    sortOrder: 'desc'
   });
 
   /** Load cafes on mount */
@@ -192,7 +194,9 @@ export default function Search() {
       rating: 0,
       distance: userLocation ? 10 : 25,
       openNow: false,
-      locationEnabled: userLocation !== null,
+      neighborhoods: [],
+      sortBy: 'rating',
+      sortOrder: 'desc'
     });
     setSortBy("rating");
     updateResults();
@@ -214,8 +218,6 @@ export default function Search() {
               filters={filters}
               onFiltersChange={handleFiltersChange}
               onClearFilters={clearFilters}
-              hasUserLocation={userLocation !== null}
-              locationError={locationError}
             />
           </div>
 

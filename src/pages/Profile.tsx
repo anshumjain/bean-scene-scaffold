@@ -6,6 +6,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { PostCard } from "@/components/Feed/PostCard";
 
+// Mock data - will be replaced with real data from Supabase
+const userStats = {
+  checkins: 0,
+  favorites: 0,
+  photos: 0,
+  badges: []
+};
+
+const userPosts: any[] = [];
+
 export default function Profile() {
   return (
     <AppLayout>

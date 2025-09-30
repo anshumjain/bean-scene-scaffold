@@ -17,11 +17,11 @@ export interface GoogleReview {
  */
 export async function upsertReviews(reviews: GoogleReview[]): Promise<ApiResponse<number>> {
   try {
-    const { data, error } = await supabase
-      .from('google_reviews')
-      .upsert(reviews, { onConflict: ['cafe_id', 'author_name', 'review_text'] });
+    const { error } = await supabase
+      .from('google_reviews' as any)
+      .upsert(reviews as any, { onConflict: 'cafe_id,author_name,review_text' });
     if (error) throw new Error(error.message);
-    return { data: data?.length || 0, success: true };
+    return { data: reviews.length, success: true };
   } catch (error: any) {
     return { data: 0, success: false, error: error.message };
   }
