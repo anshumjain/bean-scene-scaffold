@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { fetchCafes } from "@/services/cafeService";
+import { submitCheckin } from "@/services/postService";
 import { getCurrentLocation } from "@/services/utils";
+import { useToast } from "@/hooks/use-toast";
 
 function getAnonId() {
   let id = localStorage.getItem("anonId");
@@ -18,23 +20,14 @@ function getAnonId() {
 
 export default function CreatePost() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
   const [cafeQuery, setCafeQuery] = useState("");
   const [cafeResults, setCafeResults] = useState<any[]>([]);
   const [selectedCafe, setSelectedCafe] = useState<any | null>(null);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCafeModal, setShowCafeModal] = useState(false);
-
-  // Throttle: 1 post per 2 min per anonId
-  function isThrottled() {
-    const anonId = getAnonId();
-    const last = localStorage.getItem(`lastPost_${anonId}`);
-    if (!last) return false;
-    return Date.now() - parseInt(last, 10) < 2 * 60 * 1000;
-  }
 
   async function handleCafeSearch() {
     setLoading(true);
@@ -43,44 +36,65 @@ export default function CreatePost() {
     setLoading(false);
   }
 
-  async function handleLocation() {
-    try {
-      setLoading(true);
-      const pos = await getCurrentLocation();
-      setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-    } catch {
-      setError("Could not get location");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    
     if (!imageFile) {
       setError("Image is required");
       return;
     }
-    if (isThrottled()) {
-      setError("You can only post once every 2 minutes.");
+    
+    if (!selectedCafe) {
+      setError("Please select a cafe");
       return;
     }
+    
     setLoading(true);
-    const anonId = getAnonId();
-    const post = {
-      type: "post",
-      image: imageFile,
-      caption,
-      cafeId: selectedCafe?.id,
-      coords,
-      timestamp: Date.now(),
-      anonId,
-    };
-    // Store locally or send to server as needed
-    localStorage.setItem(`lastPost_${anonId}`, String(Date.now()));
-    setLoading(false);
-    navigate("/feed");
+    
+    try {
+      // Get location
+      const position = await getCurrentLocation();
+      
+      // Submit the check-in
+      const result = await submitCheckin({
+        cafeId: selectedCafe.id,
+        placeId: selectedCafe.placeId,
+        rating: 5, // Default rating for posts
+        tags: [],
+        review: caption,
+        imageFile,
+        location: {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        }
+      });
+      
+      if (result.success) {
+        toast({
+          title: "Photo shared!",
+          description: "Your photo has been posted successfully"
+        });
+        navigate("/feed");
+      } else {
+        setError(result.error || "Failed to share photo");
+        toast({
+          title: "Error",
+          description: result.error || "Failed to share photo",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error sharing photo:", error);
+      setError("Failed to share photo. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to share photo. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -114,13 +128,11 @@ export default function CreatePost() {
               </div>
             )}
             {selectedCafe && (
-              <div className="mt-2 text-xs text-primary">Selected: {selectedCafe.name}</div>
+              <div className="mt-2 p-2 bg-primary/10 rounded text-sm">
+                <div className="font-medium text-primary">Selected: {selectedCafe.name}</div>
+                <div className="text-xs text-muted-foreground">{selectedCafe.neighborhood}</div>
+              </div>
             )}
-          </div>
-          <div>
-            <label className="block mb-1 font-medium">Add Location</label>
-            <Button type="button" onClick={handleLocation} disabled={loading || !!coords}>Tag Current Location</Button>
-            {coords && <div className="mt-2 text-xs text-primary">Location tagged</div>}
           </div>
           {error && <div className="text-destructive text-sm">{error}</div>}
           <Button type="submit" className="w-full" disabled={loading}>{loading ? "Sharing..." : "Share Photo"}</Button>

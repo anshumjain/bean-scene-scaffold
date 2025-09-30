@@ -27,8 +27,8 @@ export async function getWeatherForLatLng(lat: number, lng: number): Promise<Api
     return { data: weatherCache[cacheKey].data, success: true };
   }
   try {
-    // Open-Meteo API: hourly=temperature_2m,precipitation,weathercode,relative_humidity_2m,windspeed_10m
-    const url = `${OPEN_METEO_URL}?latitude=${lat}&longitude=${lng}&current_weather=true&hourly=precipitation&timezone=auto`;
+    // Open-Meteo API with Fahrenheit temperature unit
+    const url = `${OPEN_METEO_URL}?latitude=${lat}&longitude=${lng}&current_weather=true&hourly=precipitation&timezone=auto&temperature_unit=fahrenheit`;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error('Failed to fetch weather');
     const json = await resp.json();

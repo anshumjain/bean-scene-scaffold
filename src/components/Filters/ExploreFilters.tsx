@@ -160,29 +160,6 @@ export function ExploreFilters({
               </div>
             </div>
 
-            {/* Neighborhoods */}
-            <div>
-              <Label className="text-sm font-medium mb-3 block">Neighborhoods</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                {HOUSTON_NEIGHBORHOODS.map((neighborhood) => (
-                  <Button
-                    key={neighborhood}
-                    variant={filters.neighborhoods.includes(neighborhood) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      const newNeighborhoods = filters.neighborhoods.includes(neighborhood)
-                        ? filters.neighborhoods.filter(n => n !== neighborhood)
-                        : [...filters.neighborhoods, neighborhood];
-                      onFiltersChange({ ...filters, neighborhoods: newNeighborhoods });
-                    }}
-                    className="text-xs justify-start"
-                  >
-                    {neighborhood}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
             {/* Price Level */}
             <div>
               <Label className="text-sm font-medium mb-3 block">Price Level</Label>
@@ -298,26 +275,6 @@ export function ExploreFilters({
             </Badge>
           )}
 
-          {filters.neighborhoods.map((neighborhood) => (
-            <Badge
-              key={`neighborhood-${neighborhood}`}
-              variant="secondary"
-              className="flex items-center gap-1 text-xs"
-            >
-              {neighborhood}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-4 w-4 p-0 hover:bg-transparent"
-                onClick={() => {
-                  const newNeighborhoods = filters.neighborhoods.filter(n => n !== neighborhood);
-                  onFiltersChange({ ...filters, neighborhoods: newNeighborhoods });
-                }}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </Badge>
-          ))}
 
           {filters.sortBy !== 'newest' && (
             <Badge variant="secondary" className="flex items-center gap-1 text-xs">

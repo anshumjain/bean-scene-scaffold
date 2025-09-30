@@ -1,4 +1,5 @@
 import { CafePhotoUpload } from "@/components/Cafe/CafePhotoUpload";
+import { CafeReviews } from "@/components/Cafe/CafeReviews";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Share2, Heart, Camera } from "lucide-react";
@@ -12,7 +13,6 @@ import { fetchCafePostsById } from "@/services/postService";
 import { addToRecentlyViewed } from "@/pages/RecentlyViewed";
 import { toast } from "@/hooks/use-toast";
 import type { Cafe, Post } from "@/services/types";
-import { WeatherWidget } from "@/components/Cafe/WeatherWidget";
 
 export default function CafeDetail() {
   const navigate = useNavigate();
@@ -174,8 +174,9 @@ export default function CafeDetail() {
 
         {/* Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-muted/50 mx-4 mt-4">
+          <TabsList className="grid w-full grid-cols-4 bg-muted/50 mx-4 mt-4">
             <TabsTrigger value="posts">Posts ({posts.length})</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews</TabsTrigger>
             <TabsTrigger value="photos">Photos</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>
           </TabsList>
@@ -216,6 +217,10 @@ export default function CafeDetail() {
             )}
           </TabsContent>
 
+          <TabsContent value="reviews" className="p-4">
+            <CafeReviews cafeId={cafe.id} maxReviews={10} />
+          </TabsContent>
+
           <TabsContent value="photos" className="p-4">
             <div className="grid grid-cols-2 gap-2">
               {cafe.photos && cafe.photos.length > 0 ? (
@@ -244,14 +249,6 @@ export default function CafeDetail() {
           </TabsContent>
 
           <TabsContent value="info" className="p-4 space-y-4">
-            {/* Weather summary */}
-            <WeatherWidget />
-            <div className="bg-card rounded-lg p-4 shadow-coffee border border-border">
-              <h3 className="font-semibold mb-2">About</h3>
-              <p className="text-sm text-muted-foreground">
-                A neighborhood coffee shop in the heart of {cafe.neighborhood}, serving carefully crafted espresso drinks and fresh pastries. Known for exceptional quality and welcoming atmosphere.
-              </p>
-            </div>
             
             <div className="bg-card rounded-lg p-4 shadow-coffee border border-border">
               <h3 className="font-semibold mb-2">Hours</h3>

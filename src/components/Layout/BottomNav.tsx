@@ -1,13 +1,13 @@
-import { Eye, Coffee, MapPin, Search, Plus } from "lucide-react";
+import { Home, Search, Plus, Heart, User } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
+  { icon: Home, label: "Origins", href: "/" },
   { icon: Search, label: "Explore", href: "/explore" },
-  { icon: MapPin, label: "Check In", href: "/checkin" },
-  { icon: Plus, label: "Create Post", href: "/create-post" },
-  { icon: Eye, label: "Recent", href: "/recent" },
-  { icon: Coffee, label: "Origins", href: "/" },
+  { icon: Plus, label: "Share", href: "/share" },
+  { icon: Heart, label: "Moments", href: "/moments" },
+  { icon: User, label: "Profile", href: "/profile" },
 ];
 
 export function BottomNav() {

@@ -12,7 +12,10 @@ import Profile from "./pages/Profile";
 import CafeDetail from "./pages/CafeDetail";
 import ImageUpload from "./pages/ImageUpload";
 import DataValidation from "./pages/DataValidation";
-import TestMigration from "./pages/TestMigration"; // Add this import
+import TestMigration from "./pages/TestMigration";
+import Moments from "./pages/Moments";
+import Share from "./pages/Share";
+import CreatePost from "./pages/CreatePost";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,15 +28,18 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/explore" element={<Feed />} />
-          <Route path="/search" element={<Search />} />
+          <Route path="/explore" element={<Search />} />
+          <Route path="/feed" element={<Feed />} />
+          <Route path="/moments" element={<Moments />} />
+          <Route path="/share" element={<Share />} />
           <Route path="/checkin" element={<CheckIn />} />
+          <Route path="/post" element={<CreatePost />} />
           <Route path="/recent" element={<RecentlyViewed />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/cafe/:id" element={<CafeDetail />} />
           <Route path="/cafe/:id/upload" element={<ImageUpload />} />
           <Route path="/admin/validation" element={<DataValidation />} />
-          <Route path="/test-migration" element={<TestMigration />} /> {/* Add this route */}
+          <Route path="/test-migration" element={<TestMigration />} />
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

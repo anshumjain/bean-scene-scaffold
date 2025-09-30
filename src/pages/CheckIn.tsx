@@ -309,68 +309,72 @@ export default function CheckIn() {
             </CardContent>
           </Card>
 
-          {/* Photo Upload */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Camera className="w-5 h-5 text-primary" />
-                Add Photo
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                {imageFile ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-foreground">{imageFile.name}</p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => setImageFile(null)}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Camera className="w-8 h-8 mx-auto text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Tap to add photo</p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Photo Upload - Only show if cafe selected */}
+          {selectedCafe && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-primary" />
+                  Add Photo
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center relative">
+                  {imageFile ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-foreground">{imageFile.name}</p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setImageFile(null)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Camera className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">Tap to add photo</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Rating */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Rate Your Experience</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => setRating(star)}
-                    className="transition-smooth hover:scale-110"
-                  >
-                    <Star
-                      className={`w-8 h-8 ${
-                        star <= rating
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-muted"
-                      }`}
-                    />
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Rating - Only show if cafe selected */}
+          {selectedCafe && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Rate Your Experience</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setRating(star)}
+                      className="transition-smooth hover:scale-110"
+                    >
+                      <Star
+                        className={`w-8 h-8 ${
+                          star <= rating
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-muted"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Tags */}
           <Card>
