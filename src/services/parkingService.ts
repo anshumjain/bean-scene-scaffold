@@ -34,7 +34,7 @@ export async function getParkingInfo(placeId: string): Promise<ApiResponse<Parki
     
     if (parkingInfo) {
       return {
-        data: parkingInfo,
+        data: parkingInfo as ParkingInfo,
         success: true
       };
     }
@@ -43,10 +43,10 @@ export async function getParkingInfo(placeId: string): Promise<ApiResponse<Parki
     return {
       data: {
         available: true,
-        type: 'street' as const,
+        type: 'street',
         cost: 'Varies',
         notes: 'Street parking typically available'
-      },
+      } as ParkingInfo,
       success: true
     };
   } catch (error) {
