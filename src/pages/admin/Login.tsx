@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 export default function AdminLogin() {
   const [username, setUsername] = useState('');
@@ -14,42 +13,22 @@ export default function AdminLogin() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    try {
-      // Call Edge Function to verify credentials (keeps credentials server-side)
-      const { data, error } = await supabase.functions.invoke('admin-auth', {
-        body: { username, password }
-      });
-
-      if (error || !data?.authenticated) {
-        toast({
-          title: 'Login failed',
-          description: 'Invalid username or password',
-          variant: 'destructive',
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Store auth token with expiry (1 hour)
-      const authToken = data.token;
-      const expiry = Date.now() + (60 * 60 * 1000); // 1 hour
-      sessionStorage.setItem('admin_token', authToken);
-      sessionStorage.setItem('admin_token_expiry', expiry.toString());
-
+    // Hardcoded credentials - replace with your preferred credentials
+    if (username === 'admin' && password === 'beanscene2024') {
+      sessionStorage.setItem('admin_authenticated', 'true');
       toast({
         title: 'Login successful',
         description: 'Welcome to the admin dashboard',
       });
-      
       navigate('/admin/dashboard');
-    } catch (error: any) {
+    } else {
       toast({
         title: 'Login failed',
-        description: error.message || 'An error occurred',
+        description: 'Invalid username or password',
         variant: 'destructive',
       });
     }
