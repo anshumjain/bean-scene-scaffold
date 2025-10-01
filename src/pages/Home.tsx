@@ -15,41 +15,50 @@ export default function Home() {
             <Coffee className="w-16 h-16 mx-auto mb-4 text-primary" />
             <h1 className="text-4xl font-bold mb-3">BeanScene</h1>
             <p className="text-lg text-muted-foreground max-w-sm mx-auto">
-              Houston's coffee community, where every cup tells a story
+              Discover cafés, vibes, and connections in your city
             </p>
           </div>
         </div>
 
-        {/* Story Section */}
+        {/* Origins / Story Section */}
         <div className="p-6 space-y-6">
           <Card className="shadow-coffee border-0">
             <CardContent className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Our Story</h2>
+              <h2 className="text-2xl font-bold mb-4">Connected, but Lonely</h2>
               <div className="space-y-4 text-muted-foreground">
                 <p>
-                  BeanScene started with a simple idea: coffee is better when shared. 
-                  Whether you're hunting for the perfect latte, need a cozy spot to work, 
-                  or hoping to meet someone special over espresso, we're here to help.
+                  We live in a world more connected than ever,yet most of us feel more isolated than ever. Algorithms keep us scrolling, but rarely help us belong in our own cities.
                 </p>
+
+                <h3 className="text-xl font-semibold mt-4">Why Coffee?</h3>
                 <p>
-                  From Montrose's artisan roasters to Downtown's hidden gems, we've mapped 
-                  Houston's coffee culture so you can discover your next favorite spot—and 
-                  maybe your next favorite person.
+                  Coffee is more than caffeine. It’s ritual, comfort, and the backdrop for so many parts of life, whether you’re working solo, catching up with a friend, or starting a new conversation.
                 </p>
-                <p className="font-medium text-foreground">
-                  Find cafés. Share moments. Build connections.
+
+                <h3 className="text-xl font-semibold mt-4">The Idea</h3>
+                <p>
+                  Bean Scene helps you discover cafés that fit your vibe: laptop-friendly, cozy, social, or just a quiet corner to think. And along the way, it makes it easier to turn everyday coffee runs into real connections.
+                </p>
+
+                <h3 className="text-xl font-semibold mt-4">The Vision</h3>
+                <p>
+                  This is just the beginning. Our bigger goal is to help people step away from algorithms and into real life, building a culture where belonging happens naturally, one café at a time.
+                </p>
+
+                <p className="mt-4 font-medium text-foreground text-center">
+                  ✨ More than coffee. More than connections.
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Features */}
+          {/* Feature Cards */}
           <div className="grid grid-cols-2 gap-4">
             <Card className="shadow-coffee border-0 cursor-pointer hover:shadow-warm transition-smooth" onClick={() => navigate('/explore')}>
               <CardContent className="p-6 text-center">
                 <MapPin className="w-8 h-8 mx-auto mb-3 text-primary" />
                 <h3 className="font-semibold mb-1">Discover</h3>
-                <p className="text-xs text-muted-foreground">Find your perfect cafe</p>
+                <p className="text-xs text-muted-foreground">Find your perfect café</p>
               </CardContent>
             </Card>
 
