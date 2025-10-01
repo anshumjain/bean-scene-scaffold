@@ -24,7 +24,7 @@ export default function Home() {
         <div className="p-6 space-y-6">
           <Card className="shadow-coffee border-0">
             <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-3">Connected, but Lonely</h2>
+              <h3 className="text-xl font-semibold mb-4">Connected, but Lonely</h3>
               <div className="space-y-4 text-muted-foreground">
                 <p>
                   We live in a world more connected than ever,yet most of us feel more isolated than ever. Algorithms keep us scrolling, but rarely help us belong in our own cities.
