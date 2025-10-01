@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useState, useEffect } from "react";
+import Onboarding from "@/components/Onboarding";
 import Home from "./pages/Home";
 import Feed from "./pages/Feed";
 import Search from "./pages/Search";
@@ -22,35 +24,61 @@ import AdminDashboard from "./pages/admin/Dashboard";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Feed />} />
-          <Route path="/explore" element={<Search />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/moments" element={<Moments />} />
-          <Route path="/share" element={<Share />} />
-          <Route path="/checkin" element={<CheckIn />} />
-          <Route path="/post" element={<CreatePost />} />
-          <Route path="/recent" element={<RecentlyViewed />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/cafe/:id" element={<CafeDetail />} />
-          <Route path="/cafe/:id/upload" element={<ImageUpload />} />
-          <Route path="/admin/validation" element={<DataValidation />} />
-          <Route path="/test-migration" element={<TestMigration />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+const App = () => {
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  console.log('App render - showOnboarding:', showOnboarding); // Add this
 
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  useEffect(() => {
+    // Check if user has seen onboarding
+    const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+        console.log('hasSeenOnboarding from localStorage:', hasSeenOnboarding); // Add this
+
+    if (!hasSeenOnboarding) {
+            console.log('Setting showOnboarding to true'); // Add this
+
+      setShowOnboarding(true);
+    }
+  }, []);
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('hasSeenOnboarding', 'true');
+    setShowOnboarding(false);
+  };
+
+  if (showOnboarding) {
+        console.log('Rendering Onboarding component'); // Add this
+
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Feed />} />
+            <Route path="/explore" element={<Search />} />
+            <Route path="/home" element={<Home />} />
+            <Route path="/moments" element={<Moments />} />
+            <Route path="/share" element={<Share />} />
+            <Route path="/checkin" element={<CheckIn />} />
+            <Route path="/post" element={<CreatePost />} />
+            <Route path="/recent" element={<RecentlyViewed />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/cafe/:id" element={<CafeDetail />} />
+            <Route path="/cafe/:id/upload" element={<ImageUpload />} />
+            <Route path="/admin/validation" element={<DataValidation />} />
+            <Route path="/test-migration" element={<TestMigration />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
