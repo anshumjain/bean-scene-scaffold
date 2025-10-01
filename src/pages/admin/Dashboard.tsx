@@ -49,7 +49,6 @@ export default function AdminDashboard() {
     enrichCafes: false,
     fullEnrichment: false,
   });
-  const [apiKeyStatus, setApiKeyStatus] = useState<'unknown' | 'configured' | 'missing'>('unknown');
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     operation: string;
@@ -64,33 +63,14 @@ export default function AdminDashboard() {
   const [lastResult, setLastResult] = useState<OperationResult | null>(null);
 
   useEffect(() => {
-    // Check authentication with token expiry
-    const token = sessionStorage.getItem('admin_token');
-    const expiry = sessionStorage.getItem('admin_token_expiry');
-    
-    if (!token || !expiry || Date.now() > parseInt(expiry)) {
-      sessionStorage.removeItem('admin_token');
-      sessionStorage.removeItem('admin_token_expiry');
+    // Check authentication
+    if (sessionStorage.getItem('admin_authenticated') !== 'true') {
       navigate('/admin/login');
       return;
     }
 
     fetchStats();
-    checkApiKeyStatus();
   }, [navigate]);
-
-  const checkApiKeyStatus = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('check-api-key');
-      if (error || !data?.configured) {
-        setApiKeyStatus('missing');
-      } else {
-        setApiKeyStatus('configured');
-      }
-    } catch {
-      setApiKeyStatus('unknown');
-    }
-  };
 
   const fetchStats = async () => {
     setIsLoadingStats(true);
@@ -122,8 +102,7 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem('admin_token');
-    sessionStorage.removeItem('admin_token_expiry');
+    sessionStorage.removeItem('admin_authenticated');
     navigate('/admin/login');
   };
 
@@ -174,7 +153,7 @@ export default function AdminDashboard() {
     } catch (error: any) {
       toast({
         title: 'Operation failed',
-        description: error.message || 'An error occurred',
+        description: error.message || 'Edge Function not found. Please create the required Edge Functions.',
         variant: 'destructive',
       });
     } finally {
@@ -187,7 +166,6 @@ export default function AdminDashboard() {
     setLastResult(null);
     
     try {
-      // Run add-reviews
       toast({ title: 'Starting reviews...', description: 'Fetching reviews from Google Places' });
       const reviewsResult = await supabase.functions.invoke('add-reviews', {
         body: { action: 'start' }
@@ -195,7 +173,6 @@ export default function AdminDashboard() {
       
       if (reviewsResult.error) throw new Error('Reviews failed: ' + reviewsResult.error.message);
       
-      // Run refresh-amenities
       toast({ title: 'Starting amenities...', description: 'Refreshing amenities data' });
       const amenitiesResult = await supabase.functions.invoke('refresh-amenities', {
         body: { action: 'start' }
@@ -224,6 +201,7 @@ export default function AdminDashboard() {
   };
 
   const estimatedCost = (stats.totalCafes * 0.017).toFixed(2);
+  const apiKeyConfigured = true; // Simplified - assuming configured
 
   return (
     <div className="min-h-screen bg-background">
@@ -238,7 +216,6 @@ export default function AdminDashboard() {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-6">
-        {/* Google Places Data Enrichment */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -251,16 +228,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
-              {apiKeyStatus === 'configured' && (
-                <span className="text-sm text-green-600">✅ API Key: Configured</span>
-              )}
-              {apiKeyStatus === 'missing' && (
-                <span className="text-sm text-destructive">❌ API Key: Missing in Edge Functions</span>
-              )}
-              {apiKeyStatus === 'unknown' && (
-                <span className="text-sm text-muted-foreground">⏳ Checking API key...</span>
-              )}
-              <span className="text-sm text-muted-foreground">| Est. cost: ~${estimatedCost} for all cafés</span>
+              <span className="text-sm text-muted-foreground">Est. cost: ~${estimatedCost} for all cafés</span>
             </div>
 
             <div className="grid gap-3">
@@ -270,7 +238,7 @@ export default function AdminDashboard() {
                   `This will fetch reviews from Google Places for ${stats.totalCafes} cafés. Estimated cost: $${estimatedCost}. Continue?`,
                   () => runOperation('add-reviews')
                 )}
-                disabled={operations.addReviews || apiKeyStatus !== 'configured'}
+                disabled={operations.addReviews}
                 className="w-full justify-start"
               >
                 {operations.addReviews ? 'Adding Reviews...' : 'Add Reviews from Google Places'}
@@ -282,7 +250,7 @@ export default function AdminDashboard() {
                   `This will refresh amenities for ${stats.totalCafes} cafés. Estimated cost: $${estimatedCost}. Continue?`,
                   () => runOperation('refresh-amenities')
                 )}
-                disabled={operations.refreshAmenities || apiKeyStatus !== 'configured'}
+                disabled={operations.refreshAmenities}
                 className="w-full justify-start"
               >
                 {operations.refreshAmenities ? 'Refreshing Amenities...' : 'Refresh Amenities & Hours'}
@@ -294,7 +262,7 @@ export default function AdminDashboard() {
                   `This will run both reviews and amenities operations. Estimated cost: $${(parseFloat(estimatedCost) * 2).toFixed(2)}. Continue?`,
                   runFullEnrichment
                 )}
-                disabled={operations.fullEnrichment || apiKeyStatus !== 'configured'}
+                disabled={operations.fullEnrichment}
                 variant="secondary"
                 className="w-full justify-start"
               >
@@ -325,7 +293,6 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Enrich Existing Cafés Script */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -346,7 +313,7 @@ export default function AdminDashboard() {
                 `This will enrich ${stats.cafesNeedingEnrichment} cafés missing data. Estimated cost: $${(stats.cafesNeedingEnrichment * 0.017).toFixed(2)}. Continue?`,
                 () => runOperation('enrich-cafes')
               )}
-              disabled={operations.enrichCafes || apiKeyStatus !== 'configured' || stats.cafesNeedingEnrichment === 0}
+              disabled={operations.enrichCafes || stats.cafesNeedingEnrichment === 0}
               className="w-full"
             >
               {operations.enrichCafes ? 'Enriching Cafés...' : 'Run Enrichment Script'}
@@ -354,7 +321,6 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Data Overview */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -405,7 +371,6 @@ export default function AdminDashboard() {
         </Card>
       </main>
 
-      {/* Confirmation Dialog */}
       <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
