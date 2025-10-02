@@ -241,9 +241,6 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
           </Badge>
         </div>
 
-        {/* Weather Widget */}
-        <WeatherWidget />
-
         {/* Parking Info */}
         {cafe.placeId && (
           <ParkingInfoComponent 
