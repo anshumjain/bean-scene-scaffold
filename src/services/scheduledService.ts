@@ -7,8 +7,6 @@ import { ApiResponse } from './types';
  */
 export async function runGooglePlacesSync(): Promise<ApiResponse<number>> {
   try {
-    console.log('Starting Houston cafes sync from Google Places API...');
-    
     const syncResult = await syncGooglePlacesCafes();
     
     if (!syncResult.success) {
@@ -16,9 +14,6 @@ export async function runGooglePlacesSync(): Promise<ApiResponse<number>> {
     }
     
     const syncedCount = syncResult.data;
-    
-    // Log sync results (TODO: Store in analytics table)
-    console.log(`Successfully synced ${syncedCount} Houston cafes`);
     
     // TODO: Store sync metrics in Supabase when connected
     // await logSyncMetrics({
@@ -56,7 +51,6 @@ export async function runGooglePlacesSync(): Promise<ApiResponse<number>> {
  */
 export async function onFirstApiKeySetup(): Promise<ApiResponse<string>> {
   try {
-    console.log('Google Places API key detected - running initial Houston cafes sync...');
     
     const syncResult = await runGooglePlacesSync();
     
@@ -85,7 +79,6 @@ export async function onFirstApiKeySetup(): Promise<ApiResponse<string>> {
  */
 export async function monthlyDataRefresh(): Promise<ApiResponse<string>> {
   try {
-    console.log('Running monthly Houston cafes data refresh...');
     
     const syncResult = await runGooglePlacesSync();
     
@@ -176,7 +169,6 @@ export async function getLastSyncInfo(): Promise<ApiResponse<{
  */
 export async function triggerManualSync(): Promise<ApiResponse<string>> {
   try {
-    console.log('Manual sync triggered by admin...');
     
     const syncResult = await runGooglePlacesSync();
     
@@ -214,8 +206,6 @@ async function logSyncMetrics(metrics: {
     // const { error } = await supabase
     //   .from('sync_history')
     //   .insert(metrics);
-    
-    console.log('Sync metrics:', metrics);
   } catch (error) {
     console.error('Failed to log sync metrics:', error);
   }

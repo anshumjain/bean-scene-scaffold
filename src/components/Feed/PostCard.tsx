@@ -17,6 +17,7 @@ interface PostCardProps {
     createdAt: string;
     likes: number;
     comments: number;
+    username?: string;
   };
   type?: 'check-in' | 'post';
 }
@@ -120,6 +121,13 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
         <p className="text-sm text-foreground mb-3 leading-relaxed">
           {post.textReview}
         </p>
+        
+        {/* Username */}
+        {post.username && (
+          <p className="text-xs text-muted-foreground mb-3">
+            by @{post.username}
+          </p>
+        )}
 
         {/* Actions */}
         <div className="flex items-center justify-between">

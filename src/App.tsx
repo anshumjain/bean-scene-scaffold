@@ -18,6 +18,7 @@ import TestMigration from "./pages/TestMigration";
 import Moments from "./pages/Moments";
 import Share from "./pages/Share";
 import CreatePost from "./pages/CreatePost";
+import Feedback from "./pages/Feedback";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/admin/Login";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -26,16 +27,12 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
-  console.log('App render - showOnboarding:', showOnboarding); // Add this
 
   useEffect(() => {
     // Check if user has seen onboarding
     const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
-        console.log('hasSeenOnboarding from localStorage:', hasSeenOnboarding); // Add this
 
     if (!hasSeenOnboarding) {
-            console.log('Setting showOnboarding to true'); // Add this
-
       setShowOnboarding(true);
     }
   }, []);
@@ -46,8 +43,6 @@ const App = () => {
   };
 
   if (showOnboarding) {
-        console.log('Rendering Onboarding component'); // Add this
-
     return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
@@ -69,6 +64,7 @@ const App = () => {
             <Route path="/profile" element={<Profile />} />
             <Route path="/cafe/:id" element={<CafeDetail />} />
             <Route path="/cafe/:id/upload" element={<ImageUpload />} />
+            <Route path="/feedback" element={<Feedback />} />
             <Route path="/admin/validation" element={<DataValidation />} />
             <Route path="/test-migration" element={<TestMigration />} />
             <Route path="/admin/login" element={<AdminLogin />} />

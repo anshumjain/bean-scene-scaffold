@@ -1,0 +1,253 @@
+/* Coffee Theme - Global Styling */
+
+/* CSS Variables for Coffee Color Palette */
+:root {
+  /* Primary browns */
+  --espresso-dark: #4a3728;
+  --espresso: #6b4423;
+  --medium-brown: #8b5a3c;
+  
+  /* Medium tones */
+  --coffee-medium: #8b6f47;
+  --warm-brown: #7a6651;
+  
+  /* Light tones */
+  --latte: #a08774;
+  --cream: #d9cdb8;
+  --light-cream: #f5efe8;
+  
+  /* Backgrounds */
+  --bg-warm: #faf8f5;
+  --bg-peach: #fff5f0;
+  
+  /* Accents */
+  --caramel: #d4a574;
+  --terracotta: #c4613a;
+  --rust: #c4613a;
+}
+
+/* Global Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes starGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgba(212, 165, 116, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgba(212, 165, 116, 0.7));
+  }
+}
+
+/* Header & Top Section Styling */
+.coffee-header {
+  background: linear-gradient(135deg, #6b4423 0%, #8b5a3c 100%);
+  color: white;
+}
+
+.coffee-search-bar {
+  box-shadow: 0 4px 16px rgba(107, 68, 35, 0.12), 0 2px 4px rgba(107, 68, 35, 0.08);
+  transition: all 0.3s ease;
+}
+
+.coffee-search-bar:focus {
+  box-shadow: 0 6px 20px rgba(107, 68, 35, 0.18), 0 4px 8px rgba(107, 68, 35, 0.12);
+  transform: translateY(-1px);
+}
+
+.coffee-search-bar::placeholder {
+  font-size: 0.9375rem; /* 15px */
+  font-weight: 400;
+  color: #8b6f47;
+}
+
+.coffee-weather-text {
+  color: white;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.coffee-location-text {
+  color: white;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Tags Styling */
+.coffee-tag {
+  background: linear-gradient(135deg, #fff5f0 0%, #ffe8db 100%);
+  color: #8b7355;
+  border: 1.5px solid #e8dfd5;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.coffee-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Cafe Cards Styling */
+.coffee-card {
+  border-radius: 16px;
+  background: white;
+  border: 1px solid #f5efe8;
+  box-shadow: 0 2px 8px rgba(107, 68, 35, 0.08), 0 1px 3px rgba(107, 68, 35, 0.06);
+  transition: all 0.3s ease;
+  animation: fadeIn 0.5s ease;
+}
+
+.coffee-card:hover {
+  box-shadow: 0 8px 24px rgba(107, 68, 35, 0.15), 0 4px 8px rgba(107, 68, 35, 0.1);
+  transform: translateY(-2px);
+  border-color: #e8dfd5;
+}
+
+/* Typography */
+.coffee-heading {
+  font-size: 2rem; /* 32px */
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.coffee-section-heading {
+  font-weight: 600;
+  color: #4a3728;
+  letter-spacing: -0.3px;
+}
+
+.coffee-cafe-name {
+  font-weight: 600;
+  color: #2d2115;
+  letter-spacing: -0.2px;
+}
+
+.coffee-text-medium {
+  color: #8b6f47;
+}
+
+.coffee-text-light {
+  color: #a08774;
+}
+
+/* Star Ratings */
+.coffee-star {
+  color: #d4a574;
+  animation: starGlow 3s ease-in-out infinite;
+}
+
+/* Bottom Navigation */
+.coffee-bottom-nav {
+  background: white;
+  box-shadow: 0 -4px 12px rgba(107, 68, 35, 0.1);
+  border-top: 1px solid #f5efe8;
+}
+
+.coffee-nav-inactive {
+  color: #a08774;
+}
+
+.coffee-nav-active {
+  color: #6b4423;
+}
+
+.coffee-nav-item:hover {
+  color: #6b4423;
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+/* Global Shadows - Brown Tinted */
+.coffee-shadow-sm {
+  box-shadow: 0 1px 2px rgba(107, 68, 35, 0.05);
+}
+
+.coffee-shadow {
+  box-shadow: 0 1px 3px rgba(107, 68, 35, 0.1), 0 1px 2px rgba(107, 68, 35, 0.06);
+}
+
+.coffee-shadow-md {
+  box-shadow: 0 4px 6px rgba(107, 68, 35, 0.07), 0 2px 4px rgba(107, 68, 35, 0.06);
+}
+
+.coffee-shadow-lg {
+  box-shadow: 0 10px 15px rgba(107, 68, 35, 0.1), 0 4px 6px rgba(107, 68, 35, 0.05);
+}
+
+.coffee-shadow-xl {
+  box-shadow: 0 20px 25px rgba(107, 68, 35, 0.1), 0 10px 10px rgba(107, 68, 35, 0.04);
+}
+
+/* Button Styling */
+.coffee-button {
+  background: linear-gradient(135deg, #6b4423 0%, #8b5a3c 100%);
+  color: white;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.coffee-button:hover {
+  background: linear-gradient(135deg, #5a3a1f 0%, #7a4f2f 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(107, 68, 35, 0.2);
+}
+
+/* Input Styling */
+.coffee-input {
+  border: 1px solid #e8dfd5;
+  background: #faf8f5;
+  transition: all 0.3s ease;
+}
+
+.coffee-input:focus {
+  border-color: #8b5a3c;
+  box-shadow: 0 0 0 3px rgba(139, 90, 60, 0.1);
+  background: white;
+}
+
+/* Background Variations */
+.coffee-bg-warm {
+  background-color: #faf8f5;
+}
+
+.coffee-bg-peach {
+  background-color: #fff5f0;
+}
+
+.coffee-bg-cream {
+  background-color: #f5efe8;
+}
+
+/* Location Pin Icon */
+.coffee-location-pin {
+  color: #8b6f47;
+}
+
+/* Micro-interactions */
+.coffee-interactive {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.coffee-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(107, 68, 35, 0.15);
+}
+
+/* Page Transitions */
+.coffee-page-transition {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Filter Dropdown - Keep existing styling */
+.coffee-filter-dropdown {
+  /* Preserve existing filter dropdown styling as requested */
+}

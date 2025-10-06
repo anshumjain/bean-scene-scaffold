@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search as SearchIcon, MapPin, Star, Navigation } from "lucide-react";
+import { Search as SearchIcon, MapPin, Star, Navigation, Cloud, Sun, Filter, ChevronDown, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,13 +12,13 @@ import { fetchCafes } from "@/services/cafeService";
 import { Cafe, Post } from "@/services/types";
 import { debounce } from "@/services/utils";
 import { toast } from "@/hooks/use-toast";
+import { getCafeEmoji } from "@/utils/emojiPlaceholders";
 
 type SortOption = "rating" | "distance" | "price" | "name";
 
 const popularTags = [
   "latte-art", "cozy-vibes", "laptop-friendly", "third-wave",
-  "cold-brew", "pastries", "rooftop", "instagram-worthy",
-  "pet-friendly", "outdoor-seating"
+  "cold-brew", "pastries", "rooftop", "instagram-worthy"
 ];
 
 interface UserLocation {
@@ -32,6 +32,7 @@ export default function Search() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("cafes");
+  const [showFilters, setShowFilters] = useState(false);
 
   const [allCafes, setAllCafes] = useState<Cafe[]>([]);
   const [searchResults, setSearchResults] = useState<Cafe[]>([]);
@@ -207,61 +208,120 @@ export default function Search() {
     updateResults();
   }, [filters, selectedTags, sortBy]);
 
+  // Calculate active filter count
+  const activeFilterCount = selectedTags.length + 
+    (filters.priceLevel.length > 0 ? 1 : 0) + 
+    (filters.neighborhoods.length > 0 ? 1 : 0);
+
   return (
     <AppLayout>
       <div className="max-w-md mx-auto min-h-screen bg-background">
-        {/* Header */}
-        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border p-4">
+        {/* Top Bar - Weather & Location */}
+        <div className="sticky top-0 z-50 coffee-header px-4 py-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Cloud className="w-4 h-4 text-white/80" />
+              <span className="text-sm font-medium coffee-location-text">Houston</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Sun className="w-4 h-4 text-white/80" />
+              <span className="text-sm coffee-weather-text">85°F Partly Cloudy</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Header */}
+        <div className="sticky top-[49px] z-40 coffee-header p-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold">Explore</h1>
-            <ExploreFilters
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              onClearFilters={clearFilters}
-            />
+            <h1 className="text-2xl font-bold coffee-heading">Explore</h1>
+            <div className="flex items-center gap-3">
+              {/* Filter Icon with Badge */}
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="relative"
+                >
+                  <Filter className="w-5 h-5" />
+                  {activeFilterCount > 0 && (
+                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                      {activeFilterCount}
+                    </div>
+                  )}
+                </Button>
+              </div>
+              
+              {/* Sort Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Toggle sort or show sort options
+                  const sortOptions: SortOption[] = ["rating", "name", "price"];
+                  if (userLocation) sortOptions.push("distance");
+                  const currentIndex = sortOptions.indexOf(sortBy);
+                  const nextIndex = (currentIndex + 1) % sortOptions.length;
+                  handleSortChange(sortOptions[nextIndex]);
+                }}
+                className="flex items-center gap-1 text-xs"
+              >
+                <span>↑↓ rating</span>
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
 
           {/* Search bar */}
           <div className="relative mb-3">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/80" />
             <Input
               placeholder="Search cafes..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-10 bg-muted/50 border-0"
+              className="pl-10 coffee-search-bar bg-white/90 border-white/20 text-foreground"
             />
           </div>
 
-          {/* Sort + count */}
+          {/* Rating Dropdown + Count */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <select
                 value={sortBy}
                 onChange={(e) => handleSortChange(e.target.value as SortOption)}
-                className="w-40 h-8 text-sm border rounded px-2 bg-background"
+                className="h-8 text-sm border rounded px-2 bg-white text-gray-800 font-medium"
               >
                 <option value="rating">Rating</option>
                 <option value="name">Name</option>
                 <option value="price">Price</option>
                 {userLocation && <option value="distance">Distance</option>}
               </select>
-              <span className="text-sm text-muted-foreground">
-                {searchResults.length} cafe{searchResults.length !== 1 ? "s" : ""}
-              </span>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </div>
           </div>
         </div>
+
+        {/* Filters Panel */}
+        {showFilters && (
+          <div className="sticky top-[140px] z-30 bg-background/95 backdrop-blur-md border-b border-border p-4">
+            <ExploreFilters
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+              onClearFilters={clearFilters}
+            />
+          </div>
+        )}
 
         <div className="p-4">
           {/* Popular tags */}
           <div className="mb-6">
             <h3 className="font-semibold mb-3">Popular Tags</h3>
             <div className="flex flex-wrap gap-2">
-              {popularTags.slice(0, 8).map((tag) => (
+              {popularTags.map((tag) => (
                 <Badge
                   key={tag}
-                  variant={selectedTags.includes(tag) ? "default" : "outline"}
-                  className="cursor-pointer transition"
+                  variant={selectedTags.includes(tag) ? "default" : "secondary"}
+                  className="coffee-tag"
                   onClick={() =>
                     setSelectedTags((prev) =>
                       prev.includes(tag)
@@ -279,11 +339,11 @@ export default function Search() {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-muted/50">
-              <TabsTrigger value="cafes">
-                Cafes {searchResults.length > 0 && `(${searchResults.length})`}
+              <TabsTrigger value="cafes" className="text-sm">
+                Cafes ({searchResults.length})
               </TabsTrigger>
-              <TabsTrigger value="posts">
-                Posts {postResults.length > 0 && `(${postResults.length})`}
+              <TabsTrigger value="posts" className="text-sm">
+                Posts
               </TabsTrigger>
             </TabsList>
 
@@ -309,54 +369,39 @@ export default function Search() {
                 </div>
               ) : (
                 searchResults.map((cafe) => (
-                  <Card
+                  <div
                     key={cafe.id}
-                    className="cursor-pointer hover:shadow-md transition"
+                    className="coffee-card p-3 cursor-pointer coffee-interactive"
                     onClick={() => navigate(`/cafe/${cafe.placeId}`)}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex gap-4">
-                        <img
-                          src={cafe.photos?.[0] || "/placeholder.svg"}
-                          alt={cafe.name}
-                          className="w-16 h-16 rounded-lg object-cover"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-1">
-                            <h3 className="font-semibold truncate">{cafe.name}</h3>
-                            <div className="flex items-center gap-1 ml-2">
-                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm font-medium">
-                                {(cafe.googleRating || cafe.rating || 0).toFixed(1)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <MapPin className="w-3 h-3 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">
-                              {cafe.neighborhood || "Unknown"}
-                            </span>
-                            {(cafe as any).distance && (
-                              <span className="text-xs text-muted-foreground">
-                                • {((cafe as any).distance).toFixed(1)} mi
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {cafe.tags.slice(0, 3).map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="secondary"
-                                className="text-xs px-2 py-0 bg-accent/30 text-accent-foreground border-0"
-                              >
-                                #{tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
+                    <div className="flex items-center gap-3">
+                      {/* Emoji placeholder */}
+                      <div className="w-12 h-12 bg-gradient-to-br from-[#8b5a3c] to-[#6b4423] rounded-lg flex-shrink-0 flex items-center justify-center text-white text-xl shadow-lg">
+                        {getCafeEmoji(cafe.id || cafe.placeId)}
                       </div>
-                    </CardContent>
-                  </Card>
+                    
+                    {/* Cafe info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium truncate text-sm">
+                        {cafe.name.length > 30 ? `${cafe.name.substring(0, 30)}...` : cafe.name}
+                      </h3>
+                      <div className="flex items-center gap-1 mt-1">
+                        <MapPin className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          {cafe.neighborhood || "Unknown"}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Rating */}
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 coffee-star" />
+                      <span className="text-sm font-medium">
+                        {(cafe.googleRating || cafe.rating || 0).toFixed(1)}
+                      </span>
+                    </div>
+                    </div>
+                  </div>
                 ))
               )}
             </TabsContent>
@@ -394,7 +439,7 @@ export default function Search() {
                               {post.cafe?.name || "Unknown Cafe"}
                             </h3>
                             <div className="flex items-center gap-1 ml-2">
-                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                              <Star className="w-4 h-4 coffee-star" />
                               <span className="text-sm font-medium">{post.rating}</span>
                             </div>
                           </div>
@@ -434,3 +479,4 @@ export default function Search() {
     </AppLayout>
   );
 }
+

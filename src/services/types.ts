@@ -34,6 +34,8 @@ export interface Post {
   likes: number;
   comments: number;
   createdAt: string;
+  username?: string;
+  deviceId?: string;
   cafe?: Pick<Cafe, 'name' | 'neighborhood' | 'placeId'>;
 }
 
@@ -41,6 +43,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  username?: string;
   avatar?: string;
   createdAt: string;
 }
@@ -137,3 +140,24 @@ export const COFFEE_TAGS = [
   "pastries", "rooftop", "instagram-worthy", "pet-friendly", "outdoor-seating",
   "wifi", "quiet", "busy", "date-spot", "group-friendly", "drive-thru"
 ];
+
+// Favorites and Activity Types
+export interface Favorite {
+  id: string;
+  userId?: string;
+  deviceId?: string;
+  cafeId: string;
+  createdAt: string;
+}
+
+export type ActivityType = 'check-in' | 'review' | 'photo-upload' | 'favorite';
+
+export interface UserActivity {
+  id: string;
+  userId?: string;
+  username?: string;
+  activityType: ActivityType;
+  cafeId?: string;
+  createdAt: string;
+  metadata?: any;
+}

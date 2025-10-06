@@ -5,6 +5,8 @@ import { generateId, formatTimeAgo } from './utils';
 import { ImageOptimizationService } from './imageOptimizationService';
 import { MonitoringService } from './monitoringService';
 import { supabase } from '@/integrations/supabase/client';
+import { getUsername, getDeviceId } from './userService';
+import { logActivity } from './activityService';
 
 function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
   return {
@@ -154,44 +156,53 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
       }
     }
     
-    // Get current user (TODO: implement auth)
+    // Get current user and username
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
+    const deviceId = getDeviceId();
+    let username = null;
+    
+    // Get username (works for both authenticated and anonymous users)
+    const usernameRes = await getUsername();
+    username = usernameRes.success ? usernameRes.data : null;
 
-    // Get or create user profile
-    let { data: userProfile } = await supabase
-      .from('users')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .single();
-
-    if (!userProfile) {
-      // Create user profile if it doesn't exist
-      const { data: newProfile, error: profileError } = await supabase
+    // Get or create user profile (only for authenticated users)
+    let userProfile = null;
+    if (user) {
+      let { data: profile } = await supabase
         .from('users')
-        .insert({
-          auth_user_id: user.id,
-          name: user.user_metadata?.name || 'Anonymous User',
-          email: user.email || ''
-        })
         .select('id')
+        .eq('auth_user_id', user.id)
         .single();
 
-      if (profileError) throw new Error(profileError.message);
-      userProfile = newProfile;
+      if (!profile) {
+        // Create user profile if it doesn't exist
+        const { data: newProfile, error: profileError } = await supabase
+          .from('users')
+          .insert({
+            auth_user_id: user.id,
+            name: user.user_metadata?.name || 'Anonymous User',
+            email: user.email || ''
+          })
+          .select('id')
+          .single();
+
+        if (profileError) throw new Error(profileError.message);
+        profile = newProfile;
+      }
+      userProfile = profile;
     }
     
     // Create post data
     const postData = {
-      user_id: userProfile.id,
+      user_id: userProfile?.id || null,
       cafe_id: checkinData.cafeId,
       place_id: checkinData.placeId,
       image_url: imageUrl,
       rating: checkinData.rating,
       text_review: checkinData.review,
-      tags: checkinData.tags
+      tags: checkinData.tags,
+      username: username,
+      device_id: deviceId
     };
     
     const { data, error } = await supabase
@@ -226,6 +237,17 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
         placeId: data.cafes.place_id
       } : undefined
     };
+    
+    // Log activity
+    try {
+      await logActivity('check-in', checkinData.cafeId, { 
+        cafeName: data.cafes?.name,
+        rating: checkinData.rating,
+        hasImage: !!checkinData.imageFile
+      });
+    } catch (error) {
+      console.error('Failed to log activity:', error);
+    }
     
     return {
       data: newPost,

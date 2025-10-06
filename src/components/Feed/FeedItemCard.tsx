@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PostCard } from "./PostCard";
+import { getCafeEmoji } from "@/utils/emojiPlaceholders";
 
 interface FeedItemCardProps {
   item: FeedItem;
@@ -51,8 +52,8 @@ export function FeedItemCard({ item, onTagClick }: FeedItemCardProps) {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
-                <Coffee className="w-12 h-12 text-muted-foreground" />
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#8b5a3c] to-[#6b4423] text-white text-6xl rounded-lg shadow-lg">
+                {getCafeEmoji(cafe.id || cafe.placeId)}
               </div>
             )}
           </div>
@@ -62,7 +63,6 @@ export function FeedItemCard({ item, onTagClick }: FeedItemCardProps) {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              console.log('Cafe button clicked:', cafe.name); // Debug log
               navigate(`/cafe/${cafe.placeId}`);
             }}
             className="text-xl font-bold hover:text-primary transition-smooth text-left w-full mb-2"
@@ -79,7 +79,6 @@ export function FeedItemCard({ item, onTagClick }: FeedItemCardProps) {
                   className="cursor-pointer hover:bg-primary/20 transition-smooth bg-primary/10 text-primary border-0"
                   onClick={(e) => {
                     e.stopPropagation();
-                    console.log('Tag clicked:', tag); // Debug log
                     onTagClick?.(tag);
                   }}
                 >
@@ -119,7 +118,6 @@ export function FeedItemCard({ item, onTagClick }: FeedItemCardProps) {
             <Button
               onClick={(e) => {
                 e.stopPropagation();
-                console.log('Check in button clicked for:', cafe.name); // Debug log
                 navigate(`/checkin?cafeId=${cafe.placeId}`);
               }}
               className="w-full coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth"

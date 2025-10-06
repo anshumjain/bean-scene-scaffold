@@ -15,6 +15,7 @@ import { AppLayout } from "@/components/Layout/AppLayout";
 import { PostCard } from "@/components/Feed/PostCard";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { RadiusFilter } from "@/components/Filters/RadiusFilter";
+import { getCafeEmoji } from "@/utils/emojiPlaceholders";
 
 export default function Feed() {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ export default function Feed() {
   const [filters, setFilters] = useState<FilterState>({
     priceLevel: [],
     rating: 0,
-    distance: 25,
+    distance: 5, // Default to 5 miles as requested
     openNow: false,
     neighborhoods: [],
     sortBy: 'newest',
@@ -241,7 +242,7 @@ export default function Feed() {
     setFilters({
       priceLevel: [],
       rating: 0,
-      distance: 25,
+      distance: 5, // Reset to 5 miles default
       openNow: false,
       neighborhoods: [],
       sortBy: 'newest',
@@ -260,7 +261,6 @@ export default function Feed() {
 
   // Handle cafe navigation
   const handleCafeClick = (cafe: Cafe) => {
-    console.log('Cafe clicked:', cafe.name, cafe.placeId); // Debug log
     navigate(`/cafe/${cafe.placeId}`);
   };
 
@@ -292,21 +292,21 @@ export default function Feed() {
     <AppLayout>
       <div className="max-w-md mx-auto min-h-screen bg-background">
         {/* Header */}
-        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border p-4">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border p-4 pb-3">
+          <div className="flex items-center gap-3 mb-3">
             <h1 className="text-2xl font-bold">Explore</h1>
             <MapPin className="w-5 h-5 text-primary" />
           </div>
           
           {/* Search Bar */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 mb-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search cafes, neighborhoods..."
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-10 bg-muted/50 border-0"
+                className="pl-10 bg-muted/30 border-0 shadow-sm"
               />
             </div>
             <ExploreFilters
@@ -351,7 +351,7 @@ export default function Feed() {
 
         {/* Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-          <TabsList className="sticky top-[120px] z-30 w-full bg-background/95 backdrop-blur-md border-b border-border">
+          <TabsList className="sticky top-[140px] z-30 w-full bg-background/95 backdrop-blur-md border-b border-border mx-4 mt-2">
             <TabsTrigger value="posts" className="flex-1">Posts</TabsTrigger>
             <TabsTrigger value="cafes" className="flex-1">
               Cafes ({filteredCafes.length})
@@ -359,7 +359,7 @@ export default function Feed() {
           </TabsList>
 
           <TabsContent value="posts" className="mt-0">
-            <div className="p-4 space-y-6 pb-20">
+            <div className="p-4 space-y-4 pb-20">
               {error && (
                 <div className="text-center py-8">
                   <p className="text-destructive mb-4">{error}</p>
@@ -400,7 +400,8 @@ export default function Feed() {
                     textReview: post.textReview,
                     createdAt: new Date(post.createdAt).toLocaleString(),
                     likes: post.likes,
-                    comments: post.comments
+                    comments: post.comments,
+                    username: post.username
                   }} 
                 />
               ))}
@@ -416,7 +417,7 @@ export default function Feed() {
           </TabsContent>
 
           <TabsContent value="cafes" className="mt-0">
-            <div className="p-4 space-y-4 pb-20">
+            <div className="p-4 space-y-3 pb-20">
               {cafesLoading && (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -440,7 +441,7 @@ export default function Feed() {
               {filteredCafes.map((cafe) => (
                 <Card 
                   key={cafe.id}
-                  className="cursor-pointer hover:shadow-coffee transition-smooth shadow-warm border-0"
+                  className="cursor-pointer hover:shadow-coffee transition-smooth shadow-sm border border-border/50"
                   onClick={() => handleCafeClick(cafe)}
                 >
                   <CardContent className="p-4">
@@ -452,8 +453,8 @@ export default function Feed() {
                           className="w-20 h-20 rounded-lg object-cover"
                         />
                       ) : (
-                        <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center">
-                          <Grid className="w-8 h-8 text-muted-foreground" />
+                        <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-[#8b5a3c] to-[#6b4423] flex items-center justify-center text-white text-2xl shadow-lg">
+                          {getCafeEmoji(cafe.id || cafe.placeId)}
                         </div>
                       )}
                       
@@ -481,7 +482,7 @@ export default function Feed() {
 
                         {cafe.rating && (
                           <div className="flex items-center gap-1 mb-3">
-                            <span className="text-yellow-500">★</span>
+                            <span className="coffee-star">★</span>
                             <span className="text-sm font-medium">{cafe.rating}</span>
                             <span className="text-xs text-muted-foreground">Google</span>
                           </div>
@@ -492,7 +493,7 @@ export default function Feed() {
                             <Badge
                               key={tag}
                               variant="secondary"
-                              className="text-xs px-2 py-0 bg-primary/10 text-primary border-0"
+                              className="text-xs px-2 py-1 bg-primary/10 text-primary border-0 rounded-full"
                             >
                               #{tag}
                             </Badge>
@@ -500,7 +501,7 @@ export default function Feed() {
                           {cafe.tags.length > 2 && (
                             <Badge
                               variant="secondary"
-                              className="text-xs px-2 py-0 bg-muted/50 text-muted-foreground border-0"
+                              className="text-xs px-2 py-1 bg-muted/50 text-muted-foreground border-0 rounded-full"
                             >
                               +{cafe.tags.length - 2}
                             </Badge>

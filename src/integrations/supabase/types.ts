@@ -218,6 +218,7 @@ export type Database = {
           cafe_id: string
           comments: number
           created_at: string
+          device_id: string | null
           id: string
           image_url: string
           likes: number
@@ -227,11 +228,13 @@ export type Database = {
           text_review: string
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           cafe_id: string
           comments?: number
           created_at?: string
+          device_id?: string | null
           id?: string
           image_url: string
           likes?: number
@@ -241,11 +244,13 @@ export type Database = {
           text_review: string
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           cafe_id?: string
           comments?: number
           created_at?: string
+          device_id?: string | null
           id?: string
           image_url?: string
           likes?: number
@@ -255,6 +260,7 @@ export type Database = {
           text_review?: string
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: [
           {
@@ -312,6 +318,7 @@ export type Database = {
           id: string
           name: string
           updated_at: string
+          username: string | null
         }
         Insert: {
           auth_user_id?: string | null
@@ -321,6 +328,7 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string
+          username?: string | null
         }
         Update: {
           auth_user_id?: string | null
@@ -330,8 +338,93 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
+          username?: string | null
         }
         Relationships: []
+      }
+      favorites: {
+        Row: {
+          cafe_id: string
+          created_at: string
+          device_id: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          cafe_id: string
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          cafe_id?: string
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_cafe_id_fkey"
+            columns: ["cafe_id"]
+            isOneToOne: false
+            referencedRelation: "cafes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      user_activities: {
+        Row: {
+          activity_type: string
+          cafe_id: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          user_id: string | null
+          username: string | null
+        }
+        Insert: {
+          activity_type: string
+          cafe_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Update: {
+          activity_type?: string
+          cafe_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_activities_cafe_id_fkey"
+            columns: ["cafe_id"]
+            isOneToOne: false
+            referencedRelation: "cafes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       validation_logs: {
         Row: {

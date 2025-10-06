@@ -1,3 +1,6 @@
+/* Import Coffee Theme */
+@import './styles/coffee-theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

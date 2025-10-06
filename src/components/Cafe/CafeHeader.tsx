@@ -6,6 +6,7 @@ import { CafePhotoUpload } from "@/components/Cafe/CafePhotoUpload"; // Correct 
 import { ParkingInfoComponent } from "@/components/Cafe/ParkingInfo";
 import { WeatherWidget } from "@/components/Cafe/WeatherWidget";
 import { useToast } from "@/hooks/use-toast";
+import { getCafeEmoji } from "@/utils/emojiPlaceholders";
 
 interface CafeHeaderProps {
   cafe: {
@@ -162,11 +163,12 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
           </div>
         </div>
       ) : (
-        // Fallback gradient background if no ID (shouldn't happen in practice)
-        <div className="relative h-32 -mx-6 -mt-6 bg-gradient-to-br from-primary/20 via-primary/10 to-accent/20 flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-foreground mb-1">{cafe.name}</h1>
-            <div className="flex items-center gap-2 text-muted-foreground justify-center">
+        // Fallback emoji placeholder if no ID (shouldn't happen in practice)
+        <div className="relative h-48 -mx-6 -mt-6 bg-gradient-to-br from-[#8b5a3c] to-[#6b4423] flex items-center justify-center">
+          <div className="text-center text-white">
+            <div className="text-8xl mb-4">{getCafeEmoji(cafe.id || cafe.placeId || cafe.name)}</div>
+            <h1 className="text-2xl font-bold mb-1">{cafe.name}</h1>
+            <div className="flex items-center gap-2 text-white/90 justify-center">
               <MapPin className="w-4 h-4" />
               <span className="text-sm">{cafe.neighborhood}</span>
             </div>

@@ -184,8 +184,6 @@ export async function fetchNearbyCafes(
  */
 export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
   try {
-    console.log('Starting Google Places sync via server API...');
-    
     // Call the server-side API route
     const response = await fetch('/api/seed-cafes', {
       method: 'POST',
@@ -200,8 +198,6 @@ export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
     if (!response.ok) {
       throw new Error(result.error || 'Failed to sync cafes');
     }
-    
-    console.log(`Sync completed via server API. Result:`, result);
     
     return {
       data: result.result?.totalSynced || 0,
@@ -227,8 +223,6 @@ export async function syncGooglePlacesCafes(): Promise<ApiResponse<number>> {
  */
 export async function fixExistingCafePhotos(): Promise<ApiResponse<number>> {
   try {
-    console.log('🔍 Starting photo migration via server API...');
-    
     // Call the server-side API route
     const response = await fetch('/api/fix-cafe-photos', {
       method: 'POST',
@@ -243,8 +237,6 @@ export async function fixExistingCafePhotos(): Promise<ApiResponse<number>> {
     if (!response.ok) {
       throw new Error(result.error || 'Failed to fix cafe photos');
     }
-    
-    console.log(`🎉 Photo migration completed via server API. Result:`, result);
     
     return {
       data: result.fixedCount || 0,

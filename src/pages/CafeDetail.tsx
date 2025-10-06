@@ -11,6 +11,8 @@ import { PostCard } from "@/components/Feed/PostCard";
 import { fetchCafeDetails } from "@/services/cafeService";
 import { fetchCafePostsById } from "@/services/postService";
 import { addToRecentlyViewed } from "@/pages/RecentlyViewed";
+import { addFavorite, removeFavorite, isFavorited } from "@/services/favoritesService";
+import { logActivity } from "@/services/activityService";
 import { toast } from "@/hooks/use-toast";
 import type { Cafe, Post } from "@/services/types";
 
@@ -22,6 +24,8 @@ export default function CafeDetail() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFavoritedState, setIsFavoritedState] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   // Load cafe details and posts
   const loadCafeData = useCallback(async () => {
@@ -42,6 +46,11 @@ export default function CafeDetail() {
 
       if (cafeResult.success && cafeResult.data) {
         setCafe(cafeResult.data);
+        // Check if cafe is favorited
+        const favoriteResult = await isFavorited(cafeResult.data.id);
+        if (favoriteResult.success) {
+          setIsFavoritedState(favoriteResult.data);
+        }
       } else {
         setError(cafeResult.error || "Cafe not found");
         return;
@@ -85,6 +94,56 @@ export default function CafeDetail() {
       });
     }
   }, [cafe]);
+
+  // Handle favorite toggle
+  const handleFavoriteToggle = async () => {
+    if (!cafe || favoriteLoading) return;
+    
+    setFavoriteLoading(true);
+    try {
+      if (isFavoritedState) {
+        const result = await removeFavorite(cafe.id);
+        if (result.success) {
+          setIsFavoritedState(false);
+          toast({
+            title: "Removed from favorites",
+            description: `${cafe.name} has been removed from your favorites`
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to remove favorite",
+            variant: "destructive"
+          });
+        }
+      } else {
+        const result = await addFavorite(cafe.id);
+        if (result.success) {
+          setIsFavoritedState(true);
+          toast({
+            title: "Added to favorites",
+            description: `${cafe.name} has been added to your favorites`
+          });
+          // Log activity
+          await logActivity('favorite', cafe.id, { cafeName: cafe.name });
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to add favorite",
+            variant: "destructive"
+          });
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update favorite",
+        variant: "destructive"
+      });
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -135,8 +194,14 @@ export default function CafeDetail() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <Heart className="w-5 h-5" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full"
+                onClick={handleFavoriteToggle}
+                disabled={favoriteLoading}
+              >
+                <Heart className={`w-5 h-5 ${isFavoritedState ? 'fill-red-500 text-red-500' : ''}`} />
               </Button>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Share2 className="w-5 h-5" />
@@ -196,7 +261,8 @@ export default function CafeDetail() {
                     textReview: post.textReview || "",
                     createdAt: new Date(post.createdAt).toLocaleString(),
                     likes: post.likes || 0,
-                    comments: post.comments || 0
+                    comments: post.comments || 0,
+                    username: post.username
                   }} 
                 />
               ))

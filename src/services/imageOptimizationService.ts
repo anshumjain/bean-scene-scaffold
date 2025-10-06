@@ -17,7 +17,7 @@ interface OptimizedImage {
 
 /**
  * Placeholder image optimization service
- * TODO: Replace with real Cloudinary integration
+ * Note: This will be replaced with real Cloudinary integration
  */
 export class ImageOptimizationService {
   private static mockOptimizedUrls = [

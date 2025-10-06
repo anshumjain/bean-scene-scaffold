@@ -1,19 +1,18 @@
 import { useState, useEffect } from "react";
-import { Camera, MapPin, Star, Plus, X, Loader2 } from "lucide-react";
+import { Camera, MapPin, Star, Plus, X, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppLayout } from "@/components/Layout/AppLayout";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { fetchNearbyCafes } from "@/services/cafeService";
-import { submitCheckin } from "@/services/postService";
-import { getCurrentLocation, formatDistance } from "@/services/utils";
-import type { Cafe } from "@/services/types";
-import { useLocation } from "react-router-dom";
 import { fetchCafes } from "@/services/cafeService";
+import { submitCheckin } from "@/services/postService";
+import { getCurrentLocation } from "@/services/utils";
+import { getNearbyCafes, formatDistance } from "@/utils/distanceUtils";
+import type { Cafe } from "@/services/types";
 
 const predefinedTags = [
   "latte-art", "cozy-vibes", "laptop-friendly", "third-wave", "cold-brew",
@@ -31,14 +30,13 @@ export default function CheckIn() {
   const [customTag, setCustomTag] = useState("");
   const [review, setReview] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [nearbyCafes, setNearbyCafes] = useState<Cafe[]>([]);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [nearbyCafes, setNearbyCafes] = useState<(Cafe & { distance: number })[]>([]);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isLoadingCafes, setIsLoadingCafes] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fallbackCafes, setFallbackCafes] = useState<Cafe[]>([]);
-  const [locationPermissionError, setLocationPermissionError] = useState<string | null>(null);
+  const [allCafes, setAllCafes] = useState<Cafe[]>([]);
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags(prev => 
@@ -68,91 +66,67 @@ export default function CheckIn() {
     return params.get(param);
   }
 
-  // Fallback: fetch popular cafes (top 10 by rating)
-  const fetchPopularCafes = async () => {
+  // Load all cafes for distance calculation
+  const loadAllCafes = async () => {
     const result = await fetchCafes({});
     if (result.success && result.data) {
-      // Sort by googleRating or rating, take top 10
-      const sorted = [...result.data].sort((a, b) =>
-        (b.googleRating || b.rating || 0) - (a.googleRating || a.rating || 0)
-      );
-      setFallbackCafes(sorted.slice(0, 10));
+      setAllCafes(result.data);
     }
   };
 
-  // Robust geolocation with permissions
+  // Strict geo-only location request
   const requestLocation = async () => {
     setIsLoadingLocation(true);
     setLocationError(null);
+    setNearbyCafes([]);
+    
     try {
-      if (navigator.permissions) {
-        const perm = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-        if (perm.state === 'denied') {
-          setLocationError("Location permission denied. Showing popular Houston cafes.");
-          setIsLoadingLocation(false);
-          await fetchPopularCafes();
-          return;
-        }
-      }
       const position = await getCurrentLocation();
       const { latitude, longitude } = position.coords;
       setUserLocation({ lat: latitude, lng: longitude });
+      
+      // Calculate distances and get 10 closest cafes
       setIsLoadingCafes(true);
-      const result = await fetchNearbyCafes(latitude, longitude, 2);
-      if (result.success && result.data && result.data.length > 0) {
-        setNearbyCafes(result.data);
+      const nearby = getNearbyCafes(latitude, longitude, allCafes, 50, 10);
+      
+      if (nearby.length > 0) {
+        setNearbyCafes(nearby);
+        setLocationError(null);
       } else {
-        setLocationError("No nearby cafes found. Showing popular Houston cafes.");
-        await fetchPopularCafes();
+        setLocationError("No nearby cafes found.");
+        setNearbyCafes([]);
       }
     } catch (error: any) {
-      setLocationError("Enable location to find what's brewing nearby. Showing popular Houston cafes.");
-      await fetchPopularCafes();
+      setLocationError("No nearby cafes found.");
+      setNearbyCafes([]);
+      setUserLocation(null);
     } finally {
       setIsLoadingLocation(false);
       setIsLoadingCafes(false);
     }
   };
 
-  // On mount: request location, auto-select cafe if coming from detail page
+  // On mount: load cafes first, then request location
   useEffect(() => {
-    const autoSelectFromQuery = async () => {
-      const cafeId = getQueryParam('cafeId');
-      const placeId = getQueryParam('placeId');
-      await requestLocation();
-      // After cafes loaded, auto-select if present
-      setTimeout(() => {
-        if (cafeId && placeId) {
-          setSelectedCafe(cafeId);
-        }
-      }, 500);
+    const initializeCheckIn = async () => {
+      await loadAllCafes();
+      // Don't auto-request location - user must click "Select Cafe" button
     };
-    autoSelectFromQuery();
-    // eslint-disable-next-line
+    initializeCheckIn();
   }, []);
 
-  const calculateDistance = (cafe: Cafe): string => {
-    if (!userLocation) return "";
-    const lat1 = userLocation.lat;
-    const lng1 = userLocation.lng;
-    const lat2 = parseFloat(cafe.latitude.toString());
-    const lng2 = parseFloat(cafe.longitude.toString());
-    
-    const R = 3959; // Earth's radius in miles
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLng = (lng2 - lng1) * (Math.PI / 180);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-              Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
-    
-    return formatDistance(distance);
-  };
+  // Auto-select cafe if coming from detail page
+  useEffect(() => {
+    const cafeId = getQueryParam('cafeId');
+    const placeId = getQueryParam('placeId');
+    if (cafeId && placeId && nearbyCafes.length > 0) {
+      setSelectedCafe(cafeId);
+    }
+  }, [nearbyCafes]);
+
 
   const handleSubmit = async () => {
     if (!selectedCafe || !rating || !imageFile) return;
-    setLocationPermissionError(null);
     setIsSubmitting(true);
     let coords: { latitude: number; longitude: number } | null = null;
     try {
@@ -163,12 +137,16 @@ export default function CheckIn() {
         longitude: position.coords.longitude,
       };
     } catch (error: any) {
-      setLocationPermissionError("Location permission denied or unavailable. Please enable location and try again.");
+      toast({
+        title: "Error",
+        description: "Location permission denied or unavailable. Please enable location and try again.",
+        variant: "destructive"
+      });
       setIsSubmitting(false);
       return;
     }
     try {
-      const selectedCafeData = nearbyCafes.find(cafe => cafe.id === selectedCafe) || fallbackCafes.find(cafe => cafe.id === selectedCafe);
+      const selectedCafeData = nearbyCafes.find(cafe => cafe.id === selectedCafe);
       if (!selectedCafeData) {
         toast({
           title: "Error",
@@ -230,20 +208,34 @@ export default function CheckIn() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {isLoadingLocation ? (
+              {!userLocation && !isLoadingLocation && !locationError ? (
+                <div className="text-center py-8">
+                  <MapPin className="w-12 h-12 mx-auto mb-3 coffee-location-pin" />
+                  <p className="text-sm text-muted-foreground mb-4">Find cafes near your location</p>
+                  <Button 
+                    onClick={requestLocation}
+                    className="coffee-button"
+                  >
+                    <MapPin className="w-4 h-4 mr-2" />
+                    Select Cafe
+                  </Button>
+                </div>
+              ) : isLoadingLocation ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   <span className="ml-2 text-sm text-muted-foreground">Getting your location...</span>
                 </div>
               ) : locationError ? (
                 <div className="text-center py-8">
-                  <MapPin className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                  <MapPin className="w-12 h-12 mx-auto mb-3 coffee-location-pin" />
                   <p className="text-sm text-muted-foreground mb-4">{locationError}</p>
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={requestLocation}
+                    className="coffee-interactive"
                   >
+                    <RefreshCw className="w-4 h-4 mr-2" />
                     Try Again
                   </Button>
                 </div>
@@ -268,41 +260,16 @@ export default function CheckIn() {
                         <h3 className="font-medium">{cafe.name}</h3>
                         <p className="text-sm text-muted-foreground">{cafe.neighborhood}</p>
                       </div>
-                      <span className="text-xs text-muted-foreground">{calculateDistance(cafe)}</span>
+                      <span className="text-xs text-muted-foreground">{formatDistance(cafe.distance)}</span>
                     </div>
                     <Button onClick={() => navigate(`/checkin?cafeId=${cafe.id}&placeId=${cafe.placeId}`)} className="flex-1 coffee-gradient text-white mt-2">
                       Check In Here
                     </Button>
                   </div>
                 ))
-              ) : fallbackCafes.length > 0 ? (
-                <>
-                  <div className="text-center text-muted-foreground mb-2">Popular Houston Cafes</div>
-                  {fallbackCafes.map((cafe) => (
-                    <div
-                      key={cafe.id}
-                      onClick={() => setSelectedCafe(cafe.id)}
-                      className={`p-3 rounded-lg border cursor-pointer transition-smooth ${
-                        selectedCafe === cafe.id
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h3 className="font-medium">{cafe.name}</h3>
-                          <p className="text-sm text-muted-foreground">{cafe.neighborhood}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{cafe.googleRating || cafe.rating || ''}★</span>
-                      </div>
-                      <Button onClick={() => navigate(`/checkin?cafeId=${cafe.id}&placeId=${cafe.placeId}`)} className="flex-1 coffee-gradient text-white mt-2">
-                        Check In Here
-                      </Button>
-                    </div>
-                  ))}
-                </>
               ) : (
                 <div className="text-center py-8">
+                  <MapPin className="w-12 h-12 mx-auto mb-3 coffee-location-pin" />
                   <p className="text-sm text-muted-foreground">No nearby cafes found</p>
                 </div>
               ))}
@@ -446,14 +413,6 @@ export default function CheckIn() {
           </Card>
 
           {/* Submit Button */}
-          {locationPermissionError && (
-            <div className="text-center text-red-500 text-sm mb-2">
-              {locationPermissionError}
-              <Button variant="outline" size="sm" className="ml-2" onClick={requestLocation}>
-                Try Again
-              </Button>
-            </div>
-          )}
           <Button
             onClick={handleSubmit}
             disabled={!selectedCafe || !rating || !imageFile || isSubmitting}

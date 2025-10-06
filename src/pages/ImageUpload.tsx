@@ -106,7 +106,7 @@ export default function ImageUpload() {
           body: JSON.stringify({
             cafeId: cafe.id,
             photoUrl: uploadedUrl,
-            uploadedBy: 'current-user' // TODO: Get from auth context
+            uploadedBy: 'current-user' // Note: Will be replaced with actual user ID from auth context
           })
         });
 

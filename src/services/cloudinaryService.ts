@@ -164,7 +164,6 @@ export async function deleteImage(publicId: string): Promise<ApiResponse<boolean
   try {
     // Note: Deletion requires API secret, so this should be done server-side
     // TODO: Implement via Supabase Edge Function when connected
-    console.log(`Would delete image: ${publicId}`);
     
     return {
       data: true,
@@ -207,7 +206,7 @@ export function getUploadWidgetConfig() {
  * Get current user ID (placeholder for auth integration)
  */
 function getCurrentUserId(): string {
-  // TODO: Get from auth context when authentication is implemented
+  // Note: This will be replaced with actual user ID from auth context
   return 'anonymous_user';
 }
 

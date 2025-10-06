@@ -3,8 +3,8 @@ import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { icon: Home, label: "Origins", href: "home" },
-  { icon: Search, label: "Explore", href: "Search" },
+  { icon: Home, label: "Origins", href: "/home" },
+  { icon: Search, label: "Explore", href: "/explore" },
   { icon: Plus, label: "Share", href: "/share" },
   { icon: Heart, label: "Moments", href: "/moments" },
   { icon: User, label: "Profile", href: "/profile" },
@@ -12,7 +12,7 @@ const navItems = [
 
 export function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border shadow-warm">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 coffee-bottom-nav">
       <div className="flex items-center justify-around h-16 max-w-md mx-auto px-4">
         {navItems.map(({ icon: Icon, label, href }) => (
           <NavLink
@@ -20,10 +20,10 @@ export function BottomNav() {
             to={href}
             className={({ isActive }) =>
               cn(
-                "flex flex-col items-center gap-1 p-2 rounded-lg transition-smooth min-w-0",
+                "flex flex-col items-center gap-1 p-2 rounded-lg transition-smooth min-w-0 coffee-nav-item",
                 isActive
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "coffee-nav-active bg-primary/10"
+                  : "coffee-nav-inactive hover:bg-muted/50"
               )
             }
           >
