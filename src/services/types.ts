@@ -14,6 +14,7 @@ export interface Cafe {
   phoneNumber?: string;
   website?: string;
   openingHours?: string[];
+  parkingInfo?: string;
   photos?: string[];
   heroPhotoUrl?: string;
   tags: string[];

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Filter, X, DollarSign, Star, Clock, MapPin, Navigation, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Filter, X, DollarSign, Star, Clock, MapPin, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -16,38 +16,46 @@ export interface FilterState {
   distance: number;
   openNow: boolean;
   neighborhoods: string[];
-  sortBy: 'distance' | 'rating' | 'price' | 'name' | 'newest';
-  sortOrder: 'asc' | 'desc';
 }
 
 interface ExploreFiltersProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   onClearFilters: () => void;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  userLocation?: { latitude: number; longitude: number } | null;
+  onRequestLocation?: () => void;
+  isRequestingLocation?: boolean;
 }
 
 export function ExploreFilters({ 
   filters, 
   onFiltersChange, 
-  onClearFilters
+  onClearFilters,
+  isOpen: externalIsOpen,
+  onOpenChange: externalOnOpenChange,
+  userLocation,
+  onRequestLocation,
+  isRequestingLocation = false
 }: ExploreFiltersProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = externalOnOpenChange || setInternalIsOpen;
 
   const hasActiveFilters = 
     filters.priceLevel.length > 0 ||
     filters.rating > 0 ||
     filters.distance < 25 ||
     filters.openNow ||
-    filters.neighborhoods.length > 0 ||
-    filters.sortBy !== 'newest';
+    filters.neighborhoods.length > 0;
 
   const activeFilterCount = 
     (filters.priceLevel.length > 0 ? 1 : 0) +
     (filters.rating > 0 ? 1 : 0) +
     (filters.distance < 25 ? 1 : 0) +
     (filters.openNow ? 1 : 0) +
-    (filters.neighborhoods.length > 0 ? 1 : 0) +
-    (filters.sortBy !== 'newest' ? 1 : 0);
+    (filters.neighborhoods.length > 0 ? 1 : 0);
 
   const renderPriceLevel = (level: number, isSelected: boolean) => {
     return Array.from({ length: 4 }, (_, i) => (
@@ -74,103 +82,97 @@ export function ExploreFilters({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetTrigger asChild>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="flex-shrink-0 relative"
-          >
-            <Filter className="w-4 h-4" />
-            {hasActiveFilters && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold">
-                {activeFilterCount}
+      <SheetContent side="right" className="w-full sm:max-w-lg bg-gradient-to-b from-[#faf8f5] to-[#f5efe8] flex flex-col">
+          <SheetHeader className="pb-4 border-b border-[#d9cdb8] flex-shrink-0">
+            <SheetTitle className="flex items-center justify-between text-[#4a3728] text-lg">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-[#8b5a3c]" />
+                <span>Filter & Sort</span>
               </div>
-            )}
-          </Button>
-        </SheetTrigger>
-        
-        <SheetContent side="right" className="w-full sm:max-w-md">
-          <SheetHeader className="pb-6">
-            <SheetTitle className="flex items-center justify-between">
-              Filter Cafes
               {hasActiveFilters && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={onClearFilters}
-                  className="text-muted-foreground"
+                  className="text-[#8b5a3c] hover:bg-[#d9cdb8]/50 text-sm"
                 >
                   Clear All
                 </Button>
               )}
             </SheetTitle>
+            <SheetDescription className="text-[#8b5a3c] text-sm">
+              Filter cafes by distance, price, rating, and more.
+            </SheetDescription>
           </SheetHeader>
 
-          <div className="space-y-6">
-            {/* Sort By */}
-            <div>
-              <Label className="text-sm font-medium mb-3 block">Sort By</Label>
-              <div className="flex gap-2">
-                <Select
-                  value={filters.sortBy}
-                  onValueChange={(value: any) => onFiltersChange({ ...filters, sortBy: value })}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest</SelectItem>
-                    <SelectItem value="rating">Rating</SelectItem>
-                    <SelectItem value="distance">Distance</SelectItem>
-                    <SelectItem value="price">Price</SelectItem>
-                    <SelectItem value="name">Name</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => onFiltersChange({ 
-                    ...filters, 
-                    sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc' 
-                  })}
-                >
-                  {filters.sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
+          <div className="flex-1 pt-3">
+            <div className="space-y-4 pb-4">
 
             {/* Distance Filter */}
-            <div>
-              <Label className="text-sm font-medium mb-3 block">
-                Distance: {filters.distance < 25 ? `${filters.distance} miles` : "Show All"}
+            <div className="bg-white/60 rounded-lg p-3 border border-[#d9cdb8]/50">
+              <Label className="text-sm font-semibold mb-2 block text-[#4a3728] flex items-center gap-2">
+                <MapPin className="w-3 h-3 text-[#8b5a3c]" />
+                Distance: {filters.distance < 25 ? `${filters.distance} mi` : "All"}
               </Label>
-              <div className="px-3">
-                <Slider
-                  value={[filters.distance]}
-                  onValueChange={([value]) => onFiltersChange({ ...filters, distance: value })}
-                  max={25}
-                  min={1}
-                  step={1}
-                  className="w-full"
-                />
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>1 mi</span>
-                <span>Show All</span>
-              </div>
+              
+              {!userLocation ? (
+                <div className="text-center py-2">
+                  <Button
+                    onClick={onRequestLocation}
+                    disabled={isRequestingLocation}
+                    className="bg-[#8b5a3c] hover:bg-[#6b4423] text-white text-xs px-3 py-1.5 h-auto"
+                  >
+                    {isRequestingLocation ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                        Getting Location...
+                      </>
+                    ) : (
+                      <>
+                        <Navigation className="w-3 h-3 mr-1" />
+                        Enable Location
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="px-2">
+                    <Slider
+                      value={[filters.distance]}
+                      onValueChange={([value]) => onFiltersChange({ ...filters, distance: value })}
+                      max={25}
+                      min={1}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-[#8b5a3c] mt-1 font-medium">
+                    <span>1 mi</span>
+                    <span>All</span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Price Level */}
-            <div>
-              <Label className="text-sm font-medium mb-3 block">Price Level</Label>
-              <div className="flex gap-2">
+            <div className="bg-white/60 rounded-lg p-3 border border-[#d9cdb8]/50">
+              <Label className="text-sm font-semibold mb-2 block text-[#4a3728] flex items-center gap-2">
+                <DollarSign className="w-3 h-3 text-[#8b5a3c]" />
+                Price Level
+              </Label>
+              <div className="flex gap-1.5">
                 {[1, 2, 3, 4].map((level) => (
                   <Button
                     key={level}
                     variant={filters.priceLevel.includes(level) ? "default" : "outline"}
                     size="sm"
                     onClick={() => togglePriceLevel(level)}
-                    className="flex items-center gap-1 h-10"
+                    className={`flex items-center gap-1 h-8 text-xs ${
+                      filters.priceLevel.includes(level) 
+                        ? "bg-[#8b5a3c] hover:bg-[#6b4423] text-white" 
+                        : "bg-white border-[#d9cdb8] hover:bg-[#f5efe8] hover:border-[#8b5a3c] text-[#4a3728]"
+                    }`}
                   >
                     {renderPriceLevel(level, filters.priceLevel.includes(level))}
                   </Button>
@@ -179,11 +181,12 @@ export function ExploreFilters({
             </div>
 
             {/* Rating */}
-            <div>
-              <Label className="text-sm font-medium mb-3 block">
-                Minimum Rating: {filters.rating > 0 ? filters.rating.toFixed(1) : "Any"}
+            <div className="bg-white/60 rounded-lg p-3 border border-[#d9cdb8]/50">
+              <Label className="text-sm font-semibold mb-2 block text-[#4a3728] flex items-center gap-2">
+                <Star className="w-3 h-3 text-[#8b5a3c]" />
+                Rating: {filters.rating > 0 ? filters.rating.toFixed(1) : "Any"}
               </Label>
-              <div className="px-3">
+              <div className="px-2">
                 <Slider
                   value={[filters.rating]}
                   onValueChange={([value]) => onFiltersChange({ ...filters, rating: value })}
@@ -193,32 +196,36 @@ export function ExploreFilters({
                   className="w-full"
                 />
               </div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <div className="flex justify-between text-xs text-[#8b5a3c] mt-1 font-medium">
                 <span>Any</span>
-                <span>5.0</span>
+                <span>5.0 ⭐</span>
               </div>
             </div>
 
             {/* Open Now */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <Label htmlFor="open-now" className="text-sm font-medium">Open Now</Label>
+            <div className="bg-white/60 rounded-lg p-3 border border-[#d9cdb8]/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3 h-3 text-[#8b5a3c]" />
+                  <Label htmlFor="open-now" className="text-sm font-semibold text-[#4a3728]">Open Now</Label>
+                </div>
+                <Switch
+                  id="open-now"
+                  checked={filters.openNow}
+                  onCheckedChange={(checked) => onFiltersChange({ ...filters, openNow: checked })}
+                />
               </div>
-              <Switch
-                id="open-now"
-                checked={filters.openNow}
-                onCheckedChange={(checked) => onFiltersChange({ ...filters, openNow: checked })}
-              />
+            </div>
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t">
+          {/* Apply Filters Button - Fixed at bottom */}
+          <div className="mt-4 pt-3 border-t border-[#d9cdb8] flex-shrink-0">
             <Button
               onClick={() => setIsOpen(false)}
-              className="w-full coffee-gradient text-white"
+              className="w-full bg-gradient-to-r from-[#8b5a3c] to-[#6b4423] hover:from-[#6b4423] hover:to-[#4a3728] text-white font-semibold py-2 rounded-lg shadow-lg text-sm"
             >
-              Apply Filters
+              ✨ Apply Filters
             </Button>
           </div>
         </SheetContent>
@@ -230,8 +237,7 @@ export function ExploreFilters({
           {filters.priceLevel.map((level) => (
             <Badge
               key={`price-${level}`}
-              variant="secondary"
-              className="flex items-center gap-1 text-xs"
+              className="flex items-center gap-1 text-xs bg-[#8b5a3c] text-white hover:bg-[#6b4423]"
             >
               {renderPriceLevel(level, true)}
               <Button
@@ -246,7 +252,7 @@ export function ExploreFilters({
           ))}
           
           {filters.rating > 0 && (
-            <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+            <Badge className="flex items-center gap-1 text-xs bg-[#8b5a3c] text-white hover:bg-[#6b4423]">
               <Star className="w-3 h-3" />
               {filters.rating.toFixed(1)}+
               <Button
@@ -261,7 +267,7 @@ export function ExploreFilters({
           )}
           
           {filters.distance < 25 && (
-            <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+            <Badge className="flex items-center gap-1 text-xs bg-[#8b5a3c] text-white hover:bg-[#6b4423]">
               <MapPin className="w-3 h-3" />
               {filters.distance} mi
               <Button
@@ -276,23 +282,9 @@ export function ExploreFilters({
           )}
 
 
-          {filters.sortBy !== 'newest' && (
-            <Badge variant="secondary" className="flex items-center gap-1 text-xs">
-              <ArrowUpDown className="w-3 h-3" />
-              {filters.sortBy}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-4 w-4 p-0 hover:bg-transparent"
-                onClick={() => onFiltersChange({ ...filters, sortBy: 'newest' })}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </Badge>
-          )}
           
           {filters.openNow && (
-            <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+            <Badge className="flex items-center gap-1 text-xs bg-[#8b5a3c] text-white hover:bg-[#6b4423]">
               <Clock className="w-3 h-3" />
               Open Now
               <Button

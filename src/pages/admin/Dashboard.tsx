@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { LogOut, Database, TrendingUp, MapPin, AlertCircle, Users, Activity, BarChart3, MessageSquare, Mail, Calendar, Filter } from 'lucide-react';
 import { getEngagementMetrics, getDailyActiveUsers, getMonthlyActiveUsers, getUserGrowth, EngagementMetrics, DailyActiveUsers, UserGrowth } from '@/services/analyticsService';
+import { fetchCafes } from '@/services/cafeService';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   AlertDialog,
@@ -119,20 +120,21 @@ export default function AdminDashboard() {
     setIsLoadingStats(true);
     try {
       const [cafesResult, reviewsResult] = await Promise.all([
-        supabase.from('cafes').select('opening_hours, parking_info, phone_number, website'),
+        fetchCafes(), // Use fetchCafes to get all cafes
         supabase.from('cafe_reviews').select('id', { count: 'exact' }),
       ]);
 
-      if (cafesResult.data) {
+      if (cafesResult.success && cafesResult.data) {
+        console.log(`Admin Dashboard: Fetched ${cafesResult.data.length} cafes`);
         const cafesNeedingEnrichment = cafesResult.data.filter(
-          c => !c.opening_hours || !c.opening_hours.length
+          c => !c.openingHours || !c.openingHours.length
         ).length;
 
         setStats({
           totalCafes: cafesResult.data.length,
-          cafesWithHours: cafesResult.data.filter(c => c.opening_hours?.length).length,
-          cafesWithParking: cafesResult.data.filter(c => c.parking_info).length,
-          cafesWithPhone: cafesResult.data.filter(c => c.phone_number).length,
+          cafesWithHours: cafesResult.data.filter(c => c.openingHours?.length).length,
+          cafesWithParking: cafesResult.data.filter(c => c.parkingInfo).length,
+          cafesWithPhone: cafesResult.data.filter(c => c.phoneNumber).length,
           cafesWithWebsite: cafesResult.data.filter(c => c.website).length,
           totalReviews: reviewsResult.count || 0,
           cafesNeedingEnrichment,

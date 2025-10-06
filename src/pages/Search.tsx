@@ -10,11 +10,11 @@ import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters
 import { useNavigate } from "react-router-dom";
 import { fetchCafes } from "@/services/cafeService";
 import { Cafe, Post } from "@/services/types";
-import { debounce } from "@/services/utils";
+import { debounce, getCurrentLocation } from "@/services/utils";
+import { calculateDistance } from "@/utils/distanceUtils";
 import { toast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
 
-type SortOption = "rating" | "distance" | "price" | "name";
 
 const popularTags = [
   "latte-art", "cozy-vibes", "laptop-friendly", "third-wave",
@@ -29,8 +29,13 @@ interface UserLocation {
 export default function Search() {
   const navigate = useNavigate();
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState(() => {
+    return localStorage.getItem('explore-search-query') || '';
+  });
+  const [selectedTags, setSelectedTags] = useState<string[]>(() => {
+    const saved = localStorage.getItem('explore-selected-tags');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [activeTab, setActiveTab] = useState("cafes");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -40,21 +45,31 @@ export default function Search() {
 
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<SortOption>("rating");
 
   // Location
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationError, setLocationError] = useState("");
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
 
-  // Filters
-  const [filters, setFilters] = useState<FilterState>({
-    priceLevel: [],
-    rating: 0,
-    distance: 25,
-    openNow: false,
-    neighborhoods: [],
-    sortBy: 'rating',
-    sortOrder: 'desc'
+  // Filters - with persistence
+  const [filters, setFilters] = useState<FilterState>(() => {
+    // Try to load filters from localStorage
+    const savedFilters = localStorage.getItem('explore-filters');
+    if (savedFilters) {
+      try {
+        return JSON.parse(savedFilters);
+      } catch (error) {
+        console.error('Error parsing saved filters:', error);
+      }
+    }
+    // Default filters
+    return {
+      priceLevel: [],
+      rating: 0,
+      distance: 25,
+      openNow: false,
+      neighborhoods: []
+    };
   });
 
   /** Load cafes on mount */
@@ -65,7 +80,7 @@ export default function Search() {
         const result = await fetchCafes();
         if (result.success) {
           setAllCafes(result.data);
-          setSearchResults(result.data);
+          // Don't set searchResults directly - let updateResults handle it
         } else {
           toast({
             title: "Error loading cafes",
@@ -83,33 +98,57 @@ export default function Search() {
     loadAllCafes();
   }, []);
 
-  /** Sort logic */
-  const sortCafes = (cafes: Cafe[], option: SortOption): Cafe[] => {
-    const sorted = [...cafes];
-    switch (option) {
-      case "rating":
-        return sorted.sort(
-          (a, b) =>
-            (b.googleRating || b.rating || 0) -
-            (a.googleRating || a.rating || 0)
-        );
-      case "distance":
-        if (userLocation) {
-          return sorted.sort(
-            (a, b) =>
-              ((a as any).distance || 0) - ((b as any).distance || 0)
+  /** Update results when allCafes changes */
+  useEffect(() => {
+    if (allCafes.length > 0) {
+      // Inline the updateResults logic to avoid circular dependencies
+      try {
+        let results = allCafes;
+
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase();
+          results = results.filter(
+            (cafe) =>
+              cafe.name.toLowerCase().includes(query) ||
+              (cafe.neighborhood &&
+                cafe.neighborhood.toLowerCase().includes(query)) ||
+              cafe.tags.some((tag) => tag.toLowerCase().includes(query))
           );
         }
-        return sorted;
-      case "price":
-        return sorted.sort(
-          (a, b) => (a.priceLevel || 0) - (b.priceLevel || 0)
-        );
-      case "name":
-        return sorted.sort((a, b) => a.name.localeCompare(b.name));
-      default:
-        return sorted;
+
+        results = applyFilters(results);
+        results = sortCafes(results);
+        setSearchResults(results);
+      } catch (error) {
+        console.error("Error updating results:", error);
+      }
     }
+  }, [allCafes, filters, searchQuery, selectedTags, userLocation]);
+
+  /** Save filters to localStorage whenever they change */
+  useEffect(() => {
+    localStorage.setItem('explore-filters', JSON.stringify(filters));
+  }, [filters]);
+
+  /** Save search query to localStorage */
+  useEffect(() => {
+    localStorage.setItem('explore-search-query', searchQuery);
+  }, [searchQuery]);
+
+  /** Save selected tags to localStorage */
+  useEffect(() => {
+    localStorage.setItem('explore-selected-tags', JSON.stringify(selectedTags));
+  }, [selectedTags]);
+
+  /** Sort logic - default to rating */
+  const sortCafes = (cafes: Cafe[]): Cafe[] => {
+    const sorted = [...cafes];
+    
+    // Default sort by rating (highest first)
+    return sorted.sort(
+      (a, b) =>
+        (b.googleRating || b.rating || 0) - (a.googleRating || a.rating || 0)
+    );
   };
 
   /** Filter logic */
@@ -131,9 +170,30 @@ export default function Search() {
     }
 
     if (userLocation && filters.distance < 25) {
-      filtered = filtered.filter(
-        (cafe) => !(cafe as any).distance || (cafe as any).distance <= filters.distance
+      filtered = filtered.filter((cafe) => {
+        if (!cafe.latitude || !cafe.longitude) {
+          return false; // Skip cafes without coordinates
+        }
+        const distance = calculateDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          cafe.latitude,
+          cafe.longitude
+        );
+        return distance <= filters.distance;
+      });
+    }
+
+    if (filters.neighborhoods.length > 0) {
+      filtered = filtered.filter((cafe) =>
+        cafe.neighborhood && filters.neighborhoods.includes(cafe.neighborhood)
       );
+    }
+
+    if (filters.openNow) {
+      // For now, we'll skip the openNow filter since we don't have real-time hours data
+      // This could be implemented later with actual opening hours data
+      console.log('Open now filter is active but not implemented yet');
     }
 
     if (selectedTags.length > 0) {
@@ -145,46 +205,73 @@ export default function Search() {
     return filtered;
   };
 
-  /** Update results */
-  const updateResults = useCallback(
-    (cafesToUpdate = allCafes) => {
-      let results = cafesToUpdate;
-
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        results = results.filter(
-          (cafe) =>
-            cafe.name.toLowerCase().includes(query) ||
-            (cafe.neighborhood &&
-              cafe.neighborhood.toLowerCase().includes(query)) ||
-            cafe.tags.some((tag) => tag.toLowerCase().includes(query))
-        );
-      }
-
-      results = applyFilters(results);
-      results = sortCafes(results, sortBy);
-
-      setSearchResults(results);
-    },
-    [allCafes, filters, searchQuery, selectedTags, sortBy, userLocation]
-  );
 
   /** Debounced search */
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
-    debouncedUpdate();
+    // Results will be updated automatically by useEffect when searchQuery changes
   };
-  const debouncedUpdate = useCallback(debounce(() => updateResults(), 300), [updateResults]);
+
+  /** Location request handler */
+  const handleRequestLocation = async () => {
+    setIsRequestingLocation(true);
+    setLocationError("");
+    
+    try {
+      console.log("Requesting location...");
+      const position = await getCurrentLocation();
+      console.log("Location received:", position.coords);
+      
+      const { latitude, longitude } = position.coords;
+      setUserLocation({ latitude, longitude });
+      
+      // Update distance filter to a reasonable default when location is enabled
+      setFilters(prev => ({
+        ...prev,
+        distance: prev.distance === 25 ? 10 : prev.distance
+      }));
+      
+      toast({
+        title: "Location Enabled",
+        description: "You can now filter cafes by distance from your location.",
+      });
+    } catch (error: any) {
+      console.error("Location error:", error);
+      setLocationError(error.message);
+      
+      let errorMessage = "Please enable location access to filter by distance.";
+      if (error.code === 1) {
+        errorMessage = "Location access denied. Please allow location access in your browser settings.";
+      } else if (error.code === 2) {
+        errorMessage = "Location unavailable. Please check your internet connection.";
+      } else if (error.code === 3) {
+        errorMessage = "Location request timed out. Please try again.";
+      }
+      
+      toast({
+        title: "Location Access Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRequestingLocation(false);
+    }
+  };
 
   /** Filters + sort handlers */
   const handleFiltersChange = (newFilters: FilterState) => {
-    setFilters(newFilters);
-    updateResults();
-  };
-
-  const handleSortChange = (newSort: SortOption) => {
-    setSortBy(newSort);
-    updateResults();
+    try {
+      console.log("Filter change:", newFilters);
+      setFilters(newFilters);
+      // updateResults() will be called automatically by useEffect
+    } catch (error) {
+      console.error("Error in handleFiltersChange:", error);
+      toast({
+        title: "Filter Error",
+        description: "There was an error applying the filter. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const clearFilters = () => {
@@ -195,18 +282,11 @@ export default function Search() {
       rating: 0,
       distance: userLocation ? 10 : 25,
       openNow: false,
-      neighborhoods: [],
-      sortBy: 'rating',
-      sortOrder: 'desc'
+      neighborhoods: []
     });
-    setSortBy("rating");
-    updateResults();
+    // updateResults() will be called automatically by useEffect
   };
 
-  /** Keep results synced */
-  useEffect(() => {
-    updateResults();
-  }, [filters, selectedTags, sortBy]);
 
   // Calculate active filter count
   const activeFilterCount = selectedTags.length + 
@@ -216,22 +296,9 @@ export default function Search() {
   return (
     <AppLayout>
       <div className="max-w-md mx-auto min-h-screen bg-background">
-        {/* Top Bar - Weather & Location */}
-        <div className="sticky top-0 z-50 coffee-header px-4 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Cloud className="w-4 h-4 text-white/80" />
-              <span className="text-sm font-medium coffee-location-text">Houston</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Sun className="w-4 h-4 text-white/80" />
-              <span className="text-sm coffee-weather-text">85°F Partly Cloudy</span>
-            </div>
-          </div>
-        </div>
 
         {/* Main Header */}
-        <div className="sticky top-[49px] z-40 coffee-header p-4">
+        <div className="sticky top-0 z-40 coffee-header p-4">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold coffee-heading">Explore</h1>
             <div className="flex items-center gap-3">
@@ -251,24 +318,6 @@ export default function Search() {
                   )}
                 </Button>
               </div>
-              
-              {/* Sort Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  // Toggle sort or show sort options
-                  const sortOptions: SortOption[] = ["rating", "name", "price"];
-                  if (userLocation) sortOptions.push("distance");
-                  const currentIndex = sortOptions.indexOf(sortBy);
-                  const nextIndex = (currentIndex + 1) % sortOptions.length;
-                  handleSortChange(sortOptions[nextIndex]);
-                }}
-                className="flex items-center gap-1 text-xs"
-              >
-                <span>↑↓ rating</span>
-                <X className="w-3 h-3" />
-              </Button>
             </div>
           </div>
 
@@ -282,35 +331,19 @@ export default function Search() {
               className="pl-10 coffee-search-bar bg-white/90 border-white/20 text-foreground"
             />
           </div>
-
-          {/* Rating Dropdown + Count */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => handleSortChange(e.target.value as SortOption)}
-                className="h-8 text-sm border rounded px-2 bg-white text-gray-800 font-medium"
-              >
-                <option value="rating">Rating</option>
-                <option value="name">Name</option>
-                <option value="price">Price</option>
-                {userLocation && <option value="distance">Distance</option>}
-              </select>
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            </div>
-          </div>
         </div>
 
         {/* Filters Panel */}
-        {showFilters && (
-          <div className="sticky top-[140px] z-30 bg-background/95 backdrop-blur-md border-b border-border p-4">
-            <ExploreFilters
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              onClearFilters={clearFilters}
-            />
-          </div>
-        )}
+        <ExploreFilters
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          onClearFilters={clearFilters}
+          isOpen={showFilters}
+          onOpenChange={setShowFilters}
+          userLocation={userLocation}
+          onRequestLocation={handleRequestLocation}
+          isRequestingLocation={isRequestingLocation}
+        />
 
         <div className="p-4">
           {/* Popular tags */}
@@ -340,7 +373,7 @@ export default function Search() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-muted/50">
               <TabsTrigger value="cafes" className="text-sm">
-                Cafes ({searchResults.length})
+                Cafes
               </TabsTrigger>
               <TabsTrigger value="posts" className="text-sm">
                 Posts

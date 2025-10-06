@@ -40,6 +40,7 @@ function transformCafeData(cafe: any): Cafe {
     phoneNumber: cafe.phone_number,
     website: cafe.website,
     openingHours: cafe.opening_hours,
+    parkingInfo: cafe.parking_info,
     // Use hero_photo_url as the primary photo, fallback to photos array
     photos: cafe.hero_photo_url ? [cafe.hero_photo_url, ...(cafe.photos || [])] : (cafe.photos || []),
     heroPhotoUrl: cafe.hero_photo_url,
@@ -58,8 +59,8 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
     let query = supabase
       .from('cafes')
       .select('*')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(5000); // Set a very high limit to ensure we get all cafes
 
     // Apply filters
     if (filters.query) {
@@ -84,6 +85,8 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
       throw new Error(error.message);
     }
 
+    console.log(`Fetched ${data?.length || 0} cafes from Supabase`);
+    
     // Transform database format to app format
     const cafes: Cafe[] = (data || []).map(transformCafeData);
 
