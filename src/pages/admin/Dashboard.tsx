@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useGoogleAnalytics } from '@/hooks/use-google-analytics';
 import { LogOut, Database, TrendingUp, MapPin, AlertCircle, Users, Activity, BarChart3, MessageSquare, Mail, Calendar, Filter } from 'lucide-react';
 import { getEngagementMetrics, getDailyActiveUsers, getMonthlyActiveUsers, getUserGrowth, EngagementMetrics, DailyActiveUsers, UserGrowth } from '@/services/analyticsService';
 import { fetchCafes } from '@/services/cafeService';
@@ -65,6 +66,7 @@ interface AdminFeedback {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { trackAdminAction } = useGoogleAnalytics();
   const [stats, setStats] = useState({
     totalCafes: 0,
     cafesWithHours: 0,
@@ -282,6 +284,12 @@ export default function AdminDashboard() {
     const opKey = operation === 'add-reviews' ? 'addReviews' : 
                    operation === 'refresh-amenities' ? 'refreshAmenities' : 'enrichCafes';
     
+    // Track admin action
+    trackAdminAction(operation, { 
+      total_cafes: stats.totalCafes,
+      estimated_cost: (stats.totalCafes * 0.017).toFixed(2)
+    });
+    
     setOperations(prev => ({ ...prev, [opKey]: true }));
     setLastResult(null);
 
@@ -307,16 +315,17 @@ export default function AdminDashboard() {
       } else {
         toast({
           title: 'Operation failed',
-          description: data.message || 'An error occurred',
+          description: data.message || data.error || 'An error occurred',
           variant: 'destructive',
         });
       }
 
       await fetchStats();
     } catch (error: any) {
+      console.error('Operation error:', error);
       toast({
         title: 'Operation failed',
-        description: error.message || 'Edge Function not found. Please create the required Edge Functions.',
+        description: error.message || error.error || 'Edge Function not found. Please create the required Edge Functions.',
         variant: 'destructive',
       });
     } finally {

@@ -41,21 +41,24 @@ Deno.serve(async (req) => {
 
     let totalReviews = 0;
     let apiCalls = 0;
+    let failed = 0;
     const MAX_API_CALLS = 2000;
     const reviewSet = new Set();
 
     for (const cafe of cafes) {
       if (apiCalls >= MAX_API_CALLS) break;
 
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${cafe.place_id}&fields=reviews&key=${googleApiKey}`;
-      
-      apiCalls++;
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        console.error(`Failed to fetch reviews for ${cafe.name}`);
-        continue;
-      }
+      try {
+        const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${cafe.place_id}&fields=reviews&key=${googleApiKey}`;
+        
+        apiCalls++;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          console.error(`Failed to fetch reviews for ${cafe.name}`);
+          failed++;
+          continue;
+        }
 
       const data = await response.json();
       const googleReviews: GoogleReview[] = data.result?.reviews || [];
@@ -87,14 +90,18 @@ Deno.serve(async (req) => {
 
         if (insertError) {
           console.error(`Error inserting reviews for ${cafe.name}:`, insertError);
+          failed++;
         } else {
           totalReviews += reviewsToInsert.length;
           console.log(`✅ ${cafe.name}: ${reviewsToInsert.length} reviews added`);
         }
-      }
 
-      // Rate limiting: 100ms delay
-      await new Promise(resolve => setTimeout(resolve, 100));
+        // Rate limiting: 100ms delay
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`Failed to process ${cafe.name}:`, error);
+        failed++;
+      }
     }
 
     const message = `✅ Added ${totalReviews} reviews from ${cafes.length} cafés. API calls used: ${apiCalls} of ${MAX_API_CALLS}`;
@@ -103,15 +110,25 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       message,
-      totalReviews,
-      apiCalls 
+      stats: {
+        processed: cafes.length,
+        succeeded: cafes.length - failed,
+        failed: failed,
+        reviewsAdded: totalReviews,
+        apiCalls: apiCalls,
+        estimatedCost: apiCalls * 0.017
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
     console.error('Error in add-reviews function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    return new Response(JSON.stringify({ 
+      success: false,
+      message: error.message || 'Failed to add reviews',
+      error: error.message
+    }), {
+      status: 200, // Return 200 to match expected format
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

@@ -12,6 +12,7 @@ import { fetchCafes } from "@/services/cafeService";
 import { submitCheckin } from "@/services/postService";
 import { getCurrentLocation } from "@/services/utils";
 import { getNearbyCafes, formatDistance } from "@/utils/distanceUtils";
+import { useGoogleAnalytics } from "@/hooks/use-google-analytics";
 import type { Cafe } from "@/services/types";
 
 const predefinedTags = [
@@ -24,6 +25,7 @@ export default function CheckIn() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { trackCheckIn, trackEngagement, trackError } = useGoogleAnalytics();
   const [selectedCafe, setSelectedCafe] = useState<string>("");
   const [rating, setRating] = useState<number>(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -39,16 +41,28 @@ export default function CheckIn() {
   const [allCafes, setAllCafes] = useState<Cafe[]>([]);
 
   const handleTagToggle = (tag: string) => {
+    const isAdding = !selectedTags.includes(tag);
     setSelectedTags(prev => 
       prev.includes(tag) 
         ? prev.filter(t => t !== tag)
         : [...prev, tag]
     );
+    
+    // Track tag interaction
+    trackEngagement('tag_interaction', {
+      action: isAdding ? 'add_tag' : 'remove_tag',
+      tag,
+      total_tags: isAdding ? selectedTags.length + 1 : selectedTags.length - 1,
+    });
   };
 
   const handleCustomTag = () => {
     if (customTag && !selectedTags.includes(customTag)) {
       setSelectedTags(prev => [...prev, customTag]);
+      trackEngagement('custom_tag_created', {
+        tag: customTag,
+        total_tags: selectedTags.length + 1,
+      });
       setCustomTag("");
     }
   };
@@ -57,6 +71,10 @@ export default function CheckIn() {
     const file = event.target.files?.[0];
     if (file) {
       setImageFile(file);
+      trackEngagement('image_uploaded', {
+        file_size: file.size,
+        file_type: file.type,
+      });
     }
   };
 
@@ -126,7 +144,7 @@ export default function CheckIn() {
 
 
   const handleSubmit = async () => {
-    if (!selectedCafe || !rating || !imageFile) return;
+    if (!selectedCafe || !rating) return;
     setIsSubmitting(true);
     let coords: { latitude: number; longitude: number } | null = null;
     try {
@@ -166,12 +184,22 @@ export default function CheckIn() {
         location: coords ? { latitude: coords.latitude, longitude: coords.longitude } : undefined,
       });
       if (result.success) {
+        // Track successful check-in
+        trackCheckIn(selectedCafeData.name, selectedCafe, rating, !!imageFile, selectedTags.length);
+        
         toast({
           title: "Check-in shared!",
           description: "Your cafe experience has been posted"
         });
         navigate('/explore');
       } else {
+        trackError('checkin_submission_failed', result.error || 'Failed to share check-in', {
+          cafe_id: selectedCafe,
+          rating,
+          has_image: !!imageFile,
+          tag_count: selectedTags.length,
+        });
+        
         toast({
           title: "Error",
           description: result.error || "Failed to share check-in",
@@ -179,6 +207,11 @@ export default function CheckIn() {
         });
       }
     } catch (error) {
+      trackError('checkin_exception', 'Failed to share check-in', {
+        cafe_id: selectedCafe,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      
       toast({
         title: "Error",
         description: "Failed to share check-in",
@@ -276,72 +309,79 @@ export default function CheckIn() {
             </CardContent>
           </Card>
 
-          {/* Photo Upload - Only show if cafe selected */}
-          {selectedCafe && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Camera className="w-5 h-5 text-primary" />
-                  Add Photo
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center relative">
-                  {imageFile ? (
-                    <div className="space-y-2">
-                      <p className="text-sm text-foreground">{imageFile.name}</p>
+          {/* Photo Upload - Always visible */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="w-5 h-5 text-primary" />
+                Add Photo (Optional)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center relative hover:border-primary/50 transition-colors">
+                {imageFile ? (
+                  <div className="space-y-3">
+                    <div className="w-full h-32 bg-muted rounded-lg overflow-hidden">
+                      <img 
+                        src={URL.createObjectURL(imageFile)} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-foreground truncate flex-1 mr-2">{imageFile.name}</p>
                       <Button 
                         variant="ghost" 
                         size="sm"
                         onClick={() => setImageFile(null)}
+                        className="text-destructive hover:text-destructive"
                       >
-                        Remove
+                        <X className="w-4 h-4" />
                       </Button>
                     </div>
-                  ) : (
-                    <>
-                      <Camera className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">Tap to add photo</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                  </div>
+                ) : (
+                  <>
+                    <Camera className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground mb-1">Tap to add a photo</p>
+                    <p className="text-xs text-muted-foreground">Share your cafe experience visually</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Rating - Only show if cafe selected */}
-          {selectedCafe && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Rate Your Experience</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => setRating(star)}
-                      className="transition-smooth hover:scale-110"
-                    >
-                      <Star
-                        className={`w-8 h-8 ${
-                          star <= rating
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-muted"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Rating - Always visible */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Rate Your Experience</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setRating(star)}
+                    className="transition-smooth hover:scale-110"
+                  >
+                    <Star
+                      className={`w-8 h-8 ${
+                        star <= rating
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-muted"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Tags */}
           <Card>
@@ -415,7 +455,7 @@ export default function CheckIn() {
           {/* Submit Button */}
           <Button
             onClick={handleSubmit}
-            disabled={!selectedCafe || !rating || !imageFile || isSubmitting}
+            disabled={!selectedCafe || !rating || isSubmitting}
             className="w-full coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth"
             size="lg"
           >

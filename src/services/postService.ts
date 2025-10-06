@@ -152,7 +152,8 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
       if (uploadResult.success && uploadResult.data) {
         imageUrl = uploadResult.data.secure_url;
       } else {
-        throw new Error(uploadResult.error || 'Failed to upload image');
+        console.warn('Image upload failed, continuing without image:', uploadResult.error);
+        // Don't throw error, just continue without image
       }
     }
     

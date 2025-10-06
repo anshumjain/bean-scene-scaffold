@@ -144,16 +144,25 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       message,
-      enriched,
-      totalReviewsInserted,
-      failed
+      stats: {
+        processed: cafes.length,
+        succeeded: enriched,
+        failed: failed,
+        reviewsAdded: totalReviewsInserted,
+        apiCalls: cafes.length,
+        estimatedCost: cafes.length * 0.017
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
     console.error('Error in enrich-cafes function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    return new Response(JSON.stringify({ 
+      success: false,
+      message: error.message || 'Failed to run enrichment',
+      error: error.message
+    }), {
+      status: 200, // Return 200 to match expected format
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
