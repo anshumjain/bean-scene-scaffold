@@ -4,12 +4,65 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getParkingInfo, getParkingStatus, type ParkingInfo } from '@/services/parkingService';
 
+/**
+ * Parse stored parking info string into ParkingInfo object
+ */
+function parseStoredParkingInfo(parkingInfoString: string): ParkingInfo {
+  const text = parkingInfoString.toLowerCase();
+  
+  if (text.includes('limited') || text.includes('no parking')) {
+    return {
+      available: false,
+      type: 'none',
+      cost: 'N/A',
+      notes: parkingInfoString
+    };
+  } else if (text.includes('garage')) {
+    return {
+      available: true,
+      type: 'garage',
+      cost: 'Paid',
+      notes: parkingInfoString
+    };
+  } else if (text.includes('lot')) {
+    return {
+      available: true,
+      type: 'lot',
+      cost: 'Paid',
+      notes: parkingInfoString
+    };
+  } else if (text.includes('street')) {
+    return {
+      available: true,
+      type: 'street',
+      cost: 'Free',
+      notes: parkingInfoString
+    };
+  } else if (text.includes('parking')) {
+    return {
+      available: true,
+      type: 'street',
+      cost: 'Varies',
+      notes: parkingInfoString
+    };
+  }
+  
+  // Default fallback
+  return {
+    available: true,
+    type: 'street',
+    cost: 'Varies',
+    notes: parkingInfoString || 'Parking information not available'
+  };
+}
+
 interface ParkingInfoProps {
   placeId: string;
   cafeName: string;
+  parkingInfo?: string; // Add parking info from cafe data
 }
 
-export function ParkingInfoComponent({ placeId, cafeName }: ParkingInfoProps) {
+export function ParkingInfoComponent({ placeId, cafeName, parkingInfo: storedParkingInfo }: ParkingInfoProps) {
   const [parkingInfo, setParkingInfo] = useState<ParkingInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,12 +71,20 @@ export function ParkingInfoComponent({ placeId, cafeName }: ParkingInfoProps) {
     const loadParkingInfo = async () => {
       try {
         setLoading(true);
-        const result = await getParkingInfo(placeId);
         
-        if (result.success && result.data) {
-          setParkingInfo(result.data);
+        // If we have stored parking info from the database, use it
+        if (storedParkingInfo) {
+          const parsedInfo = parseStoredParkingInfo(storedParkingInfo);
+          setParkingInfo(parsedInfo);
         } else {
-          setError(result.error || 'Failed to load parking info');
+          // Fallback to API call if no stored info
+          const result = await getParkingInfo(placeId);
+          
+          if (result.success && result.data) {
+            setParkingInfo(result.data);
+          } else {
+            setError(result.error || 'Failed to load parking info');
+          }
         }
       } catch (err) {
         setError('Failed to load parking info');
@@ -33,7 +94,7 @@ export function ParkingInfoComponent({ placeId, cafeName }: ParkingInfoProps) {
     };
 
     loadParkingInfo();
-  }, [placeId]);
+  }, [placeId, storedParkingInfo]);
 
   if (loading) {
     return (

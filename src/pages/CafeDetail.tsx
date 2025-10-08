@@ -222,12 +222,14 @@ export default function CafeDetail() {
               rating: cafe.googleRating || 0,
               userRating: cafe.rating || 0,
               hours: cafe.openingHours?.[0] || "Hours not available",
+              hoursArray: cafe.openingHours, // Pass full hours array for current day logic
               phone: cafe.phoneNumber,
               website: cafe.website,
               priceLevel: cafe.priceLevel || 2,
               topTags: cafe.tags?.slice(0, 3) || [],
               reviewSnippet: "",
               heroImage: cafe.heroPhotoUrl || cafe.photos?.[0],
+              parkingInfo: cafe.parkingInfo, // Pass parking info from database
             }}
             loading={false}
             onPhotoAdded={(photoUrl) => {

@@ -55,38 +55,38 @@ Deno.serve(async (req) => {
         const details = data.result;
 
         if (details) {
-          const updateData: any = {
-            updated_at: new Date().toISOString(),
-          };
+        const updateData: any = {
+          updated_at: new Date().toISOString(),
+        };
 
-          if (details.opening_hours?.weekday_text) {
-            updateData.opening_hours = details.opening_hours.weekday_text;
-          }
-
-          if (details.formatted_phone_number) {
-            updateData.phone_number = details.formatted_phone_number;
-          }
-
-          if (details.website) {
-            updateData.website = details.website;
-          }
-
-          const { error: updateError } = await supabase
-            .from('cafes')
-            .update(updateData)
-            .eq('id', cafe.id);
-
-          if (updateError) {
-            console.error(`Error updating ${cafe.name}:`, updateError);
-            failed++;
-          } else {
-            updated++;
-            console.log(`✅ ${cafe.name}: Updated amenities`);
-          }
-
-          // Rate limiting: 100ms delay
-          await new Promise(resolve => setTimeout(resolve, 100));
+        if (details.opening_hours?.weekday_text) {
+          updateData.opening_hours = details.opening_hours.weekday_text;
         }
+
+        if (details.formatted_phone_number) {
+          updateData.phone_number = details.formatted_phone_number;
+        }
+
+        if (details.website) {
+          updateData.website = details.website;
+        }
+
+        const { error: updateError } = await supabase
+          .from('cafes')
+          .update(updateData)
+          .eq('id', cafe.id);
+
+        if (updateError) {
+          console.error(`Error updating ${cafe.name}:`, updateError);
+          failed++;
+        } else {
+          updated++;
+          console.log(`✅ ${cafe.name}: Updated amenities`);
+        }
+
+        // Rate limiting: 100ms delay
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       } catch (error) {
         console.error(`Failed to process ${cafe.name}:`, error);
         failed++;

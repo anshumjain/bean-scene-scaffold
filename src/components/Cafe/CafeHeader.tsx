@@ -18,6 +18,7 @@ interface CafeHeaderProps {
     rating: number;
     userRating?: number;
     hours: string;
+    hoursArray?: string[]; // Add full hours array for current day logic
     phone?: string;
     website?: string;
     priceLevel: number;
@@ -25,6 +26,7 @@ interface CafeHeaderProps {
     reviewSnippet: string;
     isOpen?: boolean;
     heroImage?: string;
+    parkingInfo?: string; // Add parking info from database
   };
   loading?: boolean;
   onPhotoAdded?: (photoUrl: string) => void; // Add callback for photo updates
@@ -98,15 +100,72 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
     }
   };
 
+  const getCurrentDayHours = (hoursArray: string[]): string | null => {
+    if (!hoursArray || hoursArray.length === 0) {
+      return null;
+    }
+    
+    const now = new Date();
+    const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }); // e.g., "Monday"
+    
+    // Find hours for current day
+    const todayHours = hoursArray.find(hour => 
+      hour.toLowerCase().includes(currentDay.toLowerCase())
+    );
+    
+    return todayHours || null;
+  };
+
   const getOpenStatus = (hours: string, isOpen?: boolean) => {
     if (isOpen !== undefined) {
       return isOpen ? "Open" : "Closed";
     }
-    // Parse hours for status (mock logic)
-    return Math.random() > 0.3 ? "Open" : "Closed";
+    
+    // Parse hours string to determine if currently open
+    if (!hours || hours === "Hours not available") {
+      return "Hours not available";
+    }
+    
+    try {
+      // Extract time from hours string (e.g., "Monday: 7:00 AM – 4:00 PM")
+      const timeMatch = hours.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*–\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (!timeMatch) {
+        return "Hours not available";
+      }
+      
+      const [, openHour, openMin, openPeriod, closeHour, closeMin, closePeriod] = timeMatch;
+      
+      // Convert to 24-hour format
+      let open24 = parseInt(openHour);
+      let close24 = parseInt(closeHour);
+      
+      if (openPeriod.toUpperCase() === 'PM' && open24 !== 12) open24 += 12;
+      if (openPeriod.toUpperCase() === 'AM' && open24 === 12) open24 = 0;
+      
+      if (closePeriod.toUpperCase() === 'PM' && close24 !== 12) close24 += 12;
+      if (closePeriod.toUpperCase() === 'AM' && close24 === 12) close24 = 0;
+      
+      // Get current time
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMin = now.getMinutes();
+      const currentTime = currentHour * 60 + currentMin;
+      
+      const openTime = open24 * 60 + parseInt(openMin);
+      const closeTime = close24 * 60 + parseInt(closeMin);
+      
+      // Check if currently open
+      return (currentTime >= openTime && currentTime <= closeTime) ? "Open" : "Closed";
+    } catch (error) {
+      return "Hours not available";
+    }
   };
 
-  const openStatus = getOpenStatus(cafe.hours, cafe.isOpen);
+  // Get current day's hours if available, otherwise use the passed hours
+  const currentDayHours = cafe.hoursArray ? getCurrentDayHours(cafe.hoursArray) : null;
+  const hoursToUse = currentDayHours || cafe.hours;
+  
+  const openStatus = getOpenStatus(hoursToUse, cafe.isOpen);
   const isCurrentlyOpen = openStatus === "Open";
 
   if (loading) {
@@ -146,7 +205,6 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
           <div className="absolute bottom-4 left-6 right-6">
             <h1 className="text-2xl font-bold text-white mb-1">{cafe.name}</h1>
             <div className="flex items-center gap-2 text-white/90">
-              <MapPin className="w-4 h-4" />
               <span className="text-sm">{cafe.neighborhood}</span>
             </div>
           </div>
@@ -191,7 +249,7 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
               <MapPin className="w-4 h-4 text-muted-foreground mt-1" />
               <div className="flex-1">
                 <p className="text-sm font-medium">{cafe.address}</p>
-                <p className="text-xs text-muted-foreground">{cafe.neighborhood}, Houston</p>
+                <p className="text-sm font-medium">{cafe.neighborhood}, Houston</p>
               </div>
               <Button 
                 size="sm" 
@@ -240,7 +298,7 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
         <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">{cafe.hours}</span>
+            <span className="text-sm">{hoursToUse}</span>
           </div>
           <Badge 
             variant={isCurrentlyOpen ? "default" : "secondary"}
@@ -254,7 +312,8 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
         {cafe.placeId && (
           <ParkingInfoComponent 
             placeId={cafe.placeId} 
-            cafeName={cafe.name} 
+            cafeName={cafe.name}
+            parkingInfo={cafe.parkingInfo}
           />
         )}
 
