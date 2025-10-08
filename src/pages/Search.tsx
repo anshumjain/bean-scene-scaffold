@@ -4,12 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { useNavigate } from "react-router-dom";
 import { fetchCafes } from "@/services/cafeService";
-import { Cafe, Post } from "@/services/types";
+import { Cafe } from "@/services/types";
 import { debounce, getCurrentLocation } from "@/services/utils";
 import { calculateDistance } from "@/utils/distanceUtils";
 import { toast } from "@/hooks/use-toast";
@@ -36,12 +35,10 @@ export default function Search() {
     const saved = localStorage.getItem('explore-selected-tags');
     return saved ? JSON.parse(saved) : [];
   });
-  const [activeTab, setActiveTab] = useState("cafes");
   const [showFilters, setShowFilters] = useState(false);
 
   const [allCafes, setAllCafes] = useState<Cafe[]>([]);
   const [searchResults, setSearchResults] = useState<Cafe[]>([]);
-  const [postResults, setPostResults] = useState<Post[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -369,19 +366,8 @@ export default function Search() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-muted/50">
-              <TabsTrigger value="cafes" className="text-sm">
-                Cafes
-              </TabsTrigger>
-              <TabsTrigger value="posts" className="text-sm">
-                Posts
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Cafes tab */}
-            <TabsContent value="cafes" className="space-y-4 mt-4">
+          {/* Cafes Results */}
+          <div className="space-y-4 mt-4">
               {initialLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
@@ -453,76 +439,7 @@ export default function Search() {
                   </div>
                 ))
               )}
-            </TabsContent>
-
-            {/* Posts tab */}
-            <TabsContent value="posts" className="space-y-4 mt-4">
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-                  <p className="text-muted-foreground">Searching posts...</p>
-                </div>
-              ) : postResults.length === 0 ? (
-                <div className="text-center py-12">
-                  <SearchIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Posts Found</h3>
-                  <p className="text-muted-foreground">
-                    {searchQuery
-                      ? "No posts match your search"
-                      : "Search for posts to see results"}
-                  </p>
-                </div>
-              ) : (
-                postResults.map((post) => (
-                  <Card key={post.id} className="shadow-sm border-0">
-                    <CardContent className="p-4">
-                      <div className="flex gap-4">
-                        <img
-                          src={post.imageUrl}
-                          alt="Post"
-                          className="w-16 h-16 rounded-lg object-cover"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-1">
-                            <h3 className="font-semibold truncate">
-                              {post.cafe?.name || "Unknown Cafe"}
-                            </h3>
-                            <div className="flex items-center gap-1 ml-2">
-                              <Star className="w-4 h-4 coffee-star" />
-                              <span className="text-sm font-medium">{post.rating}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <MapPin className="w-3 h-3 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">
-                              {post.cafe?.neighborhood || "Unknown"}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              • {new Date(post.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                            {post.textReview}
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {post.tags.slice(0, 3).map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="secondary"
-                                className="text-xs px-2 py-0 bg-accent/30 text-accent-foreground border-0"
-                              >
-                                #{tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </TabsContent>
-          </Tabs>
+          </div>
         </div>
       </div>
     </AppLayout>
