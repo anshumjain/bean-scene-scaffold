@@ -56,39 +56,97 @@ function transformCafeData(cafe: any): Cafe {
  */
 export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiResponse<Cafe[]>> {
   try {
-    let query = supabase
-      .from('cafes')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5000); // Set a very high limit to ensure we get all cafes
+    // If there are filters that require database-level filtering, use those
+    const hasDatabaseFilters = filters.query || 
+      (filters.neighborhoods && filters.neighborhoods.length > 0) ||
+      (filters.tags && filters.tags.length > 0) ||
+      filters.rating;
 
-    // Apply filters
-    if (filters.query) {
-      query = query.or(`name.ilike.%${filters.query}%,neighborhood.ilike.%${filters.query}%,tags.cs.{${filters.query}}`);
-    }
-    
-    if (filters.neighborhoods && filters.neighborhoods.length > 0) {
-      query = query.in('neighborhood', filters.neighborhoods);
-    }
-    
-    if (filters.tags && filters.tags.length > 0) {
-      query = query.overlaps('tags', filters.tags);
-    }
-    
-    if (filters.rating) {
-      query = query.gte('rating', filters.rating);
+    let allData: any[] = [];
+
+    if (hasDatabaseFilters) {
+      // Use database-level filtering with pagination
+      let offset = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        let query = supabase
+          .from('cafes')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + pageSize - 1);
+
+        // Apply database-level filters
+        if (filters.query) {
+          query = query.or(`name.ilike.%${filters.query}%,neighborhood.ilike.%${filters.query}%,tags.cs.{${filters.query}}`);
+        }
+        
+        if (filters.neighborhoods && filters.neighborhoods.length > 0) {
+          query = query.in('neighborhood', filters.neighborhoods);
+        }
+        
+        if (filters.tags && filters.tags.length > 0) {
+          query = query.overlaps('tags', filters.tags);
+        }
+        
+        if (filters.rating) {
+          query = query.gte('rating', filters.rating);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (data && data.length > 0) {
+          allData.push(...data);
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            offset += pageSize;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+    } else {
+      // No database filters, fetch all cafes with pagination
+      let offset = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('cafes')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + pageSize - 1);
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (data && data.length > 0) {
+          allData.push(...data);
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            offset += pageSize;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    console.log(`Fetched ${data?.length || 0} cafes from Supabase`);
+    console.log(`Fetched ${allData.length} cafes from Supabase`);
     
     // Transform database format to app format
-    const cafes: Cafe[] = (data || []).map(transformCafeData);
+    const cafes: Cafe[] = allData.map(transformCafeData);
 
     return {
       data: cafes,

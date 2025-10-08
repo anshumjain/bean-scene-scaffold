@@ -92,7 +92,7 @@ export async function fetchCafePostsById(placeId: string): Promise<ApiResponse<P
         *,
         cafes (name, neighborhood, place_id)
       `)
-      .or(`place_id.eq.${placeId},cafe_id.eq.${placeId}`)
+      .eq('place_id', placeId)
       .order('created_at', { ascending: false });
 
     if (error) {

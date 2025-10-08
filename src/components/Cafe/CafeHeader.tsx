@@ -134,6 +134,13 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
             src={cafe.heroImage}
             alt={cafe.name}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              console.error('Failed to load cafe hero image:', cafe.name, cafe.heroImage);
+              console.error('Hero image error:', e);
+            }}
+            onLoad={() => {
+              console.log('Successfully loaded cafe hero image:', cafe.name, cafe.heroImage);
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
           <div className="absolute bottom-4 left-6 right-6">

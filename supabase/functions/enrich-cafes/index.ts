@@ -41,10 +41,10 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const googleApiKey = Deno.env.get('VITE_GOOGLE_PLACES_API_KEY');
+    const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
 
     if (!googleApiKey) {
-      throw new Error('VITE_GOOGLE_PLACES_API_KEY not configured');
+      throw new Error('GOOGLE_PLACES_API_KEY not configured');
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);

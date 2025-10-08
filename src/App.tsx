@@ -14,7 +14,6 @@ import Profile from "./pages/Profile";
 import CafeDetail from "./pages/CafeDetail";
 import ImageUpload from "./pages/ImageUpload";
 import DataValidation from "./pages/DataValidation";
-import TestMigration from "./pages/TestMigration";
 import Moments from "./pages/Moments";
 import Share from "./pages/Share";
 import CreatePost from "./pages/CreatePost";
@@ -66,7 +65,6 @@ const App = () => {
             <Route path="/cafe/:id/upload" element={<ImageUpload />} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/admin/validation" element={<DataValidation />} />
-            <Route path="/test-migration" element={<TestMigration />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />

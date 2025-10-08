@@ -54,8 +54,8 @@ BeanScene is a Houston coffee discovery app that helps you find the perfect caf√
    VITE_SUPABASE_URL=your_supabase_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    
-   # Google Places API
-   VITE_GOOGLE_PLACES_API_KEY=your_google_places_api_key
+   # Google Places API (server-side only)
+   GOOGLE_PLACES_API_KEY=your_google_places_api_key
    
    # Cloudinary
    VITE_CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name

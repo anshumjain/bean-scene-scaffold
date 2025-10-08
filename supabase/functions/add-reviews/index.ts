@@ -21,10 +21,10 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const googleApiKey = Deno.env.get('VITE_GOOGLE_PLACES_API_KEY');
+    const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
 
     if (!googleApiKey) {
-      throw new Error('VITE_GOOGLE_PLACES_API_KEY not configured');
+      throw new Error('GOOGLE_PLACES_API_KEY not configured');
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -60,44 +60,45 @@ Deno.serve(async (req) => {
           continue;
         }
 
-      const data = await response.json();
-      const googleReviews: GoogleReview[] = data.result?.reviews || [];
+        const data = await response.json();
+        const googleReviews: GoogleReview[] = data.result?.reviews || [];
 
-      // Take top 3 reviews
-      const reviewsToInsert = [];
-      for (const review of googleReviews.slice(0, 3)) {
-        const key = `${cafe.place_id}|${review.author_name}|${review.text}`;
-        if (!reviewSet.has(key)) {
-          reviewSet.add(key);
-          reviewsToInsert.push({
-            cafe_id: cafe.id,
-            reviewer_name: review.author_name,
-            review_text: review.text,
-            rating: review.rating,
-            time: new Date(review.time * 1000).toISOString(),
-            profile_photo_url: review.profile_photo_url,
-          });
-        }
-      }
-
-      if (reviewsToInsert.length > 0) {
-        const { error: insertError } = await supabase
-          .from('cafe_reviews')
-          .upsert(reviewsToInsert, { 
-            onConflict: 'cafe_id,reviewer_name,review_text',
-            ignoreDuplicates: true 
-          });
-
-        if (insertError) {
-          console.error(`Error inserting reviews for ${cafe.name}:`, insertError);
-          failed++;
-        } else {
-          totalReviews += reviewsToInsert.length;
-          console.log(`✅ ${cafe.name}: ${reviewsToInsert.length} reviews added`);
+        // Take top 3 reviews
+        const reviewsToInsert = [];
+        for (const review of googleReviews.slice(0, 3)) {
+          const key = `${cafe.place_id}|${review.author_name}|${review.text}`;
+          if (!reviewSet.has(key)) {
+            reviewSet.add(key);
+            reviewsToInsert.push({
+              cafe_id: cafe.id,
+              reviewer_name: review.author_name,
+              review_text: review.text,
+              rating: review.rating,
+              time: new Date(review.time * 1000).toISOString(),
+              profile_photo_url: review.profile_photo_url,
+            });
+          }
         }
 
-        // Rate limiting: 100ms delay
-        await new Promise(resolve => setTimeout(resolve, 100));
+        if (reviewsToInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from('cafe_reviews')
+            .upsert(reviewsToInsert, { 
+              onConflict: 'cafe_id,reviewer_name,review_text',
+              ignoreDuplicates: true 
+            });
+
+          if (insertError) {
+            console.error(`Error inserting reviews for ${cafe.name}:`, insertError);
+            failed++;
+          } else {
+            totalReviews += reviewsToInsert.length;
+            console.log(`✅ ${cafe.name}: ${reviewsToInsert.length} reviews added`);
+          }
+
+          // Rate limiting: 100ms delay
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       } catch (error) {
         console.error(`Failed to process ${cafe.name}:`, error);
         failed++;

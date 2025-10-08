@@ -1,9 +1,8 @@
 import { ApiResponse } from './types';
 import { MonitoringService } from './monitoringService';
 
-// Environment variables with graceful fallbacks
-const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
-const hasGooglePlacesKey = GOOGLE_PLACES_API_KEY && GOOGLE_PLACES_API_KEY !== 'undefined';
+// Google Places API calls should be made server-side
+// Client-side code will call our API endpoints instead of Google directly
 
 function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
   return {
@@ -34,14 +33,12 @@ export class GooglePlacesService {
    * Fetch place details with SINGLE optimized photo
    */
   static async fetchPlaceDetails(placeId: string): Promise<ApiResponse<PlaceDetails | null>> {
-    if (!hasGooglePlacesKey) {
-      return apiErrorResponse(null);
-    }
 
     try {
       await MonitoringService.logApiUsage('google_places', 'place_details');
 
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,photos&key=${GOOGLE_PLACES_API_KEY}`;
+      // Call our server-side API endpoint instead of Google directly
+      const url = `/api/place/details?place_id=${placeId}&fields=name,photos`;
       
       const response = await fetch(url);
       const data = await response.json();
@@ -75,9 +72,6 @@ export class GooglePlacesService {
    * Get OPTIMIZED hero photo URL for a place (800x600 max)
    */
   static async getHeroPhotoUrl(placeId: string): Promise<ApiResponse<string | null>> {
-    if (!hasGooglePlacesKey) {
-      return apiErrorResponse(null);
-    }
 
     try {
       await MonitoringService.logApiUsage('google_places', 'hero_photo');
@@ -92,7 +86,8 @@ export class GooglePlacesService {
       const photoRef = placeDetails.data.photos[0].photo_reference;
       
       // Generate optimized photo URL - single photo only
-      const heroUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&maxheight=600&photoreference=${photoRef}&key=${GOOGLE_PLACES_API_KEY}`;
+      // Use server-side API endpoint for photos
+      const heroUrl = `/api/place/photo?maxwidth=800&maxheight=600&photoreference=${photoRef}`;
 
       return {
         data: heroUrl,
@@ -107,9 +102,6 @@ export class GooglePlacesService {
    * Batch fetch SINGLE hero photos for multiple cafes - COST OPTIMIZED
    */
   static async batchFetchHeroPhotos(placeIds: string[]): Promise<ApiResponse<Record<string, string>>> {
-    if (!hasGooglePlacesKey) {
-      return apiErrorResponse({});
-    }
 
     try {
       const results: Record<string, string> = {};

@@ -50,6 +50,13 @@ export function FeedItemCard({ item, onTagClick }: FeedItemCardProps) {
                 src={heroPhoto}
                 alt={cafe.name}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.error('Failed to load cafe image:', cafe.name, heroPhoto);
+                  console.error('Image error:', e);
+                }}
+                onLoad={() => {
+                  console.log('Successfully loaded cafe image:', cafe.name, heroPhoto);
+                }}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#8b5a3c] to-[#6b4423] text-white text-6xl rounded-lg shadow-lg">

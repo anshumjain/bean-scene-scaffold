@@ -114,8 +114,8 @@ const CLOUDINARY_UPLOAD_PRESET = 'your-upload-preset';
 Create these environment variables in your deployment environment:
 
 ```bash
-# Google Places API
-VITE_GOOGLE_PLACES_API_KEY=your_google_places_api_key
+# Google Places API (server-side only)
+GOOGLE_PLACES_API_KEY=your_google_places_api_key
 
 # Cloudinary (already configured)
 VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name

@@ -149,7 +149,7 @@ CREATE TABLE user_profiles (
 ## Environment Variables
 
 ```bash
-# Google Places API
+# Google Places API (server-side only)
 GOOGLE_PLACES_API_KEY=your_google_places_api_key
 
 # Cloudinary for image storage

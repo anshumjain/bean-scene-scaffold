@@ -18,7 +18,7 @@ function convertPriceLevel(priceLevel: string): number | null {
 }
 
 async function syncGooglePlacesCafes() {
-  const GOOGLE_PLACES_API_KEY = process.env.VITE_GOOGLE_PLACES_API_KEY;
+  const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
   
   if (!GOOGLE_PLACES_API_KEY) {
     console.error('Google Places API key not found');

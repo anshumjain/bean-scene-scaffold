@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "migrate": "supabase db push && supabase gen types typescript --local > src/integrations/supabase/types.ts",
     "seed:reviews": "tsx scripts/seedReviewsAmenities.ts",
-    "seed:posts": "tsx scripts/seedPosts.ts"
+    "seed:posts": "tsx scripts/seedPosts.ts",
+    "migrate:photos": "tsx scripts/migratePhotosToCloudinary.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -43,6 +44,8 @@
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@supabase/supabase-js": "^2.57.4",
+    "cloudinary": "^2.6.0",
+    "node-fetch": "^3.3.2",
     "@tanstack/react-query": "^5.83.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -71,6 +74,7 @@
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",
+    "@types/node-fetch": "^2.6.11",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",

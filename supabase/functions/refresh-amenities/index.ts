@@ -13,10 +13,10 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const googleApiKey = Deno.env.get('VITE_GOOGLE_PLACES_API_KEY');
+    const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
 
     if (!googleApiKey) {
-      throw new Error('VITE_GOOGLE_PLACES_API_KEY not configured');
+      throw new Error('GOOGLE_PLACES_API_KEY not configured');
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -51,41 +51,42 @@ Deno.serve(async (req) => {
           continue;
         }
 
-      const data = await response.json();
-      const details = data.result;
+        const data = await response.json();
+        const details = data.result;
 
-      if (details) {
-        const updateData: any = {
-          updated_at: new Date().toISOString(),
-        };
+        if (details) {
+          const updateData: any = {
+            updated_at: new Date().toISOString(),
+          };
 
-        if (details.opening_hours?.weekday_text) {
-          updateData.opening_hours = details.opening_hours.weekday_text;
+          if (details.opening_hours?.weekday_text) {
+            updateData.opening_hours = details.opening_hours.weekday_text;
+          }
+
+          if (details.formatted_phone_number) {
+            updateData.phone_number = details.formatted_phone_number;
+          }
+
+          if (details.website) {
+            updateData.website = details.website;
+          }
+
+          const { error: updateError } = await supabase
+            .from('cafes')
+            .update(updateData)
+            .eq('id', cafe.id);
+
+          if (updateError) {
+            console.error(`Error updating ${cafe.name}:`, updateError);
+            failed++;
+          } else {
+            updated++;
+            console.log(`✅ ${cafe.name}: Updated amenities`);
+          }
+
+          // Rate limiting: 100ms delay
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
-
-        if (details.formatted_phone_number) {
-          updateData.phone_number = details.formatted_phone_number;
-        }
-
-        if (details.website) {
-          updateData.website = details.website;
-        }
-
-        const { error: updateError } = await supabase
-          .from('cafes')
-          .update(updateData)
-          .eq('id', cafe.id);
-
-        if (updateError) {
-          console.error(`Error updating ${cafe.name}:`, updateError);
-          failed++;
-        } else {
-          updated++;
-          console.log(`✅ ${cafe.name}: Updated amenities`);
-        }
-
-        // Rate limiting: 100ms delay
-        await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
         console.error(`Failed to process ${cafe.name}:`, error);
         failed++;

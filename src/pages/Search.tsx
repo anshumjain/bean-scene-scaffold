@@ -408,10 +408,26 @@ export default function Search() {
                     onClick={() => navigate(`/cafe/${cafe.placeId}`)}
                   >
                     <div className="flex items-center gap-3">
-                      {/* Emoji placeholder */}
-                      <div className="w-12 h-12 bg-gradient-to-br from-[#8b5a3c] to-[#6b4423] rounded-lg flex-shrink-0 flex items-center justify-center text-white text-xl shadow-lg">
-                        {getCafeEmoji(cafe.id || cafe.placeId)}
-                      </div>
+                      {/* Hero image or emoji placeholder */}
+                      {cafe.photos?.[0] ? (
+                        <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden shadow-lg">
+                          <img
+                            src={cafe.photos[0]}
+                            alt={cafe.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              console.error('Failed to load cafe image:', cafe.name);
+                            }}
+                            onLoad={() => {
+                              // Image loaded successfully
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 bg-gradient-to-br from-[#8b5a3c] to-[#6b4423] rounded-lg flex-shrink-0 flex items-center justify-center text-white text-xl shadow-lg">
+                          {getCafeEmoji(cafe.id || cafe.placeId)}
+                        </div>
+                      )}
                     
                     {/* Cafe info */}
                     <div className="flex-1 min-w-0">
