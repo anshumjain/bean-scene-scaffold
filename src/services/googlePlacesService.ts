@@ -1,4 +1,4 @@
-import { ApiResponse } from './types';
+import { ApiResponse, GoogleReview } from './types';
 import { MonitoringService } from './monitoringService';
 
 // Google Places API calls should be made server-side
@@ -136,6 +136,77 @@ export class GooglePlacesService {
       };
     } catch (error) {
       return apiErrorResponse({});
+    }
+  }
+
+  /**
+   * Fetch Google reviews for a place
+   */
+  static async fetchPlaceReviews(placeId: string): Promise<ApiResponse<GoogleReview[]>> {
+    try {
+      await MonitoringService.logApiUsage('google_places', 'place_reviews');
+
+      // Call our server-side API endpoint instead of Google directly
+      const url = `/api/place/details?place_id=${placeId}&fields=reviews`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status !== 'OK') {
+        throw new Error(data.error_message || 'Failed to fetch place reviews');
+      }
+
+      const reviews: GoogleReview[] = data.result.reviews || [];
+
+      return {
+        data: reviews,
+        success: true
+      };
+    } catch (error) {
+      console.error('Failed to fetch place reviews:', error);
+      return apiErrorResponse([]);
+    }
+  }
+
+  /**
+   * Get a random Google review for a place (useful for generating post captions)
+   */
+  static async getRandomPlaceReview(placeId: string): Promise<ApiResponse<GoogleReview | null>> {
+    try {
+      const reviewsResult = await this.fetchPlaceReviews(placeId);
+      
+      if (!reviewsResult.success || reviewsResult.data.length === 0) {
+        return {
+          data: null,
+          success: false,
+          error: 'No reviews found for this place'
+        };
+      }
+
+      // Filter for reviews with actual text content
+      const reviewsWithText = reviewsResult.data.filter(review => 
+        review.text && review.text.trim().length > 10
+      );
+
+      if (reviewsWithText.length === 0) {
+        return {
+          data: null,
+          success: false,
+          error: 'No reviews with text content found'
+        };
+      }
+
+      // Get a random review
+      const randomIndex = Math.floor(Math.random() * reviewsWithText.length);
+      const randomReview = reviewsWithText[randomIndex];
+
+      return {
+        data: randomReview,
+        success: true
+      };
+    } catch (error) {
+      console.error('Failed to get random place review:', error);
+      return apiErrorResponse(null);
     }
   }
 }

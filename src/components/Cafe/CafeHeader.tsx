@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { CafePhotoUpload } from "@/components/Cafe/CafePhotoUpload"; // Correct named import
 import { ParkingInfoComponent } from "@/components/Cafe/ParkingInfo";
 import { WeatherWidget } from "@/components/Cafe/WeatherWidget";
+import { GoogleAttribution, GoogleAttributionOverlay, GoogleAttributionInline } from "@/components/Attribution/GoogleAttribution";
 import { useToast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
 
@@ -17,6 +18,8 @@ interface CafeHeaderProps {
     neighborhood: string;
     rating: number;
     userRating?: number;
+    googleRating?: number;
+    photoSource?: 'google' | 'user' | null;
     hours: string;
     hoursArray?: string[]; // Add full hours array for current day logic
     phone?: string;
@@ -195,10 +198,6 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
             className="w-full h-full object-cover"
             onError={(e) => {
               console.error('Failed to load cafe hero image:', cafe.name, cafe.heroImage);
-              console.error('Hero image error:', e);
-            }}
-            onLoad={() => {
-              console.log('Successfully loaded cafe hero image:', cafe.name, cafe.heroImage);
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
@@ -208,6 +207,13 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
               <span className="text-sm">{cafe.neighborhood}</span>
             </div>
           </div>
+          {/* Google Attribution for Photos */}
+          {cafe.photoSource === 'google' && (
+            <GoogleAttributionOverlay 
+              type="photo" 
+              sourceUrl={cafe.placeId ? `https://www.google.com/maps/search/?api=1&query_place_id=${cafe.placeId}` : undefined}
+            />
+          )}
         </div>
       ) : cafe.id ? (
         // Show photo upload component if no hero image and we have cafe ID
@@ -322,8 +328,11 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="font-semibold">{cafe.rating}</span>
-              <span className="text-muted-foreground text-sm">Google</span>
+              <span className="font-semibold">{cafe.googleRating || cafe.rating}</span>
+              <GoogleAttributionInline 
+                type="rating" 
+                sourceUrl={cafe.placeId ? `https://www.google.com/maps/search/?api=1&query_place_id=${cafe.placeId}` : undefined}
+              />
             </div>
             {cafe.userRating && (
               <div className="flex items-center gap-1">

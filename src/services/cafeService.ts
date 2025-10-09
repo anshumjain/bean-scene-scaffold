@@ -26,6 +26,17 @@ function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
  * Transform database format to app format
  */
 function transformCafeData(cafe: any): Cafe {
+  // Determine photo source based on available data
+  // Priority: 1) explicit photo_source field, 2) URL patterns, 3) google_photo_reference, 4) default to 'user'
+  const photoSource = cafe.photo_source || 
+    (cafe.hero_photo_url && (
+      cafe.hero_photo_url.includes('bean-scene/google-places') || 
+      cafe.hero_photo_url.includes('google') ||
+      // Check if it's a Cloudinary URL that might be from Google Places
+      (cafe.hero_photo_url.includes('cloudinary') && cafe.place_id)
+    ) ? 'google' : 
+    (cafe.google_photo_reference ? 'google' : 'user'));
+
   return {
     id: cafe.id,
     placeId: cafe.place_id,
@@ -44,6 +55,8 @@ function transformCafeData(cafe: any): Cafe {
     // Use hero_photo_url as the primary photo, fallback to photos array
     photos: cafe.hero_photo_url ? [cafe.hero_photo_url, ...(cafe.photos || [])] : (cafe.photos || []),
     heroPhotoUrl: cafe.hero_photo_url,
+    photoSource: photoSource as 'google' | 'user' | null,
+    googlePhotoReference: cafe.google_photo_reference,
     tags: cafe.tags || [],
     createdAt: cafe.created_at,
     updatedAt: cafe.updated_at,
@@ -143,10 +156,8 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
       }
     }
 
-    console.log(`Fetched ${allData.length} cafes from Supabase`);
-    
-    // Transform database format to app format
-    const cafes: Cafe[] = allData.map(transformCafeData);
+        // Transform database format to app format
+        const cafes: Cafe[] = allData.map(transformCafeData);
 
     return {
       data: cafes,

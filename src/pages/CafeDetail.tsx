@@ -15,6 +15,7 @@ import { addFavorite, removeFavorite, isFavorited } from "@/services/favoritesSe
 import { logActivity } from "@/services/activityService";
 import { toast } from "@/hooks/use-toast";
 import type { Cafe, Post } from "@/services/types";
+import { GoogleAttributionOverlay } from "@/components/Attribution/GoogleAttribution";
 
 export default function CafeDetail() {
   const navigate = useNavigate();
@@ -221,6 +222,7 @@ export default function CafeDetail() {
               neighborhood: cafe.neighborhood,
               rating: cafe.googleRating || 0,
               userRating: cafe.rating || 0,
+              photoSource: cafe.photoSource, // ADD THIS LINE!
               hours: cafe.openingHours?.[0] || "Hours not available",
               hoursArray: cafe.openingHours, // Pass full hours array for current day logic
               phone: cafe.phoneNumber,
@@ -264,7 +266,9 @@ export default function CafeDetail() {
                     createdAt: new Date(post.createdAt).toLocaleString(),
                     likes: post.likes || 0,
                     comments: post.comments || 0,
-                    username: post.username
+                    username: post.username,
+                    photoSource: post.photoSource, // ADD THIS LINE!
+                    placeId: post.placeId // ADD THIS LINE!
                   }} 
                 />
               ))
@@ -295,13 +299,20 @@ export default function CafeDetail() {
                 cafe.photos.map((photo, i) => (
                   <div
                     key={i}
-                    className="aspect-square bg-muted rounded-lg overflow-hidden"
+                    className="aspect-square bg-muted rounded-lg overflow-hidden relative"
                   >
                     <img 
                       src={photo} 
                       alt={`${cafe.name} photo ${i + 1}`}
                       className="w-full h-full object-cover"
                     />
+                    {/* Google Attribution for Photos */}
+                    {cafe.photoSource === 'google' && (
+                      <GoogleAttributionOverlay 
+                        type="photo" 
+                        sourceUrl={cafe.placeId ? `https://www.google.com/maps/search/?api=1&query_place_id=${cafe.placeId}` : undefined}
+                      />
+                    )}
                   </div>
                 ))
               ) : (

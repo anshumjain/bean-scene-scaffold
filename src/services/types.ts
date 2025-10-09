@@ -17,6 +17,8 @@ export interface Cafe {
   parkingInfo?: string;
   photos?: string[];
   heroPhotoUrl?: string;
+  photoSource?: 'google' | 'user' | null;
+  googlePhotoReference?: string;
   tags: string[];
   createdAt: string;
   updatedAt: string;
@@ -37,6 +39,8 @@ export interface Post {
   createdAt: string;
   username?: string;
   deviceId?: string;
+  source?: 'google' | 'user';
+  photoSource?: 'google' | 'user';
   cafe?: Pick<Cafe, 'name' | 'neighborhood' | 'placeId'>;
 }
 
@@ -104,6 +108,31 @@ export interface GooglePlacesResult {
     photo_reference: string;
   }>;
 }
+
+export interface GoogleReview {
+  author_name: string;
+  author_url?: string;
+  language: string;
+  profile_photo_url?: string;
+  rating: number;
+  relative_time_description: string;
+  text: string;
+  time: number;
+}
+
+export interface CafeReview {
+  id: string;
+  cafeId: string;
+  reviewerName: string;
+  rating: number;
+  reviewText: string;
+  profilePhotoUrl?: string;
+  time: string;
+  source: 'google' | 'user';
+}
+
+// Content source type for attribution
+export type ContentSource = 'google' | 'user';
 
 export interface SearchFilters {
   query?: string;

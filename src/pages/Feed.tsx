@@ -389,7 +389,7 @@ export default function Feed() {
 
               {posts.map((post) => (
                 <PostCard 
-                  key={post.id} 
+                  key={post.id}
                   post={{
                     id: post.id,
                     cafeName: post.cafe?.name || 'Unknown Cafe',
@@ -401,7 +401,9 @@ export default function Feed() {
                     createdAt: new Date(post.createdAt).toLocaleString(),
                     likes: post.likes,
                     comments: post.comments,
-                    username: post.username
+                    username: post.username,
+                    placeId: post.cafe?.placeId || post.placeId,
+                    photoSource: post.photoSource // ADD THIS LINE!
                   }} 
                 />
               ))}

@@ -3,7 +3,9 @@ import { Heart, MessageCircle, MapPin, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { GoogleAttribution, GoogleAttributionOverlay } from "@/components/Attribution/GoogleAttribution";
 import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 interface PostCardProps {
   post: {
@@ -18,11 +20,15 @@ interface PostCardProps {
     likes: number;
     comments: number;
     username?: string;
+    placeId?: string;
+    source?: 'google' | 'user';
+    photoSource?: 'google' | 'user';
   };
   type?: 'check-in' | 'post';
 }
 
 export function PostCard({ post, type = 'post' }: PostCardProps) {
+  const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
   const [liking, setLiking] = useState(false);
@@ -82,7 +88,18 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-primary" />
             <div>
-              <h3 className="font-semibold text-sm">{post.cafeName}</h3>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (post.placeId) {
+                    navigate(`/cafe/${post.placeId}`);
+                  }
+                }}
+                className="font-semibold text-sm hover:text-primary transition-colors text-left"
+                disabled={!post.placeId}
+              >
+                {post.cafeName}
+              </button>
               <p className="text-xs text-muted-foreground">{post.neighborhood}</p>
             </div>
           </div>
@@ -100,6 +117,13 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
           alt={`${post.cafeName} post`}
           className="w-full h-64 object-cover"
         />
+            {/* Google Attribution for Photos */}
+            {post.photoSource === 'google' && (
+              <GoogleAttributionOverlay 
+                type="photo" 
+                sourceUrl={post.placeId ? `https://www.google.com/maps/search/?api=1&query_place_id=${post.placeId}` : undefined}
+              />
+            )}
       </div>
 
       {/* Content */}
@@ -121,6 +145,17 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
         <p className="text-sm text-foreground mb-3 leading-relaxed">
           {post.textReview}
         </p>
+        
+        {/* Google Review Attribution */}
+        {post.source === 'google' && post.textReview && (
+          <div className="mb-3">
+            <GoogleAttribution 
+              type="review" 
+              sourceUrl={post.placeId ? `https://www.google.com/maps/search/?api=1&query_place_id=${post.placeId}` : undefined}
+              size="sm"
+            />
+          </div>
+        )}
         
         {/* Username */}
         {post.username && (

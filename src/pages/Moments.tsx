@@ -82,7 +82,9 @@ export default function Moments() {
                     textReview: post.textReview || '',
                     createdAt: new Date(post.createdAt).toLocaleString(),
                     likes: post.likes || 0,
-                    comments: post.comments || 0
+                    comments: post.comments || 0,
+                    username: post.username,
+                    placeId: post.cafe?.placeId || post.placeId
                   }}
                 />
               ))}

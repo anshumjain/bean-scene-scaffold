@@ -49,24 +49,41 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
     }
 
     // Transform database format to app format
-    const posts: Post[] = (data || []).map(post => ({
-      id: post.id,
-      userId: post.user_id,
-      cafeId: post.cafe_id,
-      placeId: post.place_id,
-      imageUrl: post.image_url,
-      rating: post.rating,
-      textReview: post.text_review,
-      tags: post.tags || [],
-      likes: post.likes,
-      comments: post.comments,
-      createdAt: post.created_at,
-      cafe: post.cafes ? {
-        name: post.cafes.name,
-        neighborhood: post.cafes.neighborhood,
-        placeId: post.cafes.place_id
-      } : undefined
-    }));
+    const posts: Post[] = (data || []).map(post => {
+      // Determine source based on available data
+      const source = post.source || 'user'; // Default to user for new posts
+      // Priority: 1) explicit photo_source field, 2) URL patterns, 3) default to 'user'
+      const photoSource = post.photo_source || 
+        (post.image_url && (
+          post.image_url.includes('bean-scene/google-places') || 
+          post.image_url.includes('google') ||
+          // Check if it's a Cloudinary URL that might be from Google Places
+          (post.image_url.includes('cloudinary') && post.place_id)
+        ) ? 'google' : 'user');
+
+      return {
+        id: post.id,
+        userId: post.user_id,
+        cafeId: post.cafe_id,
+        placeId: post.place_id,
+        imageUrl: post.image_url,
+        rating: post.rating,
+        textReview: post.text_review,
+        tags: post.tags || [],
+        likes: post.likes,
+        comments: post.comments,
+        createdAt: post.created_at,
+        source: source as 'google' | 'user',
+        photoSource: photoSource as 'google' | 'user',
+        username: post.username,
+        deviceId: post.device_id,
+        cafe: post.cafes ? {
+          name: post.cafes.name,
+          neighborhood: post.cafes.neighborhood,
+          placeId: post.cafes.place_id
+        } : undefined
+      };
+    });
 
     return {
       data: posts,
@@ -100,24 +117,41 @@ export async function fetchCafePostsById(placeId: string): Promise<ApiResponse<P
     }
 
     // Transform database format to app format
-    const posts: Post[] = (data || []).map(post => ({
-      id: post.id,
-      userId: post.user_id,
-      cafeId: post.cafe_id,
-      placeId: post.place_id,
-      imageUrl: post.image_url,
-      rating: post.rating,
-      textReview: post.text_review,
-      tags: post.tags || [],
-      likes: post.likes,
-      comments: post.comments,
-      createdAt: post.created_at,
-      cafe: post.cafes ? {
-        name: post.cafes.name,
-        neighborhood: post.cafes.neighborhood,
-        placeId: post.cafes.place_id
-      } : undefined
-    }));
+    const posts: Post[] = (data || []).map(post => {
+      // Determine source based on available data
+      const source = post.source || 'user'; // Default to user for new posts
+      // Priority: 1) explicit photo_source field, 2) URL patterns, 3) default to 'user'
+      const photoSource = post.photo_source || 
+        (post.image_url && (
+          post.image_url.includes('bean-scene/google-places') || 
+          post.image_url.includes('google') ||
+          // Check if it's a Cloudinary URL that might be from Google Places
+          (post.image_url.includes('cloudinary') && post.place_id)
+        ) ? 'google' : 'user');
+
+      return {
+        id: post.id,
+        userId: post.user_id,
+        cafeId: post.cafe_id,
+        placeId: post.place_id,
+        imageUrl: post.image_url,
+        rating: post.rating,
+        textReview: post.text_review,
+        tags: post.tags || [],
+        likes: post.likes,
+        comments: post.comments,
+        createdAt: post.created_at,
+        source: source as 'google' | 'user',
+        photoSource: photoSource as 'google' | 'user',
+        username: post.username,
+        deviceId: post.device_id,
+        cafe: post.cafes ? {
+          name: post.cafes.name,
+          neighborhood: post.cafes.neighborhood,
+          placeId: post.cafes.place_id
+        } : undefined
+      };
+    });
     
     return {
       data: posts,
@@ -203,7 +237,9 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
       text_review: checkinData.review,
       tags: checkinData.tags,
       username: username,
-      device_id: deviceId
+      device_id: deviceId,
+      source: 'user', // Explicitly set as user-generated content
+      photo_source: 'user' // Explicitly set as user-generated photo
     };
     
     const { data, error } = await supabase
