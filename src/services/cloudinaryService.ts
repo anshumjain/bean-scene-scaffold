@@ -8,6 +8,15 @@ const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 const hasCloudinaryCredentials = CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET && 
   CLOUDINARY_CLOUD_NAME !== 'undefined' && CLOUDINARY_UPLOAD_PRESET !== 'undefined';
 
+// Debug logging for Cloudinary setup
+if (import.meta.env.DEV) {
+  console.log('Cloudinary Setup:', {
+    cloudName: CLOUDINARY_CLOUD_NAME,
+    uploadPreset: CLOUDINARY_UPLOAD_PRESET,
+    hasCredentials: hasCloudinaryCredentials
+  });
+}
+
 function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
   return {
     data: defaultValue,
@@ -37,7 +46,15 @@ export interface CloudinaryUploadResult {
  */
 export async function uploadImage(file: File): Promise<ApiResponse<CloudinaryUploadResult>> {
   if (!hasCloudinaryCredentials) {
-    return apiErrorResponse({} as CloudinaryUploadResult);
+    console.error('Cloudinary credentials not configured:', {
+      cloudName: CLOUDINARY_CLOUD_NAME,
+      uploadPreset: CLOUDINARY_UPLOAD_PRESET
+    });
+    return {
+      data: {} as CloudinaryUploadResult,
+      success: false,
+      error: 'Cloudinary credentials not configured. Please check your environment variables.'
+    };
   }
   
   try {

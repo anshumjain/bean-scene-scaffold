@@ -157,7 +157,7 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded, tagRefreshTrig
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Hero Image or Photo Upload */}
       {cafe.heroImage ? (
         <div className="relative h-48 -mx-6 -mt-6">
@@ -175,6 +175,36 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded, tagRefreshTrig
             <div className="flex items-center gap-2 text-white/90">
               <span className="text-sm">{cafe.neighborhood}</span>
             </div>
+          </div>
+          {/* Ratings Overlay */}
+          <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-sm rounded-lg p-3 space-y-2">
+            {/* Google Rating - Only show if available */}
+            {cafe.googleRating && (
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                <span className="font-bold text-white text-lg">{cafe.googleRating}</span>
+                <GoogleAttributionInline
+                  type="rating"
+                  sourceUrl={cafe.placeId ? `https://www.google.com/maps/search/?api=1&query_place_id=${cafe.placeId}` : undefined}
+                />
+              </div>
+            )}
+            {/* BeanScene Rating - Only show if available */}
+            {cafe.userRating && (
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 fill-white text-white" />
+                <span className="font-bold text-white text-lg">{cafe.userRating}</span>
+                <span className="text-xs text-white font-medium">Bean Scene</span>
+              </div>
+            )}
+            {/* Fallback to generic rating if neither specific rating is available */}
+            {!cafe.googleRating && !cafe.userRating && cafe.rating && (
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                <span className="font-bold text-white text-lg">{cafe.rating}</span>
+                <span className="text-xs text-white/70">Rating</span>
+              </div>
+            )}
           </div>
           {/* Google Attribution for Photos */}
           {cafe.photoSource === 'google' && (
@@ -225,128 +255,60 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded, tagRefreshTrig
         />
       )}
 
-      <div className="space-y-4">
-        {/* Address and Contact */}
-        <Card className="p-4 bg-muted/30 border-0">
-          <div className="space-y-3">
-            <div className="flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-muted-foreground mt-1" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">{cafe.address}</p>
-                <p className="text-sm font-medium">{cafe.neighborhood}, Houston</p>
-              </div>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="h-8 px-2 text-primary"
-                onClick={handleDirections}
-              >
-                <Navigation className="w-4 h-4 mr-1" />
-                Directions
-              </Button>
+      {/* Compact Info Section */}
+      <Card className="p-4 bg-muted/30 border-0">
+        <div className="space-y-3">
+          {/* Address Row */}
+          <div className="flex items-start gap-2">
+            <MapPin className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{cafe.address}</p>
+              <p className="text-sm text-muted-foreground">{cafe.neighborhood}</p>
             </div>
-
-            {cafe.phone && (
-              <div className="flex items-center gap-2 pt-2 border-t border-border">
-                <Phone className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{cafe.phone}</span>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-8 px-2 text-primary ml-auto"
-                  onClick={handleCall}
-                >
-                  Call
-                </Button>
-              </div>
-            )}
-
-            {cafe.website && (
-              <div className="flex items-center gap-2 pt-2 border-t border-border">
-                <Globe className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm truncate flex-1">{cafe.website}</span>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-8 px-2 text-primary"
-                  onClick={handleVisitWebsite}
-                >
-                  Visit
-                </Button>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Hours and Status */}
-        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">{hoursToUse}</span>
-          </div>
-          <Badge 
-            variant={isCurrentlyOpen ? "default" : "secondary"}
-            className={isCurrentlyOpen ? "bg-green-600 hover:bg-green-700" : ""}
-          >
-            {openStatus}
-          </Badge>
-        </div>
-
-        {/* Parking Info */}
-        {cafe.placeId && (
-          <ParkingInfoComponent 
-            placeId={cafe.placeId} 
-            cafeName={cafe.name}
-            parkingInfo={cafe.parkingInfo}
-          />
-        )}
-
-        {/* Ratings and Price */}
-        <div className="flex items-center justify-between p-4 bg-card border border-border rounded-lg shadow-warm">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1">
-              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="font-semibold">{cafe.googleRating || cafe.rating}</span>
-              <GoogleAttributionInline 
-                type="rating" 
-                sourceUrl={cafe.placeId ? `https://www.google.com/maps/search/?api=1&query_place_id=${cafe.placeId}` : undefined}
-              />
-            </div>
-            {cafe.userRating && (
-              <div className="flex items-center gap-1">
-                <Star className="w-4 h-4 fill-primary text-primary" />
-                <span className="font-semibold">{cafe.userRating}</span>
-                <span className="text-muted-foreground text-sm">Bean Scene</span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            {renderPriceLevel(cafe.priceLevel)}
-          </div>
-        </div>
-
-        {/* Top Tags */}
-        <div className="flex flex-wrap gap-2">
-          {cafe.topTags.map((tag) => (
-            <Badge
-              key={tag}
-              variant="secondary"
-              className="bg-primary/10 text-primary border-0"
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="h-8 px-2 text-primary flex-shrink-0"
+              onClick={handleDirections}
             >
-              #{tag}
+              <Navigation className="w-4 h-4 mr-1" />
+              Directions
+            </Button>
+          </div>
+
+          {/* Hours and Status Row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <span className="text-sm truncate">{hoursToUse}</span>
+            </div>
+            <Badge 
+              variant={isCurrentlyOpen ? "default" : "secondary"}
+              className={`flex-shrink-0 ${isCurrentlyOpen ? "bg-green-600 hover:bg-green-700" : ""}`}
+            >
+              {openStatus}
             </Badge>
-          ))}
-        </div>
+          </div>
 
-        {/* Review Snippet */}
-        <div className="bg-muted/50 rounded-lg p-4 border-l-4 border-primary/30">
-          <p className="text-sm italic text-muted-foreground">
-            "{cafe.reviewSnippet}"
-          </p>
+          {/* Top Tags Row */}
+          {cafe.topTags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {cafe.topTags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="secondary"
+                  className="bg-primary/10 text-primary border-0 text-xs"
+                >
+                  #{tag}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
+      </Card>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3">
+      {/* Action Buttons */}
+      <div className="flex gap-3">
           <Button 
             className="flex-1 coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth"
             onClick={() => navigate('/checkin', { 
@@ -363,7 +325,6 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded, tagRefreshTrig
             Check In Here
           </Button>
         </div>
-      </div>
     </div>
   );
 }

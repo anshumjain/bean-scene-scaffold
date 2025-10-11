@@ -46,6 +46,7 @@ function transformCafeData(cafe: any): Cafe {
     longitude: typeof cafe.longitude === 'number' ? cafe.longitude : parseFloat(cafe.longitude),
     rating: cafe.rating ? (typeof cafe.rating === 'number' ? cafe.rating : parseFloat(cafe.rating)) : undefined,
     googleRating: cafe.google_rating ? (typeof cafe.google_rating === 'number' ? cafe.google_rating : parseFloat(cafe.google_rating)) : undefined,
+    userRating: cafe.user_rating ? (typeof cafe.user_rating === 'number' ? cafe.user_rating : parseFloat(cafe.user_rating)) : undefined,
     priceLevel: cafe.price_level,
     phoneNumber: cafe.phone_number,
     website: cafe.website,

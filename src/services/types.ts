@@ -10,6 +10,7 @@ export interface Cafe {
   longitude: number;
   rating?: number;
   googleRating?: number;
+  userRating?: number; // BeanScene user rating
   priceLevel?: number;
   phoneNumber?: string;
   website?: string;
@@ -182,6 +183,7 @@ export interface Favorite {
   deviceId?: string;
   cafeId: string;
   createdAt: string;
+  cafe?: Pick<Cafe, 'id' | 'name' | 'address' | 'neighborhood' | 'place_id'>;
 }
 
 export type ActivityType = 'check-in' | 'review' | 'photo-upload' | 'favorite';

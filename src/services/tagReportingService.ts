@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getDeviceId } from './userService';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://hhdcequsdmosxzjebdyj.supabase.co";
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZGNlcXVzZG1vc3h6amViZHlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjQwODMsImV4cCI6MjA3MzY0MDA4M30.BJ8tbA2zBC_IgC3Li_uE5P1-cPHA1Gi6mESaJVToPqA";
@@ -23,13 +24,8 @@ export async function reportIncorrectTag(
   reason?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Generate a simple device ID for anonymous reporting
-    const deviceId = localStorage.getItem('device-id') || 
-      `device-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    if (!localStorage.getItem('device-id')) {
-      localStorage.setItem('device-id', deviceId);
-    }
+    // Use consistent device ID
+    const deviceId = getDeviceId();
 
     const { error } = await supabase
       .from('tag_reports')
@@ -115,8 +111,7 @@ export async function hasUserReportedTag(
   tag: string
 ): Promise<boolean> {
   try {
-    const deviceId = localStorage.getItem('device-id');
-    if (!deviceId) return false;
+    const deviceId = getDeviceId();
 
     const { data, error } = await supabase
       .from('tag_reports')

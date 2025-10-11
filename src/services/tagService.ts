@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getDeviceId } from './userService';
 
 export interface TagStats {
   tag: string;
@@ -267,9 +268,9 @@ export async function addTagsToCafe(cafeId: string, tags: string[]): Promise<{ s
       user_id: userProfile?.id || null,
       cafe_id: cafeId,
       place_id: cafe.place_id || '', // Handle case where place_id might be null
-      image_url: '', // No image for direct tagging
+      image_url: null, // No image for direct tagging
       image_urls: [], // No images for direct tagging
-      rating: 0, // No rating for direct tagging
+      rating: null, // No rating for direct tagging - use null instead of 0
       text_review: `Added tags: ${normalizedTags.join(', ')}`,
       tags: normalizedTags,
       username: username.success ? username.data : null,
@@ -294,17 +295,6 @@ export async function addTagsToCafe(cafeId: string, tags: string[]): Promise<{ s
   }
 }
 
-/**
- * Get device ID for anonymous users
- */
-function getDeviceId(): string {
-  let deviceId = localStorage.getItem('deviceId');
-  if (!deviceId) {
-    deviceId = 'device_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('deviceId', deviceId);
-  }
-  return deviceId;
-}
 
 /**
  * Get username for current user

@@ -1,19 +1,25 @@
 import { useState } from "react";
-import { Heart, MessageCircle, MapPin, Star } from "lucide-react";
+import { Heart, MessageCircle, MapPin, Star, Edit, Trash2, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GoogleAttribution, GoogleAttributionOverlay } from "@/components/Attribution/GoogleAttribution";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-interface PostCardProps {
+interface ProfilePostCardProps {
   post: {
     id: string;
     cafeName: string;
     neighborhood: string;
-    imageUrl: string; // Keep for backward compatibility
-    imageUrls?: string[]; // New field for multiple images
+    imageUrl: string;
+    imageUrls?: string[];
     tags: string[];
     rating: number;
     textReview: string;
@@ -26,9 +32,11 @@ interface PostCardProps {
     photoSource?: 'google' | 'user';
   };
   type?: 'check-in' | 'post';
+  onEdit?: (postId: string) => void;
+  onDelete?: (postId: string) => void;
 }
 
-export function PostCard({ post, type = 'post' }: PostCardProps) {
+export function ProfilePostCard({ post, type = 'post', onEdit, onDelete }: ProfilePostCardProps) {
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
@@ -79,12 +87,54 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
     });
   };
 
+  const handleEdit = () => {
+    if (onEdit) {
+      onEdit(post.id);
+    } else {
+      // Fallback: navigate to edit page or show edit modal
+      toast({
+        title: "Edit Post",
+        description: "Edit functionality will open the post editor.",
+      });
+    }
+  };
+
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(post.id);
+    }
+  };
+
   return (
     <Card className="overflow-hidden shadow-coffee border-0 bg-card/80 backdrop-blur-sm">
       {/* Label */}
       <div className="px-4 pt-4">
-        <span className={`inline-block text-xs font-bold rounded px-2 py-1 mb-2 ${type === 'check-in' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{type === 'check-in' ? 'Check-In' : 'Shared Photo'}</span>
+        <div className="flex items-center justify-between">
+          <span className={`inline-block text-xs font-bold rounded px-2 py-1 mb-2 ${type === 'check-in' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+            {type === 'check-in' ? 'Check-In' : 'Shared Photo'}
+          </span>
+          
+          {/* Edit/Delete Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleEdit}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+
       {/* Header */}
       <div className="p-4 pb-3">
         <div className="flex items-center justify-between">

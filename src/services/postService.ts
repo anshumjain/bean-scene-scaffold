@@ -6,6 +6,7 @@ import { MonitoringService } from './monitoringService';
 import { supabase } from '@/integrations/supabase/client';
 import { getUsername, getDeviceId } from './userService';
 import { logActivity } from './activityService';
+import { recalculateCafeRating } from './ratingService';
 
 function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
   return {
@@ -177,6 +178,89 @@ export async function filterFeedByTag(tag: string): Promise<ApiResponse<Post[]>>
 }
 
 /**
+ * Fetch posts for a specific user (for profile page)
+ */
+export async function fetchUserPosts(username?: string, deviceId?: string): Promise<ApiResponse<Post[]>> {
+  try {
+    let query = supabase
+      .from('posts')
+      .select(`
+        *,
+        cafes (name, neighborhood, place_id)
+      `)
+      .order('created_at', { ascending: false });
+
+    // Filter by username or device_id for anonymous users
+    if (username) {
+      query = query.eq('username', username);
+    } else if (deviceId) {
+      query = query.eq('device_id', deviceId);
+    } else {
+      // If no identifier provided, return empty
+      return {
+        data: [],
+        success: true
+      };
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Transform database format to app format
+    const posts: Post[] = data.map(post => {
+      // Determine source based on available data
+      const source = post.source || 'user'; // Default to user for new posts
+      // Priority: 1) explicit photo_source field, 2) URL patterns, 3) default to 'user'
+      const photoSource = post.photo_source || 
+        (post.image_url && (
+          post.image_url.includes('bean-scene/google-places') || 
+          post.image_url.includes('google') ||
+          // Check if it's a Cloudinary URL that might be from Google Places
+          (post.image_url.includes('cloudinary') && post.place_id)
+        ) ? 'google' : 'user');
+
+      return {
+        id: post.id,
+        userId: post.user_id,
+        cafeId: post.cafe_id,
+        placeId: post.place_id,
+        imageUrl: post.image_url, // Keep for backward compatibility
+        imageUrls: post.image_urls || [], // New field for multiple images
+        rating: post.rating,
+        textReview: post.text_review,
+        tags: post.tags || [],
+        likes: post.likes,
+        comments: post.comments,
+        createdAt: post.created_at,
+        source: source as 'google' | 'user',
+        photoSource: photoSource as 'google' | 'user',
+        username: post.username,
+        deviceId: post.device_id,
+        cafe: post.cafes ? {
+          name: post.cafes.name,
+          neighborhood: post.cafes.neighborhood,
+          placeId: post.cafes.place_id
+        } : undefined
+      };
+    });
+
+    return {
+      data: posts,
+      success: true
+    };
+  } catch (error) {
+    return {
+      data: [],
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch user posts'
+    };
+  }
+}
+
+/**
  * Submit a new check-in post
  */
 export async function submitCheckin(checkinData: CheckInData): Promise<ApiResponse<Post>> {
@@ -320,6 +404,16 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
     } catch (error) {
       console.error('Failed to log activity (non-critical):', error);
       // Don't throw - this is optional logging
+    }
+
+    // Recalculate cafe rating (optional - don't fail post creation if this fails)
+    try {
+      if (checkinData.placeId && checkinData.rating) {
+        await recalculateCafeRating(checkinData.placeId);
+      }
+    } catch (error) {
+      console.error('Failed to recalculate cafe rating (non-critical):', error);
+      // Don't throw - this is optional
     }
     
     return {
@@ -467,6 +561,127 @@ export async function fetchTrendingPosts(): Promise<ApiResponse<Post[]>> {
       data: [],
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch trending posts'
+    };
+  }
+}
+
+/**
+ * Update a user's post (edit functionality)
+ */
+export async function updatePost(postId: string, updates: {
+  rating?: number;
+  textReview?: string;
+  tags?: string[];
+  imageUrl?: string;
+  imageUrls?: string[];
+}): Promise<ApiResponse<Post>> {
+  try {
+    const { data, error } = await supabase
+      .from('posts')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', postId)
+      .select(`
+        *,
+        cafes (name, neighborhood, place_id)
+      `)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Transform to app format
+    const updatedPost: Post = {
+      id: data.id,
+      userId: data.user_id,
+      cafeId: data.cafe_id,
+      placeId: data.place_id,
+      imageUrl: data.image_url,
+      imageUrls: data.image_urls || [],
+      rating: data.rating,
+      textReview: data.text_review,
+      tags: data.tags || [],
+      likes: data.likes,
+      comments: data.comments,
+      createdAt: data.created_at,
+      cafe: data.cafes ? {
+        name: data.cafes.name,
+        neighborhood: data.cafes.neighborhood,
+        placeId: data.cafes.place_id
+      } : undefined
+    };
+
+    // Recalculate cafe rating if rating was updated
+    if (updates.rating && data.place_id) {
+      try {
+        await recalculateCafeRating(data.place_id);
+      } catch (error) {
+        console.error('Failed to recalculate cafe rating:', error);
+        // Don't fail the update if rating recalculation fails
+      }
+    }
+
+    return {
+      data: updatedPost,
+      success: true
+    };
+  } catch (error) {
+    return {
+      data: {} as Post,
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update post'
+    };
+  }
+}
+
+/**
+ * Delete a user's post
+ */
+export async function deletePost(postId: string): Promise<ApiResponse<boolean>> {
+  try {
+    // First get the post to get place_id for rating recalculation
+    const { data: postData, error: fetchError } = await supabase
+      .from('posts')
+      .select('place_id')
+      .eq('id', postId)
+      .single();
+
+    if (fetchError) {
+      throw new Error(fetchError.message);
+    }
+
+    // Delete the post
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Recalculate cafe rating after deletion
+    if (postData?.place_id) {
+      try {
+        await recalculateCafeRating(postData.place_id);
+      } catch (error) {
+        console.error('Failed to recalculate cafe rating:', error);
+        // Don't fail the deletion if rating recalculation fails
+      }
+    }
+
+    return {
+      data: true,
+      success: true
+    };
+  } catch (error) {
+    return {
+      data: false,
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete post'
     };
   }
 }

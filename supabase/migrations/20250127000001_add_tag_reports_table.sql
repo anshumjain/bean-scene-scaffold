@@ -29,3 +29,4 @@ CREATE POLICY "Allow reading all reports" ON tag_reports
   FOR SELECT USING (true);
 
 
+

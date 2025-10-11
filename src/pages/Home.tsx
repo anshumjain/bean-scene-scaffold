@@ -1,4 +1,4 @@
-import { Coffee, MapPin, Heart, Users } from "lucide-react";
+import { Coffee, MapPin, Heart, Users, MessageSquare } from "lucide-react";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,14 @@ export default function Home() {
                 <Users className="w-8 h-8 mx-auto mb-3 coffee-location-pin" />
                 <h3 className="font-semibold mb-1 coffee-cafe-name">Profile</h3>
                 <p className="text-xs coffee-text-light">Track your journey</p>
+              </CardContent>
+            </Card>
+
+            <Card className="coffee-card coffee-interactive" onClick={() => navigate('/feedback')}>
+              <CardContent className="p-6 text-center">
+                <MessageSquare className="w-8 h-8 mx-auto mb-3 coffee-location-pin" />
+                <h3 className="font-semibold mb-1 coffee-cafe-name">Feedback</h3>
+                <p className="text-xs coffee-text-light">Help us improve</p>
               </CardContent>
             </Card>
           </div>
