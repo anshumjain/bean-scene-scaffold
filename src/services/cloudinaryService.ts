@@ -58,6 +58,8 @@ export async function uploadImage(file: File): Promise<ApiResponse<CloudinaryUpl
   }
   
   try {
+    console.log('Cloudinary upload starting for file:', file.name, file.type, file.size);
+    
     // Validate file type
     if (!file.type.startsWith('image/')) {
       throw new Error('Please select a valid image file');
@@ -72,16 +74,17 @@ export async function uploadImage(file: File): Promise<ApiResponse<CloudinaryUpl
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
     
-    // Coffee shop optimized transformations
-    formData.append('transformation', JSON.stringify([
-      { width: 800, height: 800, crop: 'limit', quality: 'auto:good' },
-      { effect: 'sharpen:100' }, // Enhance coffee details
-      { format: 'auto' } // Automatic format optimization
-    ]));
+    // Minimal parameters for unsigned upload - let the preset handle everything
+    // Only add essential parameters that the preset is configured to accept
     
-    // Add contextual tags for better organization
-    formData.append('tags', 'coffee,houston,checkin,bean-scene');
-    formData.append('context', `user_id=${getCurrentUserId()}`);
+    console.log('Cloudinary upload request:', {
+      cloudName: CLOUDINARY_CLOUD_NAME,
+      uploadPreset: CLOUDINARY_UPLOAD_PRESET,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      hasCredentials: hasCloudinaryCredentials
+    });
     
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
@@ -92,8 +95,18 @@ export async function uploadImage(file: File): Promise<ApiResponse<CloudinaryUpl
     );
     
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error?.message || 'Failed to upload image');
+      let errorMessage = `Upload failed with status ${response.status}`;
+      try {
+        const errorData = await response.json();
+        console.error('Cloudinary upload error details:', errorData);
+        errorMessage = errorData.error?.message || errorData.message || errorMessage;
+      } catch (parseError) {
+        console.error('Could not parse error response:', parseError);
+        const responseText = await response.text();
+        console.error('Raw error response:', responseText);
+        errorMessage = responseText || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
     
     const result: CloudinaryUploadResult = await response.json();

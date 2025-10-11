@@ -123,21 +123,24 @@ export default function EditPost() {
       
       // Upload new images if any are selected
       if (selectedImages.length > 0) {
+        console.log('Starting image upload for', selectedImages.length, 'images');
         const uploadPromises = selectedImages.map(file => uploadImage(file));
         const uploadResults = await Promise.all(uploadPromises);
+        console.log('Upload results:', uploadResults);
         
         const failedUploads = uploadResults.filter(result => !result.success);
         if (failedUploads.length > 0) {
+          console.error('Upload failures:', failedUploads);
           toast({
-            title: "Error",
-            description: `Failed to upload ${failedUploads.length} image(s). Please try again.`,
+            title: "Upload Error",
+            description: `Failed to upload ${failedUploads.length} image(s): ${failedUploads[0].error}`,
             variant: "destructive",
           });
           return;
         }
         
         // Add new image URLs to existing ones
-        const newImageUrls = uploadResults.map(result => result.data);
+        const newImageUrls = uploadResults.map(result => result.data?.secure_url || result.data?.url);
         imageUrls = [...imageUrls, ...newImageUrls];
       }
       

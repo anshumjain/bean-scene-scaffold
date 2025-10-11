@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Sparkles, Coffee, ChevronRight } from 'lucide-react';
+import { MapPin, Sparkles, Coffee, ChevronRight, Shield, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -24,6 +24,13 @@ const onboardingSteps = [
     description: "Turn your everyday coffee into something more, catch-ups, co-working, or a friendly hello.",
     insight: "We're creating a culture where real-life interactions happen naturally, one café at a time.",
     emoji: "☕"
+  },
+  {
+    icon: Shield,
+    title: "Your Identity is Secure",
+    description: "Your username is tied to this browser for security. Your posts stay private and no one can access them from another device.",
+    insight: "Switching devices won't show your posts here. Account system coming soon for cross-device access!",
+    emoji: "🔒"
   }
 ];
 
@@ -86,6 +93,19 @@ export default function Onboarding({ onComplete }) {
             <p className="text-lg text-muted-foreground leading-relaxed">
               {currentCard.description}
             </p>
+
+            {/* Special styling for security card */}
+            {currentStep === 3 && (
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-center gap-2 text-blue-700 dark:text-blue-300">
+                  <Smartphone className="w-4 h-4" />
+                  <span className="text-sm font-medium">Device Security</span>
+                </div>
+                <p className="text-sm text-blue-600 dark:text-blue-400">
+                  Posts created on this device stay here. Account system coming soon to sync across devices!
+                </p>
+              </div>
+            )}
 
             <div className="pt-2 pb-2">
               <p className="text-sm text-muted-foreground/80 leading-relaxed italic">

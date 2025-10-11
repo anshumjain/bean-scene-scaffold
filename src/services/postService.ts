@@ -579,20 +579,33 @@ export async function updatePost(postId: string, updates: {
   imageUrls?: string[];
 }): Promise<ApiResponse<Post>> {
   try {
+    // Prepare update data, handling imageUrls array properly for PostgreSQL
+    const updateData: any = {
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    
+    // Convert imageUrls array to PostgreSQL array format if present
+    if (updates.imageUrls) {
+      updateData.image_urls = updates.imageUrls; // Map to database column name
+      delete updateData.imageUrls; // Remove the camelCase version
+      console.log('UpdatePost - sending image_urls:', updateData.image_urls);
+    }
+    
+    console.log('UpdatePost - full update data:', updateData);
+    
     const { data, error } = await supabase
       .from('posts')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', postId)
       .select(`
         *,
-        cafes (name, neighborhood, place_id)
+        cafes (name, neighborhood, place_id, address)
       `)
       .single();
 
     if (error) {
+      console.error('UpdatePost - Supabase error:', error);
       throw new Error(error.message);
     }
 
