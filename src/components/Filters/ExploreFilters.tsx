@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Filter, X, DollarSign, Star, Clock, MapPin, Navigation } from "lucide-react";
+import { Filter, X, DollarSign, Star, Clock, MapPin, Navigation, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +16,7 @@ export interface FilterState {
   distance: number;
   openNow: boolean;
   neighborhoods: string[];
+  selectedTags: string[];
 }
 
 interface ExploreFiltersProps {
@@ -27,6 +28,7 @@ interface ExploreFiltersProps {
   userLocation?: { latitude: number; longitude: number } | null;
   onRequestLocation?: () => void;
   isRequestingLocation?: boolean;
+  popularTags?: string[];
 }
 
 export function ExploreFilters({ 
@@ -37,7 +39,8 @@ export function ExploreFilters({
   onOpenChange: externalOnOpenChange,
   userLocation,
   onRequestLocation,
-  isRequestingLocation = false
+  isRequestingLocation = false,
+  popularTags = []
 }: ExploreFiltersProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
@@ -48,14 +51,16 @@ export function ExploreFilters({
     filters.rating > 0 ||
     filters.distance < 25 ||
     filters.openNow ||
-    filters.neighborhoods.length > 0;
+    filters.neighborhoods.length > 0 ||
+    filters.selectedTags.length > 0;
 
   const activeFilterCount = 
     (filters.priceLevel.length > 0 ? 1 : 0) +
     (filters.rating > 0 ? 1 : 0) +
     (filters.distance < 25 ? 1 : 0) +
     (filters.openNow ? 1 : 0) +
-    (filters.neighborhoods.length > 0 ? 1 : 0);
+    (filters.neighborhoods.length > 0 ? 1 : 0) +
+    (filters.selectedTags.length > 0 ? 1 : 0);
 
   const renderPriceLevel = (level: number, isSelected: boolean) => {
     return Array.from({ length: 4 }, (_, i) => (
@@ -79,34 +84,41 @@ export function ExploreFilters({
     onFiltersChange({ ...filters, priceLevel: newPriceLevels });
   };
 
+  const toggleTag = (tag: string) => {
+    const newTags = filters.selectedTags.includes(tag)
+      ? filters.selectedTags.filter(t => t !== tag)
+      : [...filters.selectedTags, tag];
+    onFiltersChange({ ...filters, selectedTags: newTags });
+  };
+
   return (
     <>
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetContent side="right" className="w-full sm:max-w-lg bg-gradient-to-b from-[#faf8f5] to-[#f5efe8] flex flex-col">
-          <SheetHeader className="pb-4 border-b border-[#d9cdb8] flex-shrink-0">
-            <SheetTitle className="flex items-center justify-between text-[#4a3728] text-lg">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-[#8b5a3c]" />
-                <span>Filter & Sort</span>
-              </div>
-              {hasActiveFilters && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={onClearFilters}
-                  className="text-[#8b5a3c] hover:bg-[#d9cdb8]/50 text-sm"
-                >
-                  Clear All
-                </Button>
-              )}
-            </SheetTitle>
-            <SheetDescription className="text-[#8b5a3c] text-sm">
-              Filter cafes by distance, price, rating, and more.
-            </SheetDescription>
-          </SheetHeader>
+      <SheetContent side="right" className="w-full sm:max-w-lg bg-gradient-to-b from-[#faf8f5] to-[#f5efe8] flex flex-col h-full">
+        <SheetHeader className="pb-4 border-b border-[#d9cdb8] flex-shrink-0">
+          <SheetTitle className="flex items-center justify-between text-[#4a3728] text-lg">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-[#8b5a3c]" />
+              <span>Filter & Sort</span>
+            </div>
+            {hasActiveFilters && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={onClearFilters}
+                className="text-[#8b5a3c] hover:bg-[#d9cdb8]/50 text-sm"
+              >
+                Clear All
+              </Button>
+            )}
+          </SheetTitle>
+          <SheetDescription className="text-[#8b5a3c] text-sm">
+            Filter cafes by distance, price, rating, and more.
+          </SheetDescription>
+        </SheetHeader>
 
-          <div className="flex-1 pt-3">
-            <div className="space-y-4 pb-4">
+        <div className="flex-1 pt-3 overflow-y-auto">
+          <div className="space-y-4 pb-4">
 
             {/* Distance Filter */}
             <div className="bg-white/60 rounded-lg p-3 border border-[#d9cdb8]/50">
@@ -216,18 +228,43 @@ export function ExploreFilters({
                 />
               </div>
             </div>
+
+            {/* Tags */}
+            <div className="bg-white/60 rounded-lg p-3 border border-[#d9cdb8]/50">
+              <Label className="text-sm font-semibold mb-3 block text-[#4a3728] flex items-center gap-2">
+                <Tag className="w-3 h-3 text-[#8b5a3c]" />
+                Popular Tags
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {popularTags.map((tag) => (
+                  <Button
+                    key={tag}
+                    variant={filters.selectedTags.includes(tag) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleTag(tag)}
+                    className={`text-xs h-7 px-2 ${
+                      filters.selectedTags.includes(tag) 
+                        ? "bg-[#8b5a3c] hover:bg-[#6b4423] text-white" 
+                        : "bg-white border-[#d9cdb8] hover:bg-[#f5efe8] hover:border-[#8b5a3c] text-[#4a3728]"
+                    }`}
+                  >
+                    #{tag}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Apply Filters Button - Fixed at bottom */}
-          <div className="mt-4 pt-3 border-t border-[#d9cdb8] flex-shrink-0">
-            <Button
-              onClick={() => setIsOpen(false)}
-              className="w-full bg-gradient-to-r from-[#8b5a3c] to-[#6b4423] hover:from-[#6b4423] hover:to-[#4a3728] text-white font-semibold py-2 rounded-lg shadow-lg text-sm"
-            >
-              ✨ Apply Filters
-            </Button>
-          </div>
+        {/* Apply Filters Button - Fixed at bottom */}
+        <div className="mt-4 pt-3 border-t border-[#d9cdb8] flex-shrink-0">
+          <Button
+            onClick={() => setIsOpen(false)}
+            className="w-full bg-gradient-to-r from-[#8b5a3c] to-[#6b4423] hover:from-[#6b4423] hover:to-[#4a3728] text-white font-semibold py-2 rounded-lg shadow-lg text-sm"
+          >
+            ✨ Apply Filters
+          </Button>
+        </div>
         </SheetContent>
       </Sheet>
 

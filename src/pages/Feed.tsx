@@ -16,6 +16,7 @@ import { PostCard } from "@/components/Feed/PostCard";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { RadiusFilter } from "@/components/Filters/RadiusFilter";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
+import { isCafeOpenNow } from "@/utils/openingHours";
 
 export default function Feed() {
   const navigate = useNavigate();
@@ -164,10 +165,15 @@ export default function Feed() {
       );
     }
 
-    // Open now filter (mock implementation)
+    // Open now filter
     if (filters.openNow) {
-      // In real implementation, this would check actual hours
-      filtered = filtered.filter(cafe => Math.random() > 0.3); // Mock: 70% are "open"
+      filtered = filtered.filter(cafe => {
+        if (!cafe.openingHours || cafe.openingHours.length === 0) {
+          return false; // No hours data, assume closed
+        }
+        
+        return isCafeOpenNow(cafe.openingHours);
+      });
     }
 
     // Apply sorting
@@ -464,7 +470,6 @@ export default function Feed() {
                         <h3 className="font-semibold text-lg mb-1">{cafe.name}</h3>
                         
                         <div className="flex items-center gap-2 mb-2">
-                          <MapPin className="w-4 h-4 text-muted-foreground" />
                           <span className="text-sm text-muted-foreground">{cafe.neighborhood}</span>
                           {cafe.priceLevel && (
                             <div className="flex items-center ml-auto">
@@ -483,32 +488,12 @@ export default function Feed() {
                         </div>
 
                         {cafe.rating && (
-                          <div className="flex items-center gap-1 mb-3">
+                          <div className="flex items-center gap-1">
                             <span className="coffee-star">★</span>
                             <span className="text-sm font-medium">{cafe.rating}</span>
                             <span className="text-xs text-muted-foreground">Google</span>
                           </div>
                         )}
-
-                        <div className="flex flex-wrap gap-1">
-                          {cafe.tags.slice(0, 2).map((tag) => (
-                            <Badge
-                              key={tag}
-                              variant="secondary"
-                              className="text-xs px-2 py-1 bg-primary/10 text-primary border-0 rounded-full"
-                            >
-                              #{tag}
-                            </Badge>
-                          ))}
-                          {cafe.tags.length > 2 && (
-                            <Badge
-                              variant="secondary"
-                              className="text-xs px-2 py-1 bg-muted/50 text-muted-foreground border-0 rounded-full"
-                            >
-                              +{cafe.tags.length - 2}
-                            </Badge>
-                          )}
-                        </div>
                       </div>
                     </div>
                   </CardContent>

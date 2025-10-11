@@ -50,15 +50,17 @@ export async function fetchFeedItems(filters: SearchFilters = {}): Promise<ApiRe
     const allItems = [...cafeItems, ...postItems]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    // Apply tag filtering across both cafe and post tags
+    // Apply tag filtering across both cafe and post tags (AND logic)
     let filteredItems = allItems;
     if (filters.tags && filters.tags.length > 0) {
       filteredItems = allItems.filter(item => {
         if (item.type === "cafe" && item.cafe) {
-          return item.cafe.tags.some(tag => filters.tags!.includes(tag));
+          // Cafe must have ALL selected tags
+          return filters.tags!.every(tag => item.cafe!.tags.includes(tag));
         }
         if (item.type === "post" && item.post) {
-          return item.post.tags.some(tag => filters.tags!.includes(tag));
+          // Post must have ALL selected tags
+          return filters.tags!.every(tag => item.post!.tags.includes(tag));
         }
         return false;
       });

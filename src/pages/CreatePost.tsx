@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Camera, X, Loader2, ArrowLeft } from "lucide-react";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { submitCheckin } from "@/services/postService";
 import { getCurrentLocation } from "@/services/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useGoogleAnalytics } from "@/hooks/use-google-analytics";
+import type { Cafe } from "@/services/types";
 
 function getAnonId() {
   let id = localStorage.getItem("anonId");
@@ -29,16 +30,46 @@ export default function CreatePost() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
   const [cafeQuery, setCafeQuery] = useState("");
-  const [cafeResults, setCafeResults] = useState<any[]>([]);
-  const [selectedCafe, setSelectedCafe] = useState<any | null>(null);
+  const [cafeResults, setCafeResults] = useState<Cafe[]>([]);
+  const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Auto-search cafes as user types (with debounce)
+  useEffect(() => {
+    if (!cafeQuery.trim()) {
+      setCafeResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      handleCafeSearch();
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [cafeQuery]);
+
   async function handleCafeSearch() {
+    if (!cafeQuery.trim()) {
+      setCafeResults([]);
+      return;
+    }
+    
     setLoading(true);
-    const result = await fetchCafes({ query: cafeQuery });
-    setCafeResults(result.data || []);
-    setLoading(false);
+    try {
+      const result = await fetchCafes({ query: cafeQuery.trim() });
+      if (result.success) {
+        setCafeResults(result.data || []);
+      } else {
+        console.error('Cafe search failed:', result.error);
+        setCafeResults([]);
+      }
+    } catch (error) {
+      console.error('Cafe search error:', error);
+      setCafeResults([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,10 +92,7 @@ export default function CreatePost() {
       return;
     }
     
-    if (!selectedCafe) {
-      setError("Please select a cafe");
-      return;
-    }
+    // Cafe selection is optional, so we don't require it
     
     setLoading(true);
     
@@ -72,10 +100,10 @@ export default function CreatePost() {
       // Get location
       const position = await getCurrentLocation();
       
-      // Submit the quick post
+      // Submit the quick post - handle case where no cafe is selected
       const result = await submitCheckin({
-        cafeId: selectedCafe.id,
-        placeId: selectedCafe.placeId,
+        cafeId: selectedCafe?.id || null,
+        placeId: selectedCafe?.placeId || null,
         rating: 5, // Default rating for quick posts
         tags: [],
         review: caption,
@@ -208,21 +236,19 @@ export default function CreatePost() {
                 <CardTitle>Tag a Cafe (Optional)</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex gap-2">
+                <div className="space-y-2">
                   <Input 
                     value={cafeQuery} 
                     onChange={e => setCafeQuery(e.target.value)} 
-                    placeholder="Search for a cafe..."
-                    className="flex-1"
+                    placeholder="Type to search for a cafe..."
+                    className="w-full"
                   />
-                  <Button 
-                    type="button" 
-                    onClick={handleCafeSearch} 
-                    disabled={loading || !cafeQuery.trim()}
-                    variant="outline"
-                  >
-                    Search
-                  </Button>
+                  {loading && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Searching cafes...
+                    </div>
+                  )}
                 </div>
                 
                 {cafeResults.length > 0 && (

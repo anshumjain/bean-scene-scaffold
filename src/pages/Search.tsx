@@ -13,12 +13,7 @@ import { debounce, getCurrentLocation } from "@/services/utils";
 import { calculateDistance } from "@/utils/distanceUtils";
 import { toast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
-
-
-const popularTags = [
-  "latte-art", "cozy-vibes", "laptop-friendly", "third-wave",
-  "cold-brew", "pastries", "rooftop", "instagram-worthy"
-];
+import { getPopularTags } from "@/services/tagService";
 
 interface UserLocation {
   latitude: number;
@@ -27,18 +22,15 @@ interface UserLocation {
 
 export default function Search() {
   const navigate = useNavigate();
-
+  
   const [searchQuery, setSearchQuery] = useState(() => {
     return localStorage.getItem('explore-search-query') || '';
-  });
-  const [selectedTags, setSelectedTags] = useState<string[]>(() => {
-    const saved = localStorage.getItem('explore-selected-tags');
-    return saved ? JSON.parse(saved) : [];
   });
   const [showFilters, setShowFilters] = useState(false);
 
   const [allCafes, setAllCafes] = useState<Cafe[]>([]);
   const [searchResults, setSearchResults] = useState<Cafe[]>([]);
+  const [popularTags, setPopularTags] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -54,7 +46,16 @@ export default function Search() {
     const savedFilters = localStorage.getItem('explore-filters');
     if (savedFilters) {
       try {
-        return JSON.parse(savedFilters);
+        const parsed = JSON.parse(savedFilters);
+        // Ensure selectedTags exists for backward compatibility
+        return {
+          priceLevel: parsed.priceLevel || [],
+          rating: parsed.rating || 0,
+          distance: parsed.distance || 25,
+          openNow: parsed.openNow || false,
+          neighborhoods: parsed.neighborhoods || [],
+          selectedTags: parsed.selectedTags || []
+        };
       } catch (error) {
         console.error('Error parsing saved filters:', error);
       }
@@ -65,7 +66,8 @@ export default function Search() {
       rating: 0,
       distance: 25,
       openNow: false,
-      neighborhoods: []
+      neighborhoods: [],
+      selectedTags: []
     };
   });
 
@@ -93,7 +95,38 @@ export default function Search() {
     };
 
     loadAllCafes();
+    loadPopularTags();
   }, []);
+
+  /** Load popular tags */
+  const loadPopularTags = useCallback(async () => {
+    try {
+      const tagStats = await getPopularTags(20); // Increased from 8 to 20
+      const tags = tagStats.map(stat => stat.tag);
+      
+      // If no dynamic tags yet, use fallback tags
+      if (tags.length === 0) {
+        setPopularTags([
+          "student-friendly", "wifi", "bakery", "vegan", "latte-art", 
+          "great-coffee", "always-space", "wfh-friendly", "quiet", "group-friendly",
+          "instagram-worthy", "coffee-lover", "laptop-friendly", "cold-brew", 
+          "artisanal", "cozy-vibes", "date-spot", "pet-friendly", "outdoor-seating", "study-spot"
+        ]);
+      } else {
+        setPopularTags(tags);
+      }
+    } catch (error) {
+      console.error('Error loading popular tags:', error);
+      // Use fallback tags
+      setPopularTags([
+        "student-friendly", "wifi", "bakery", "vegan", "latte-art", 
+        "great-coffee", "always-space", "wfh-friendly", "quiet", "group-friendly",
+        "instagram-worthy", "coffee-lover", "laptop-friendly", "cold-brew", 
+        "artisanal", "cozy-vibes", "date-spot", "pet-friendly", "outdoor-seating", "study-spot"
+      ]);
+    }
+  }, []);
+
 
   /** Update results when allCafes changes */
   useEffect(() => {
@@ -104,13 +137,23 @@ export default function Search() {
 
         if (searchQuery.trim()) {
           const query = searchQuery.toLowerCase();
-          results = results.filter(
-            (cafe) =>
-              cafe.name.toLowerCase().includes(query) ||
-              (cafe.neighborhood &&
-                cafe.neighborhood.toLowerCase().includes(query)) ||
-              cafe.tags.some((tag) => tag.toLowerCase().includes(query))
-          );
+          
+          // Check if it's a tag search (starts with #)
+          if (query.startsWith('#')) {
+            const tagQuery = query.substring(1); // Remove the # symbol
+            results = results.filter((cafe) =>
+              cafe.tags.some((tag) => tag.toLowerCase().includes(tagQuery))
+            );
+          } else {
+            // Regular search (cafe name, neighborhood, or tags)
+            results = results.filter(
+              (cafe) =>
+                cafe.name.toLowerCase().includes(query) ||
+                (cafe.neighborhood &&
+                  cafe.neighborhood.toLowerCase().includes(query)) ||
+                cafe.tags.some((tag) => tag.toLowerCase().includes(query))
+            );
+          }
         }
 
         results = applyFilters(results);
@@ -120,7 +163,7 @@ export default function Search() {
         console.error("Error updating results:", error);
       }
     }
-  }, [allCafes, filters, searchQuery, selectedTags, userLocation]);
+  }, [allCafes, filters, searchQuery, userLocation]);
 
   /** Save filters to localStorage whenever they change */
   useEffect(() => {
@@ -132,10 +175,6 @@ export default function Search() {
     localStorage.setItem('explore-search-query', searchQuery);
   }, [searchQuery]);
 
-  /** Save selected tags to localStorage */
-  useEffect(() => {
-    localStorage.setItem('explore-selected-tags', JSON.stringify(selectedTags));
-  }, [selectedTags]);
 
   /** Sort logic - default to rating */
   const sortCafes = (cafes: Cafe[]): Cafe[] => {
@@ -190,13 +229,17 @@ export default function Search() {
     if (filters.openNow) {
       // For now, we'll skip the openNow filter since we don't have real-time hours data
       // This could be implemented later with actual opening hours data
-      console.log('Open now filter is active but not implemented yet');
+      // Open now filter is active but not implemented yet
     }
 
-    if (selectedTags.length > 0) {
-      filtered = filtered.filter((cafe) =>
-        cafe.tags.some((tag) => selectedTags.includes(tag))
-      );
+    if (filters.selectedTags.length > 0) {
+      filtered = filtered.filter((cafe) => {
+        const hasMatchingTag = cafe.tags && cafe.tags.some((tag) => filters.selectedTags.includes(tag));
+        if (!hasMatchingTag && cafe.tags) {
+          // Debug: Cafe tags and selected tags
+        }
+        return hasMatchingTag;
+      });
     }
 
     return filtered;
@@ -215,9 +258,9 @@ export default function Search() {
     setLocationError("");
     
     try {
-      console.log("Requesting location...");
+      // Requesting location...
       const position = await getCurrentLocation();
-      console.log("Location received:", position.coords);
+      // Location received
       
       const { latitude, longitude } = position.coords;
       setUserLocation({ latitude, longitude });
@@ -258,7 +301,7 @@ export default function Search() {
   /** Filters + sort handlers */
   const handleFiltersChange = (newFilters: FilterState) => {
     try {
-      console.log("Filter change:", newFilters);
+      // Filter change applied
       setFilters(newFilters);
       // updateResults() will be called automatically by useEffect
     } catch (error) {
@@ -272,23 +315,26 @@ export default function Search() {
   };
 
   const clearFilters = () => {
-    setSelectedTags([]);
     setSearchQuery("");
     setFilters({
       priceLevel: [],
       rating: 0,
       distance: userLocation ? 10 : 25,
       openNow: false,
-      neighborhoods: []
+      neighborhoods: [],
+      selectedTags: []
     });
     // updateResults() will be called automatically by useEffect
   };
 
 
   // Calculate active filter count
-  const activeFilterCount = selectedTags.length + 
+  const activeFilterCount = filters.selectedTags.length + 
     (filters.priceLevel.length > 0 ? 1 : 0) + 
-    (filters.neighborhoods.length > 0 ? 1 : 0);
+    (filters.neighborhoods.length > 0 ? 1 : 0) +
+    (filters.rating > 0 ? 1 : 0) +
+    (filters.distance < 25 ? 1 : 0) +
+    (filters.openNow ? 1 : 0);
 
   return (
     <AppLayout>
@@ -322,7 +368,7 @@ export default function Search() {
           <div className="relative mb-3">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/80" />
             <Input
-              placeholder="Search cafes..."
+              placeholder="Search cafes, neighborhoods, or #tags..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10 coffee-search-bar bg-white/90 border-white/20 text-foreground"
@@ -340,31 +386,10 @@ export default function Search() {
           userLocation={userLocation}
           onRequestLocation={handleRequestLocation}
           isRequestingLocation={isRequestingLocation}
+          popularTags={popularTags}
         />
 
         <div className="p-4">
-          {/* Popular tags */}
-          <div className="mb-6">
-            <h3 className="font-semibold mb-3">Popular Tags</h3>
-            <div className="flex flex-wrap gap-2">
-              {popularTags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant={selectedTags.includes(tag) ? "default" : "secondary"}
-                  className="coffee-tag"
-                  onClick={() =>
-                    setSelectedTags((prev) =>
-                      prev.includes(tag)
-                        ? prev.filter((t) => t !== tag)
-                        : [...prev, tag]
-                    )
-                  }
-                >
-                  #{tag}
-                </Badge>
-              ))}
-            </div>
-          </div>
 
           {/* Cafes Results */}
           <div className="space-y-4 mt-4">
@@ -378,13 +403,22 @@ export default function Search() {
                   <SearchIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Cafes Found</h3>
                   <p className="text-muted-foreground mb-4">
-                    {searchQuery || selectedTags.length > 0
-                      ? "Try adjusting your search terms or filters"
-                      : "No cafes match your current filters"}
+                    {filters.selectedTags.length > 0 
+                      ? "We're still growing! Help by tagging the vibe to your favorite cafe or checking into your nearest cafe."
+                      : searchQuery || activeFilterCount > 0
+                        ? "Try adjusting your search terms or filters"
+                        : "No cafes match your current filters"}
                   </p>
-                  <Button onClick={clearFilters} variant="outline">
-                    Clear All Filters
-                  </Button>
+                  <div className="flex gap-2 justify-center">
+                    <Button onClick={clearFilters} variant="outline">
+                      Clear All Filters
+                    </Button>
+                    {filters.selectedTags.length > 0 && (
+                      <Button onClick={() => navigate('/checkin')} className="coffee-gradient text-white">
+                        Check In & Add Tags
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 searchResults.map((cafe) => (
@@ -421,9 +455,8 @@ export default function Search() {
                         {cafe.name.length > 30 ? `${cafe.name.substring(0, 30)}...` : cafe.name}
                       </h3>
                       <div className="flex items-center gap-1 mt-1">
-                        <MapPin className="w-3 h-3 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">
-                          {cafe.neighborhood || "Unknown"}
+                          {cafe.neighborhood || "Houston"}
                         </span>
                       </div>
                     </div>

@@ -11,10 +11,11 @@
     "preview": "vite preview",
     "migrate": "supabase db push && supabase gen types typescript --local > src/integrations/supabase/types.ts",
     "seed:reviews": "tsx scripts/seedReviewsAmenities.ts",
-    "seed:posts": "tsx scripts/seedPosts.ts",
     "migrate:photos": "tsx scripts/migratePhotosToCloudinary.ts",
     "migrate:photos:auto": "tsx scripts/migratePhotosAuto.ts",
-    "mark-google-content": "tsx scripts/markGoogleContent.ts"
+    "mark-google-content": "tsx scripts/markGoogleContent.ts",
+    "update:cafe-tags": "tsx scripts/updateCafeTags.ts",
+    "update:seeded-cafe-tags": "tsx scripts/updateSeededCafeTags.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

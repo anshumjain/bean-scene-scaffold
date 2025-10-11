@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Camera, MapPin, Star, Plus, X, Loader2, RefreshCw } from "lucide-react";
+import { Camera, MapPin, Star, Plus, X, Loader2, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,12 +13,13 @@ import { submitCheckin } from "@/services/postService";
 import { getCurrentLocation } from "@/services/utils";
 import { getNearbyCafes, formatDistance } from "@/utils/distanceUtils";
 import { useGoogleAnalytics } from "@/hooks/use-google-analytics";
+import { getTagSuggestions, normalizeTag } from "@/services/tagService";
 import type { Cafe } from "@/services/types";
 
 const predefinedTags = [
-  "latte-art", "cozy-vibes", "laptop-friendly", "third-wave", "cold-brew",
-  "pastries", "rooftop", "instagram-worthy", "busy", "quiet", "date-spot",
-  "pet-friendly", "outdoor-seating", "wifi", "study-spot"
+  "student-friendly", "wifi", "bakery", "vegan", "latte-art", 
+  "great-coffee", "always-space", "wfh-friendly", "busy", "quiet", 
+  "date-spot", "pet-friendly", "outdoor-seating", "study-spot"
 ];
 
 export default function CheckIn() {
@@ -31,6 +32,8 @@ export default function CheckIn() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState("");
   const [review, setReview] = useState("");
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [nearbyCafes, setNearbyCafes] = useState<(Cafe & { distance: number })[]>([]);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
@@ -39,6 +42,25 @@ export default function CheckIn() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [allCafes, setAllCafes] = useState<Cafe[]>([]);
+  const [showCafeList, setShowCafeList] = useState(true);
+
+  // Handle pre-selected cafe from cafe page
+  useEffect(() => {
+    if (location.state?.cafeId && location.state?.cafeName) {
+      setSelectedCafe(location.state.cafeId);
+      setShowCafeList(false); // Collapse the list when cafe is pre-selected
+    }
+  }, [location.state]);
+
+  // Show success message if coming from cafe page after adding tags
+  useEffect(() => {
+    if (location.state?.showSuccess) {
+      toast({
+        title: "Tags added successfully!",
+        description: "Your tags have been added to the cafe's vibe.",
+      });
+    }
+  }, [location.state?.showSuccess, toast]);
 
   const handleTagToggle = (tag: string) => {
     const isAdding = !selectedTags.includes(tag);
@@ -56,15 +78,60 @@ export default function CheckIn() {
     });
   };
 
+  // Handle tag suggestions
+  const handleCustomTagChange = async (value: string) => {
+    const normalizedValue = normalizeTag(value);
+    setCustomTag(value);
+    
+    if (normalizedValue.length >= 2) {
+      try {
+        const suggestions = await getTagSuggestions(normalizedValue);
+        setTagSuggestions(suggestions);
+        setShowSuggestions(suggestions.length > 0);
+      } catch (error) {
+        console.error('Error getting tag suggestions:', error);
+        setTagSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } else {
+      setTagSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
   const handleCustomTag = () => {
-    if (customTag && !selectedTags.includes(customTag)) {
-      setSelectedTags(prev => [...prev, customTag]);
+    const normalizedTag = normalizeTag(customTag);
+    if (normalizedTag && !selectedTags.includes(normalizedTag)) {
+      setSelectedTags(prev => [...prev, normalizedTag]);
       trackEngagement('custom_tag_created', {
-        tag: customTag,
+        tag: normalizedTag,
         total_tags: selectedTags.length + 1,
       });
       setCustomTag("");
+      setShowSuggestions(false);
+      setTagSuggestions([]);
     }
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    if (!selectedTags.includes(suggestion)) {
+      setSelectedTags(prev => [...prev, suggestion]);
+      trackEngagement('tag_suggestion_used', {
+        tag: suggestion,
+        total_tags: selectedTags.length + 1,
+      });
+    }
+    setCustomTag("");
+    setShowSuggestions(false);
+    setTagSuggestions([]);
+  };
+
+  const handleCafeSelection = (cafeId: string) => {
+    setSelectedCafe(cafeId);
+    setShowCafeList(false); // Collapse the cafe list after selection
+    trackEngagement('cafe_selected', {
+      cafe_id: cafeId,
+    });
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,6 +206,7 @@ export default function CheckIn() {
     const placeId = getQueryParam('placeId');
     if (cafeId && placeId && nearbyCafes.length > 0) {
       setSelectedCafe(cafeId);
+      setShowCafeList(false); // Collapse the list when cafe is selected via URL
     }
   }, [nearbyCafes]);
 
@@ -191,7 +259,15 @@ export default function CheckIn() {
           title: "Check-in shared!",
           description: "Your cafe experience has been posted"
         });
-        navigate('/explore');
+        
+        // If user came from cafe page, redirect back with success flag
+        if (location.state?.cafeId && location.state?.cafeName) {
+          navigate(`/cafe/${selectedCafeData.placeId}`, { 
+            state: { showSuccess: true } 
+          });
+        } else {
+          navigate('/explore');
+        }
       } else {
         trackError('checkin_submission_failed', result.error || 'Failed to share check-in', {
           cafe_id: selectedCafe,
@@ -278,28 +354,62 @@ export default function CheckIn() {
                   <span className="ml-2 text-sm text-muted-foreground">Finding nearby cafes...</span>
                 </div>
               ) : (nearbyCafes.length > 0 ? (
-                nearbyCafes.map((cafe) => (
-                  <div
-                    key={cafe.id}
-                    onClick={() => setSelectedCafe(cafe.id)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-smooth ${
-                      selectedCafe === cafe.id
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:bg-muted/50"
-                    }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-medium">{cafe.name}</h3>
-                        <p className="text-sm text-muted-foreground">{cafe.neighborhood}</p>
+                <>
+                  {/* Selected Cafe Summary (when collapsed) */}
+                  {selectedCafe && !showCafeList && (
+                    <div className="p-4 rounded-lg border border-primary bg-primary/5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          {(() => {
+                            const selectedCafeData = nearbyCafes.find(cafe => cafe.id === selectedCafe);
+                            return selectedCafeData ? (
+                              <>
+                                <h3 className="font-medium text-primary">{selectedCafeData.name}</h3>
+                                <p className="text-sm text-muted-foreground">{selectedCafeData.neighborhood} • {formatDistance(selectedCafeData.distance)}</p>
+                              </>
+                            ) : null;
+                          })()}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowCafeList(true)}
+                          className="text-primary hover:text-primary"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <span className="text-xs text-muted-foreground">{formatDistance(cafe.distance)}</span>
                     </div>
-                    <Button onClick={() => navigate(`/checkin?cafeId=${cafe.id}&placeId=${cafe.placeId}`)} className="flex-1 coffee-gradient text-white mt-2">
-                      Check In Here
-                    </Button>
-                  </div>
-                ))
+                  )}
+
+                  {/* Cafe List (when expanded or no selection) */}
+                  {showCafeList && (
+                    <div className="space-y-3">
+                      {nearbyCafes.map((cafe) => (
+                        <div
+                          key={cafe.id}
+                          onClick={() => handleCafeSelection(cafe.id)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-smooth ${
+                            selectedCafe === cafe.id
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:bg-muted/50"
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h3 className="font-medium">{cafe.name}</h3>
+                              <p className="text-sm text-muted-foreground">{cafe.neighborhood}</p>
+                            </div>
+                            <span className="text-xs text-muted-foreground">{formatDistance(cafe.distance)}</span>
+                          </div>
+                          <Button onClick={() => navigate(`/checkin?cafeId=${cafe.id}&placeId=${cafe.placeId}`)} className="flex-1 coffee-gradient text-white mt-2">
+                            Check In Here
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-8">
                   <MapPin className="w-12 h-12 mx-auto mb-3 coffee-location-pin" />
@@ -420,18 +530,37 @@ export default function CheckIn() {
                 ))}
               </div>
 
-              {/* Custom Tag Input */}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Create custom tag..."
-                  value={customTag}
-                  onChange={(e) => setCustomTag(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleCustomTag()}
-                  className="flex-1"
-                />
-                <Button variant="outline" size="icon" onClick={handleCustomTag}>
-                  <Plus className="w-4 h-4" />
-                </Button>
+              {/* Custom Tag Input with Autocomplete */}
+              <div className="relative">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Create custom tag..."
+                    value={customTag}
+                    onChange={(e) => handleCustomTagChange(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleCustomTag()}
+                    onFocus={() => customTag.length >= 2 && setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    className="flex-1"
+                  />
+                  <Button variant="outline" size="icon" onClick={handleCustomTag}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                
+                {/* Tag Suggestions Dropdown */}
+                {showSuggestions && tagSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-12 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-40 overflow-y-auto">
+                    {tagSuggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none text-sm"
+                      >
+                        #{suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -10,7 +10,6 @@ The app uses a service layer pattern with the following files:
 - `src/services/cafeService.ts` - Cafe-related API calls
 - `src/services/postService.ts` - Post/review-related API calls
 - `src/services/cloudinaryService.ts` - Image upload and management
-- `src/services/scheduledService.ts` - Background sync operations
 
 ## Where to Update APIs
 
@@ -51,35 +50,19 @@ const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${
 ### 2. Post Service (`src/services/postService.ts`)
 
 #### Fetch Posts
-**Location:** Lines 15-35 in `fetchPosts()`  
-**Current:** Returns mock data
-**Update:** Replace with your backend API call
-```typescript
-// TODO: Replace with real API endpoint
-const response = await fetch(`${API_BASE_URL}/api/posts`);
-```
+**Location:** Lines 22-101 in `fetchPosts()`  
+**Current:** ✅ Uses real Supabase database calls
+**Status:** Fully implemented with filtering and sorting
 
 #### Create Post
-**Location:** Lines 57-75 in `createPost()`
-**Current:** Simulates creation with mock data
-**Update:** Replace with POST request to your backend
-```typescript
-// TODO: Replace with real API endpoint
-const response = await fetch(`${API_BASE_URL}/api/posts`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(postData)
-});
-```
+**Location:** Lines 181-302 in `submitCheckin()`
+**Current:** ✅ Uses real Supabase database calls
+**Status:** Fully implemented with image upload and user management
 
 #### Filter by Tag
-**Location:** Lines 97-110 in `filterFeedByTag()`
-**Current:** Filters mock data
-**Update:** Replace with backend query
-```typescript
-// TODO: Replace with real API endpoint
-const response = await fetch(`${API_BASE_URL}/api/posts?tag=${tag}`);
-```
+**Location:** Lines 174-176 in `filterFeedByTag()`
+**Current:** ✅ Uses real Supabase database calls
+**Status:** Fully implemented with database filtering
 
 ### 3. Cloudinary Service (`src/services/cloudinaryService.ts`)
 
@@ -102,12 +85,6 @@ const CLOUDINARY_UPLOAD_PRESET = 'your-upload-preset';
 // This requires your backend API with Cloudinary admin credentials
 ```
 
-### 4. Scheduled Service (`src/services/scheduledService.ts`)
-
-#### All Functions
-**Location:** All functions in the file
-**Current:** Console logs and mock implementations
-**Update:** Replace with real background job implementations
 
 ## Required Environment Variables
 

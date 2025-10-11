@@ -2,7 +2,6 @@ import { Post, SearchFilters, ApiResponse, CheckInData } from './types';
 import { fetchCafeDetails } from './cafeService';
 import { uploadImage } from './cloudinaryService';
 import { generateId, formatTimeAgo } from './utils';
-import { ImageOptimizationService } from './imageOptimizationService';
 import { MonitoringService } from './monitoringService';
 import { supabase } from '@/integrations/supabase/client';
 import { getUsername, getDeviceId } from './userService';
@@ -31,7 +30,8 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
 
     // Apply filters
     if (filters.tags && filters.tags.length > 0) {
-      query = query.overlaps('tags', filters.tags);
+      // Use AND logic: post must have ALL selected tags
+      query = query.contains('tags', filters.tags);
     }
     
     if (filters.neighborhoods && filters.neighborhoods.length > 0) {
@@ -39,7 +39,8 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
     }
     
     if (filters.query) {
-      query = query.or(`text_review.ilike.%${filters.query}%,cafes.name.ilike.%${filters.query}%,tags.cs.{${filters.query}}`);
+      // Search in text_review, cafe name, and tags
+      query = query.or(`text_review.ilike.%${filters.query}%,cafes.name.ilike.%${filters.query}%,tags.overlaps.{${filters.query}}`);
     }
 
     const { data, error } = await query;
@@ -230,8 +231,8 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
     // Create post data
     const postData = {
       user_id: userProfile?.id || null,
-      cafe_id: checkinData.cafeId,
-      place_id: checkinData.placeId,
+      cafe_id: checkinData.cafeId || null,
+      place_id: checkinData.placeId || null,
       image_url: imageUrl,
       rating: checkinData.rating,
       text_review: checkinData.review,
@@ -241,6 +242,8 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
       source: 'user', // Explicitly set as user-generated content
       photo_source: 'user' // Explicitly set as user-generated photo
     };
+    
+    // No need to set device context since we allow anyone to create posts
     
     const { data, error } = await supabase
       .from('posts')

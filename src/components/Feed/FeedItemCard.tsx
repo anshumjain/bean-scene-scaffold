@@ -83,27 +83,7 @@ export function FeedItemCard({ item, onTagClick }: FeedItemCardProps) {
             {cafe.name}
           </button>
 
-            {/* Top Tags - Clickable */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              {cafe.tags.slice(0, 3).map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="secondary"
-                  className="cursor-pointer hover:bg-primary/20 transition-smooth bg-primary/10 text-primary border-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onTagClick?.(tag);
-                  }}
-                >
-                  #{tag}
-                </Badge>
-              ))}
-              {cafe.tags.length > 3 && (
-                <Badge variant="secondary" className="bg-muted/50 text-muted-foreground border-0">
-                  +{cafe.tags.length - 3}
-                </Badge>
-              )}
-            </div>
+            {/* Tags section removed - no fake tags to display */}
 
             {/* Google Rating + Address */}
             <div className="flex items-center justify-between mb-4">

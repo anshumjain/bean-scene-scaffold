@@ -141,6 +141,7 @@ export interface SearchFilters {
   rating?: number;
   distance?: number;
   priceLevel?: number[];
+  openNow?: boolean;
 }
 
 export interface ApiResponse<T> {

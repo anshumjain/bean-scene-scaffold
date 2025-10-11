@@ -153,7 +153,6 @@ export default function RecentlyViewed() {
                         </div>
                         
                         <div className="flex items-center gap-2 mb-2">
-                          <MapPin className="w-4 h-4 text-muted-foreground" />
                           <span className="text-sm text-muted-foreground">{cafe.neighborhood}</span>
                           {cafe.priceLevel && (
                             <div className="flex items-center ml-auto">

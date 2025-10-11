@@ -7,7 +7,6 @@ import {
 } from './types';
 import { calculateDistance, isWithinHoustonMetro, detectNeighborhood } from './utils';
 import { GooglePlacesService } from './googlePlacesService';
-import { ImageOptimizationService } from './imageOptimizationService';
 import { MonitoringService } from './monitoringService';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -93,7 +92,7 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
 
         // Apply database-level filters
         if (filters.query) {
-          query = query.or(`name.ilike.%${filters.query}%,neighborhood.ilike.%${filters.query}%,tags.cs.{${filters.query}}`);
+          query = query.or(`name.ilike.%${filters.query}%,neighborhood.ilike.%${filters.query}%,tags.overlaps.{${filters.query}}`);
         }
         
         if (filters.neighborhoods && filters.neighborhoods.length > 0) {
@@ -101,7 +100,8 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
         }
         
         if (filters.tags && filters.tags.length > 0) {
-          query = query.overlaps('tags', filters.tags);
+          // Use AND logic: cafe must have ALL selected tags
+          query = query.contains('tags', filters.tags);
         }
         
         if (filters.rating) {

@@ -8,6 +8,7 @@ import { WeatherWidget } from "@/components/Cafe/WeatherWidget";
 import { GoogleAttribution, GoogleAttributionOverlay, GoogleAttributionInline } from "@/components/Attribution/GoogleAttribution";
 import { useToast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
+import { CafeTagsSection } from "@/components/Cafe/CafeTagsSection";
 
 interface CafeHeaderProps {
   cafe: {
@@ -33,9 +34,10 @@ interface CafeHeaderProps {
   };
   loading?: boolean;
   onPhotoAdded?: (photoUrl: string) => void; // Add callback for photo updates
+  tagRefreshTrigger?: number; // Add tag refresh trigger
 }
 
-export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderProps) {
+export function CafeHeader({ cafe, loading = false, onPhotoAdded, tagRefreshTrigger = 0 }: CafeHeaderProps) {
   const { toast } = useToast();
 
   const renderPriceLevel = (level: number) => {
@@ -245,6 +247,15 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded }: CafeHeaderPr
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tags Section - Between hero image and address */}
+      {cafe.id && (
+        <CafeTagsSection 
+          cafeId={cafe.id} 
+          cafeName={cafe.name}
+          refreshTrigger={tagRefreshTrigger}
+        />
       )}
 
       <div className="space-y-4">

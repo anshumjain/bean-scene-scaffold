@@ -1,7 +1,8 @@
 import { CafePhotoUpload } from "@/components/Cafe/CafePhotoUpload";
 import { CafeReviews } from "@/components/Cafe/CafeReviews";
+import { CafeTagsSection } from "@/components/Cafe/CafeTagsSection";
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Share2, Heart, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +20,7 @@ import { GoogleAttributionOverlay } from "@/components/Attribution/GoogleAttribu
 
 export default function CafeDetail() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id: placeId } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState("posts");
   const [cafe, setCafe] = useState<Cafe | null>(null);
@@ -27,6 +29,8 @@ export default function CafeDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isFavoritedState, setIsFavoritedState] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [tagRefreshTrigger, setTagRefreshTrigger] = useState(0);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // Load cafe details and posts
   const loadCafeData = useCallback(async () => {
@@ -63,6 +67,9 @@ export default function CafeDetail() {
         console.error("Failed to load posts:", postsResult.error);
         // Don't show error for posts, just log it
       }
+
+      // Refresh tags when posts change
+      setTagRefreshTrigger(prev => prev + 1);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load cafe";
       setError(errorMessage);
@@ -79,6 +86,25 @@ export default function CafeDetail() {
   useEffect(() => {
     loadCafeData();
   }, [loadCafeData]);
+
+  // Handle success message from check-in
+  useEffect(() => {
+    if (location.state?.showSuccess) {
+      setShowSuccessMessage(true);
+      // Refresh tags when user returns from successful check-in
+      setTagRefreshTrigger(prev => prev + 1);
+      
+      // Clear the success flag from location state
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Hide success message after 3 seconds
+      const timer = setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [location.state?.showSuccess]);
 
   // Add to recently viewed when cafe data loads
   useEffect(() => {
@@ -238,8 +264,21 @@ export default function CafeDetail() {
               // Update the cafe state so the image appears immediately
               setCafe(prev => prev ? { ...prev, heroPhotoUrl: photoUrl } : prev);
             }}
+            tagRefreshTrigger={tagRefreshTrigger}
           />
         </div>
+
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <div className="px-6 pb-2">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-green-700 text-center">
+                ✅ Your tags have been added to the cafe's vibe!
+              </p>
+            </div>
+          </div>
+        )}
+
 
         {/* Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
