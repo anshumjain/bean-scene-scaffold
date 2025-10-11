@@ -171,19 +171,8 @@ export function GlobalWeatherBar() {
   ];
 
   useEffect(() => {
-    // Set initial message based on time of day
-    const hour = new Date().getHours();
-    let initialIndex = 0;
-    
-    if (hour < 12) {
-      initialIndex = messages.findIndex(msg => msg.includes("Good morning"));
-    } else if (hour < 17) {
-      initialIndex = messages.findIndex(msg => msg.includes("Afternoon"));
-    } else if (hour < 21) {
-      initialIndex = messages.findIndex(msg => msg.includes("Evening"));
-    } else {
-      initialIndex = messages.findIndex(msg => msg.includes("Late night"));
-    }
+    // Set initial message randomly to avoid always starting from the same quote
+    const initialIndex = Math.floor(Math.random() * messages.length);
     
     setMessageIndex(initialIndex);
     setCurrentMessage(messages[initialIndex]);

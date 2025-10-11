@@ -83,7 +83,8 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
         cafe: post.cafes ? {
           name: post.cafes.name,
           neighborhood: post.cafes.neighborhood,
-          placeId: post.cafes.place_id
+          placeId: post.cafes.place_id,
+          address: post.cafes.address
         } : undefined
       };
     });
@@ -152,7 +153,8 @@ export async function fetchCafePostsById(placeId: string): Promise<ApiResponse<P
         cafe: post.cafes ? {
           name: post.cafes.name,
           neighborhood: post.cafes.neighborhood,
-          placeId: post.cafes.place_id
+          placeId: post.cafes.place_id,
+          address: post.cafes.address
         } : undefined
       };
     });
@@ -186,7 +188,7 @@ export async function fetchUserPosts(username?: string, deviceId?: string): Prom
       .from('posts')
       .select(`
         *,
-        cafes (name, neighborhood, place_id)
+        cafes (name, neighborhood, place_id, address)
       `)
       .order('created_at', { ascending: false });
 
@@ -242,7 +244,8 @@ export async function fetchUserPosts(username?: string, deviceId?: string): Prom
         cafe: post.cafes ? {
           name: post.cafes.name,
           neighborhood: post.cafes.neighborhood,
-          placeId: post.cafes.place_id
+          placeId: post.cafes.place_id,
+          address: post.cafes.address
         } : undefined
       };
     });

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { GoogleAttribution, GoogleAttributionOverlay } from "@/components/Attribution/GoogleAttribution";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { formatTimeAgo } from "@/services/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -299,7 +300,7 @@ export function ProfilePostCard({ post, type = 'post', onEdit, onDelete }: Profi
               <span className="text-sm">{post.comments}</span>
             </Button>
           </div>
-          <span className="text-xs text-muted-foreground">{post.createdAt}</span>
+          <span className="text-xs text-muted-foreground">{formatTimeAgo(post.createdAt)}</span>
         </div>
       </div>
     </Card>

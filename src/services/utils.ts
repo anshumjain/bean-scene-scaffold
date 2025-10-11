@@ -84,15 +84,20 @@ export function formatTimeAgo(dateString: string): string {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
+  const diffYears = Math.floor(diffDays / 365);
   
   if (diffMins < 60) {
     return `${diffMins}m ago`;
   } else if (diffHours < 24) {
     return `${diffHours}h ago`;
   } else if (diffDays < 7) {
-    return `${diffDays}d ago`;
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  } else if (diffYears < 1) {
+    // Within the year, show mm/dd
+    return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
   } else {
-    return date.toLocaleDateString();
+    // Over a year, show mm/dd/yyyy
+    return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
   }
 }
 

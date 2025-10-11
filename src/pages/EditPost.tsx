@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Star, X, Camera, Upload } from "lucide-react";
+import { ArrowLeft, Star, X, Camera, Upload, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -92,18 +92,25 @@ export default function EditPost() {
   };
 
   const removeSelectedImage = (index: number) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    const confirmed = window.confirm("Are you sure you want to remove this photo?");
+    if (confirmed) {
+      setSelectedImages(prev => prev.filter((_, i) => i !== index));
+      setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const removeExistingImage = (index: number) => {
-    // This would require updating the post to remove the image
-    // For now, we'll just show a message
-    toast({
-      title: "Remove existing image",
-      description: "To remove existing images, you'll need to delete and recreate the post, or replace all images.",
-      variant: "destructive",
-    });
+    const confirmed = window.confirm(
+      "Remove this photo?\n\nTo remove existing photos, you'll need to delete and recreate the post, or replace all photos."
+    );
+    
+    if (confirmed) {
+      toast({
+        title: "Remove existing image",
+        description: "To remove existing images, you'll need to delete and recreate the post, or replace all images.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSubmit = async () => {
@@ -196,10 +203,22 @@ export default function EditPost() {
         {/* Cafe Info */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle>
               <span>{post.cafe?.name || 'Unknown Cafe'}</span>
-              <span className="text-sm text-muted-foreground">{post.cafe?.neighborhood}</span>
             </CardTitle>
+            {post.cafe?.neighborhood && (
+              <div className="flex items-center gap-2 mt-1">
+                <MapPin className="w-3 h-3 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {post.cafe.neighborhood}
+                </span>
+              </div>
+            )}
+            {post.cafe?.address && post.cafe.address.trim() && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {post.cafe.address}
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             {/* Rating */}
@@ -260,10 +279,12 @@ export default function EditPost() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        className="absolute top-2 right-2"
+                        className="absolute top-2 right-2 bg-red-600 hover:bg-red-700"
                         onClick={() => removeExistingImage(index)}
+                        title="Remove this photo"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-4 h-4 mr-1" />
+                        Remove
                       </Button>
                     </div>
                   ))}
@@ -283,10 +304,12 @@ export default function EditPost() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        className="absolute top-2 right-2"
+                        className="absolute top-2 right-2 bg-red-600 hover:bg-red-700"
                         onClick={() => removeSelectedImage(index)}
+                        title="Remove this photo"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-4 h-4 mr-1" />
+                        Remove
                       </Button>
                     </div>
                   ))}

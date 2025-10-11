@@ -10,6 +10,7 @@ import { getUsername, getDeviceId } from "@/services/userService";
 import { getFavorites, removeFavorite } from "@/services/favoritesService";
 import { getActivityFeed } from "@/services/activityService";
 import { fetchUserPosts, updatePost, deletePost } from "@/services/postService";
+import { formatTimeAgo } from "@/services/utils";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +62,14 @@ export default function Profile() {
 
   // Handle post deletion
   const handleDeletePost = async (postId: string) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this post?\n\nThis action cannot be undone."
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+    
     try {
       const result = await deletePost(postId);
       if (result.success) {
@@ -265,11 +274,11 @@ export default function Profile() {
               {userPosts.length > 0 ? (
                 <div className="grid grid-cols-3 gap-1">
               {userPosts.map((post) => (
-                    <div 
-                      key={post.id}
-                      className="aspect-square relative overflow-hidden rounded-lg bg-muted cursor-pointer group"
-                      onClick={() => navigate(`/cafe/${post.cafe?.placeId || post.placeId}`)}
-                    >
+              <div 
+                key={post.id}
+                className="aspect-square relative overflow-hidden rounded-lg bg-muted cursor-pointer group"
+                onClick={() => navigate('/post-view', { state: { post: post } })}
+              >
                       {post.imageUrl || (post.imageUrls && post.imageUrls.length > 0) ? (
                         <img
                           src={post.imageUrl || post.imageUrls?.[0]}
@@ -295,33 +304,6 @@ export default function Profile() {
                         </div>
                       </div>
 
-                      {/* Edit/Delete buttons */}
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <div className="flex gap-1">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="h-6 w-6 p-0 bg-white/90 hover:bg-white"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditPost(post.id);
-                            }}
-                          >
-                            <Settings className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="h-6 w-6 p-0 bg-white/90 hover:bg-white"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeletePost(post.id);
-                            }}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -366,7 +348,17 @@ export default function Profile() {
                           <Button 
                             variant="ghost" 
                             size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Remove from favorites"
                             onClick={async () => {
+                              const confirmed = window.confirm(
+                                `Are you sure you want to remove "${favorite.cafe?.name || 'this cafe'}" from your favorites?`
+                              );
+                              
+                              if (!confirmed) {
+                                return;
+                              }
+                              
                               try {
                                 const result = await removeFavorite(favorite.cafe_id);
                                 if (result.success) {
@@ -438,7 +430,7 @@ export default function Profile() {
                               Check-in
                             </Badge>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(post.createdAt).toLocaleDateString()}
+                              {formatTimeAgo(post.createdAt)}
                             </span>
                           </div>
                           <h4 className="font-medium text-sm truncate">

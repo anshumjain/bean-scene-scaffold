@@ -18,6 +18,7 @@ import Moments from "./pages/Moments";
 import Share from "./pages/Share";
 import CreatePost from "./pages/CreatePost";
 import EditPost from "./pages/EditPost";
+import PostView from "./pages/PostView";
 import Feedback from "./pages/Feedback";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/admin/Login";
@@ -61,6 +62,7 @@ const App = () => {
             <Route path="/checkin" element={<CheckIn />} />
             <Route path="/post" element={<CreatePost />} />
             <Route path="/edit-post" element={<EditPost />} />
+            <Route path="/post-view" element={<PostView />} />
             <Route path="/recent" element={<RecentlyViewed />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/cafe/:id" element={<CafeDetail />} />
