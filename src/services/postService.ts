@@ -67,7 +67,8 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
         userId: post.user_id,
         cafeId: post.cafe_id,
         placeId: post.place_id,
-        imageUrl: post.image_url,
+        imageUrl: post.image_url, // Keep for backward compatibility
+        imageUrls: post.image_urls || [], // New field for multiple images
         rating: post.rating,
         textReview: post.text_review,
         tags: post.tags || [],
@@ -135,7 +136,8 @@ export async function fetchCafePostsById(placeId: string): Promise<ApiResponse<P
         userId: post.user_id,
         cafeId: post.cafe_id,
         placeId: post.place_id,
-        imageUrl: post.image_url,
+        imageUrl: post.image_url, // Keep for backward compatibility
+        imageUrls: post.image_urls || [], // New field for multiple images
         rating: post.rating,
         textReview: post.text_review,
         tags: post.tags || [],
@@ -180,16 +182,42 @@ export async function filterFeedByTag(tag: string): Promise<ApiResponse<Post[]>>
 export async function submitCheckin(checkinData: CheckInData): Promise<ApiResponse<Post>> {
   try {
     let imageUrl = checkinData.imageUrl || '';
+    let imageUrls: string[] = [];
     
-    // Upload image to Cloudinary if file provided
+    // Handle single image (for check-ins)
     if (checkinData.imageFile) {
       const uploadResult = await uploadImage(checkinData.imageFile);
       if (uploadResult.success && uploadResult.data) {
         imageUrl = uploadResult.data.secure_url;
+        imageUrls = [uploadResult.data.secure_url];
       } else {
         console.warn('Image upload failed, continuing without image:', uploadResult.error);
         // Don't throw error, just continue without image
       }
+    }
+    
+    // Handle multiple images (for posts)
+    if (checkinData.imageFiles && checkinData.imageFiles.length > 0) {
+      imageUrls = [];
+      for (const file of checkinData.imageFiles.slice(0, 3)) { // Limit to 3 images
+        const uploadResult = await uploadImage(file);
+        if (uploadResult.success && uploadResult.data) {
+          imageUrls.push(uploadResult.data.secure_url);
+        } else {
+          console.warn('Image upload failed for file:', file.name, uploadResult.error);
+        }
+      }
+      
+      // Set the first image as the main image for backward compatibility
+      if (imageUrls.length > 0) {
+        imageUrl = imageUrls[0];
+      }
+    }
+    
+    // Use provided URLs if no files were uploaded
+    if (checkinData.imageUrls && checkinData.imageUrls.length > 0) {
+      imageUrls = checkinData.imageUrls;
+      imageUrl = imageUrls[0] || '';
     }
     
     // Get current user and username
@@ -233,7 +261,8 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
       user_id: userProfile?.id || null,
       cafe_id: checkinData.cafeId || null,
       place_id: checkinData.placeId || null,
-      image_url: imageUrl,
+      image_url: imageUrl, // Keep for backward compatibility
+      image_urls: imageUrls, // New field for multiple images
       rating: checkinData.rating,
       text_review: checkinData.review,
       tags: checkinData.tags,
@@ -264,7 +293,8 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
       userId: data.user_id,
       cafeId: data.cafe_id,
       placeId: data.place_id,
-      imageUrl: data.image_url,
+      imageUrl: data.image_url, // Keep for backward compatibility
+      imageUrls: data.image_urls || [], // New field for multiple images
       rating: data.rating,
       textReview: data.text_review,
       tags: data.tags || [],
@@ -278,15 +308,18 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
       } : undefined
     };
     
-    // Log activity
+    // Log activity (optional - don't fail post creation if this fails)
     try {
-      await logActivity('check-in', checkinData.cafeId, { 
-        cafeName: data.cafes?.name,
-        rating: checkinData.rating,
-        hasImage: !!checkinData.imageFile
-      });
+      if (checkinData.cafeId) {
+        await logActivity('check-in', checkinData.cafeId, { 
+          cafeName: data.cafes?.name,
+          rating: checkinData.rating,
+          hasImage: !!checkinData.imageFile || !!checkinData.imageFiles?.length
+        });
+      }
     } catch (error) {
-      console.error('Failed to log activity:', error);
+      console.error('Failed to log activity (non-critical):', error);
+      // Don't throw - this is optional logging
     }
     
     return {

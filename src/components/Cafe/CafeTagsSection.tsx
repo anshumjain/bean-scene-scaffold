@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Tag, Plus, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getCafeTopTags } from "@/services/tagService";
 import { reportIncorrectTag, hasUserReportedTag } from "@/services/tagReportingService";
+import { AddTagsModal } from "./AddTagsModal";
 import { toast } from "@/hooks/use-toast";
 
 interface CafeTagsSectionProps {
@@ -14,10 +14,10 @@ interface CafeTagsSectionProps {
 }
 
 export function CafeTagsSection({ cafeId, cafeName, refreshTrigger = 0 }: CafeTagsSectionProps) {
-  const navigate = useNavigate();
   const [topTags, setTopTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [reportedTags, setReportedTags] = useState<Set<string>>(new Set());
+  const [showAddTagsModal, setShowAddTagsModal] = useState(false);
 
   const loadTopTags = async () => {
     try {
@@ -47,7 +47,11 @@ export function CafeTagsSection({ cafeId, cafeName, refreshTrigger = 0 }: CafeTa
   }, [cafeId, refreshTrigger]);
 
   const handleAddTag = () => {
-    navigate('/checkin', { state: { cafeId, cafeName } });
+    setShowAddTagsModal(true);
+  };
+
+  const handleTagsAdded = () => {
+    loadTopTags(); // Refresh the tags list
   };
 
   const handleReportTag = async (tag: string) => {
@@ -77,22 +81,14 @@ export function CafeTagsSection({ cafeId, cafeName, refreshTrigger = 0 }: CafeTa
   };
 
   return (
-    <div className="px-6 pb-4">
-      <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl p-4 border border-primary/20">
+    <>
+      <div className="px-6 pb-4">
+        <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl p-4 border border-primary/20">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4 text-primary" />
             <h3 className="font-semibold text-sm text-primary">What's the vibe?</h3>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleAddTag}
-            className="text-xs h-7 px-3 border-primary/30 text-primary hover:bg-primary/10"
-          >
-            <Plus className="w-3 h-3 mr-1" />
-            Add Tag
-          </Button>
         </div>
         
         {loading ? (
@@ -101,7 +97,7 @@ export function CafeTagsSection({ cafeId, cafeName, refreshTrigger = 0 }: CafeTa
             <span className="ml-2 text-xs text-muted-foreground">Loading tags...</span>
           </div>
         ) : topTags.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             {topTags.map((tag, index) => (
               <div key={tag} className="relative group">
                 <Badge 
@@ -127,6 +123,15 @@ export function CafeTagsSection({ cafeId, cafeName, refreshTrigger = 0 }: CafeTa
                 )}
               </div>
             ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleAddTag}
+              className="h-6 w-6 p-0 text-primary hover:bg-primary/10 rounded-full"
+              title="Add more tags"
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
           </div>
         ) : (
           <div className="text-center py-4">
@@ -143,11 +148,16 @@ export function CafeTagsSection({ cafeId, cafeName, refreshTrigger = 0 }: CafeTa
             </Button>
           </div>
         )}
-        
-        <p className="text-xs text-muted-foreground mt-3">
-          Based on the last 30 days of check-ins
-        </p>
+        </div>
       </div>
-    </div>
+
+      <AddTagsModal
+        isOpen={showAddTagsModal}
+        onClose={() => setShowAddTagsModal(false)}
+        cafeId={cafeId}
+        cafeName={cafeName}
+        onTagsAdded={handleTagsAdded}
+      />
+    </>
   );
 }

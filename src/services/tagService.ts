@@ -203,3 +203,135 @@ export function validateTag(tag: string): { valid: boolean; error?: string } {
   
   return { valid: true };
 }
+
+/**
+ * Add tags directly to a cafe without requiring a check-in
+ * Creates a lightweight post with just the tags
+ */
+export async function addTagsToCafe(cafeId: string, tags: string[]): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Validate all tags
+    const normalizedTags = tags.map(tag => normalizeTag(tag)).filter(tag => tag);
+    
+    if (normalizedTags.length === 0) {
+      return { success: false, error: 'No valid tags provided' };
+    }
+    
+    // Get current user info
+    const { data: { user } } = await supabase.auth.getUser();
+    const deviceId = getDeviceId();
+    
+    // Get username (works for both authenticated and anonymous users)
+    const username = await getUsername();
+    
+    // Get or create user profile (only for authenticated users)
+    let userProfile = null;
+    if (user) {
+      let { data: profile } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+      
+      if (!profile) {
+        // Create user profile if it doesn't exist
+        const { data: newProfile, error: profileError } = await supabase
+          .from('users')
+          .insert({
+            auth_user_id: user.id,
+            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous',
+            email: user.email || '',
+          })
+          .select('id')
+          .single();
+        
+        if (profileError) throw new Error(profileError.message);
+        profile = newProfile;
+      }
+      userProfile = profile;
+    }
+    
+    // Get cafe details for place_id
+    const { data: cafe, error: cafeError } = await supabase
+      .from('cafes')
+      .select('place_id')
+      .eq('id', cafeId)
+      .single();
+    
+    if (cafeError || !cafe) {
+      return { success: false, error: 'Cafe not found' };
+    }
+    
+    // Create a lightweight post with just the tags
+    const postData = {
+      user_id: userProfile?.id || null,
+      cafe_id: cafeId,
+      place_id: cafe.place_id || '', // Handle case where place_id might be null
+      image_url: '', // No image for direct tagging
+      image_urls: [], // No images for direct tagging
+      rating: 0, // No rating for direct tagging
+      text_review: `Added tags: ${normalizedTags.join(', ')}`,
+      tags: normalizedTags,
+      username: username.success ? username.data : null,
+      device_id: deviceId,
+      source: 'user',
+      photo_source: 'user'
+    };
+    
+    const { error: insertError } = await supabase
+      .from('posts')
+      .insert(postData);
+    
+    if (insertError) {
+      console.error('Error adding tags to cafe:', insertError);
+      return { success: false, error: insertError.message };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error adding tags to cafe:', error);
+    return { success: false, error: 'Failed to add tags' };
+  }
+}
+
+/**
+ * Get device ID for anonymous users
+ */
+function getDeviceId(): string {
+  let deviceId = localStorage.getItem('deviceId');
+  if (!deviceId) {
+    deviceId = 'device_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('deviceId', deviceId);
+  }
+  return deviceId;
+}
+
+/**
+ * Get username for current user
+ */
+async function getUsername(): Promise<{ success: boolean; data?: string }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      // For authenticated users, get username from profile
+      const { data: profile } = await supabase
+        .from('users')
+        .select('name')
+        .eq('auth_user_id', user.id)
+        .single();
+      
+      return { success: true, data: profile?.name || user.email?.split('@')[0] || 'Anonymous' };
+    } else {
+      // For anonymous users, get from localStorage
+      let username = localStorage.getItem('username');
+      if (!username) {
+        username = 'Anonymous';
+        localStorage.setItem('username', username);
+      }
+      return { success: true, data: username };
+    }
+  } catch (error) {
+    return { success: false };
+  }
+}

@@ -12,7 +12,8 @@ interface PostCardProps {
     id: string;
     cafeName: string;
     neighborhood: string;
-    imageUrl: string;
+    imageUrl: string; // Keep for backward compatibility
+    imageUrls?: string[]; // New field for multiple images
     tags: string[];
     rating: number;
     textReview: string;
@@ -109,20 +110,46 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
         </div>
       </div>
 
-      {/* Image */}
+      {/* Images */}
       <div className="relative">
-        <img
-          src={post.imageUrl}
-          alt={`${post.cafeName} post`}
-          className="w-full h-64 object-cover"
-        />
-            {/* Google Attribution for Photos */}
-            {post.photoSource === 'google' && (
-              <GoogleAttributionOverlay 
-                type="photo" 
-                sourceUrl={post.placeId ? `https://www.google.com/maps/search/?api=1&query_place_id=${post.placeId}` : undefined}
-              />
-            )}
+        {/* Show multiple images if available, otherwise fallback to single image */}
+        {post.imageUrls && post.imageUrls.length > 1 ? (
+          <div className="grid grid-cols-2 gap-1 h-64">
+            {post.imageUrls.slice(0, 4).map((url, index) => (
+              <div key={index} className="relative">
+                <img
+                  src={url}
+                  alt={`${post.cafeName} post ${index + 1}`}
+                  className={`w-full h-full object-cover ${
+                    index === 0 && post.imageUrls!.length === 3 ? 'col-span-2' : ''
+                  }`}
+                />
+                {/* Show +N indicator for more images */}
+                {index === 3 && post.imageUrls!.length > 4 && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">
+                      +{post.imageUrls!.length - 4}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <img
+            src={post.imageUrl}
+            alt={`${post.cafeName} post`}
+            className="w-full h-64 object-cover"
+          />
+        )}
+        
+        {/* Google Attribution for Photos */}
+        {post.photoSource === 'google' && (
+          <GoogleAttributionOverlay 
+            type="photo" 
+            sourceUrl={post.placeId ? `https://www.google.com/maps/search/?api=1&query_place_id=${post.placeId}` : undefined}
+          />
+        )}
       </div>
 
       {/* Content */}

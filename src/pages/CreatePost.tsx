@@ -27,7 +27,7 @@ export default function CreatePost() {
   const { toast } = useToast();
   const { trackQuickPost, trackError, trackEngagement } = useGoogleAnalytics();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [caption, setCaption] = useState("");
   const [cafeQuery, setCafeQuery] = useState("");
   const [cafeResults, setCafeResults] = useState<Cafe[]>([]);
@@ -73,12 +73,14 @@ export default function CreatePost() {
   }
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      trackEngagement('quick_post_image_uploaded', {
-        file_size: file.size,
-        file_type: file.type,
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      // Limit to 3 images
+      const selectedFiles = Array.from(files).slice(0, 3);
+      setImageFiles(selectedFiles);
+      trackEngagement('quick_post_images_uploaded', {
+        file_count: selectedFiles.length,
+        total_size: selectedFiles.reduce((sum, file) => sum + file.size, 0),
       });
     }
   };
@@ -87,8 +89,8 @@ export default function CreatePost() {
     e.preventDefault();
     setError(null);
     
-    if (!imageFile) {
-      setError("Please add a photo to share");
+    if (imageFiles.length === 0) {
+      setError("Please add at least one photo to share");
       return;
     }
     
@@ -107,7 +109,7 @@ export default function CreatePost() {
         rating: 5, // Default rating for quick posts
         tags: [],
         review: caption,
-        imageFile,
+        imageFiles,
         location: {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude
@@ -116,7 +118,7 @@ export default function CreatePost() {
       
       if (result.success) {
         // Track successful quick post
-        trackQuickPost(selectedCafe?.name, selectedCafe?.id, !!imageFile);
+        trackQuickPost(selectedCafe?.name, selectedCafe?.id, imageFiles.length > 0);
         
         toast({
           title: "Quick post shared!",
@@ -175,36 +177,54 @@ export default function CreatePost() {
               </CardHeader>
               <CardContent>
                 <div className="border-2 border-dashed border-border rounded-lg p-8 text-center relative hover:border-primary/50 transition-colors">
-                  {imageFile ? (
+                  {imageFiles.length > 0 ? (
                     <div className="space-y-3">
-                      <div className="w-full h-48 bg-muted rounded-lg overflow-hidden">
-                        <img 
-                          src={URL.createObjectURL(imageFile)} 
-                          alt="Preview" 
-                          className="w-full h-full object-cover"
-                        />
+                      <div className="grid grid-cols-1 gap-3">
+                        {imageFiles.map((file, index) => (
+                          <div key={index} className="relative">
+                            <div className="w-full h-32 bg-muted rounded-lg overflow-hidden">
+                              <img 
+                                src={URL.createObjectURL(file)} 
+                                alt={`Preview ${index + 1}`} 
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between mt-2">
+                              <p className="text-sm text-foreground truncate flex-1 mr-2">{file.name}</p>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== index))}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-foreground truncate flex-1 mr-2">{imageFile.name}</p>
-                        <Button 
-                          variant="ghost" 
+                      {imageFiles.length < 3 && (
+                        <Button
+                          variant="outline"
                           size="sm"
-                          onClick={() => setImageFile(null)}
-                          className="text-destructive hover:text-destructive"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full"
                         >
-                          <X className="w-4 h-4" />
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add More Photos ({imageFiles.length}/3)
                         </Button>
-                      </div>
+                      )}
                     </div>
                   ) : (
                     <>
                       <Camera className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-sm text-muted-foreground mb-1">Tap to add a photo</p>
-                      <p className="text-xs text-muted-foreground">Share your coffee moment</p>
+                      <p className="text-sm text-muted-foreground mb-1">Tap to add photos</p>
+                      <p className="text-xs text-muted-foreground">Share your coffee moment (up to 3 photos)</p>
                       <input
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"
+                        multiple
                         onChange={handleImageUpload}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
@@ -262,7 +282,8 @@ export default function CreatePost() {
                         onClick={() => setSelectedCafe(cafe)}
                       >
                         <div className="font-medium">{cafe.name}</div>
-                        <div className="text-xs text-muted-foreground">{cafe.neighborhood}</div>
+                        <div className="text-xs text-muted-foreground">{cafe.address}</div>
+                        <div className="text-xs text-muted-foreground/70">{cafe.neighborhood}</div>
                       </div>
                     ))}
                   </div>
@@ -271,15 +292,16 @@ export default function CreatePost() {
                 {selectedCafe && (
                   <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
                     <div className="flex items-center justify-between">
-                      <div>
+                      <div className="flex-1">
                         <div className="font-medium text-primary">Selected: {selectedCafe.name}</div>
-                        <div className="text-xs text-muted-foreground">{selectedCafe.neighborhood}</div>
+                        <div className="text-xs text-muted-foreground">{selectedCafe.address}</div>
+                        <div className="text-xs text-muted-foreground/70">{selectedCafe.neighborhood}</div>
                       </div>
                       <Button 
                         variant="ghost" 
                         size="sm"
                         onClick={() => setSelectedCafe(null)}
-                        className="text-destructive hover:text-destructive"
+                        className="text-destructive hover:text-destructive ml-2"
                       >
                         <X className="w-4 h-4" />
                       </Button>
@@ -300,7 +322,7 @@ export default function CreatePost() {
               type="submit" 
               className="w-full coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth" 
               size="lg"
-              disabled={!imageFile || loading}
+              disabled={imageFiles.length === 0 || loading}
             >
               {loading ? (
                 <>

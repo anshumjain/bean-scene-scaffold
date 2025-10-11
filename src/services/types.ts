@@ -30,7 +30,8 @@ export interface Post {
   userId: string;
   cafeId: string;
   placeId: string;
-  imageUrl: string;
+  imageUrl: string; // Keep for backward compatibility
+  imageUrls?: string[]; // New field for multiple images (max 3)
   rating: number;
   textReview: string;
   tags: string[];
@@ -57,8 +58,10 @@ export interface CheckInData {
   cafeId: string;
   placeId: string;
   rating: number;
-  imageFile?: File;
-  imageUrl?: string;
+  imageFile?: File; // Single file for check-ins
+  imageFiles?: File[]; // Multiple files for posts (max 3)
+  imageUrl?: string; // Single URL for backward compatibility
+  imageUrls?: string[]; // Multiple URLs for posts
   tags: string[];
   review: string;
   location?: {

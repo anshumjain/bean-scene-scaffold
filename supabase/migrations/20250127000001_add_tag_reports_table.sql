@@ -28,3 +28,4 @@ CREATE POLICY "Users can read their own reports" ON tag_reports
 CREATE POLICY "Allow reading all reports" ON tag_reports
   FOR SELECT USING (true);
 
+

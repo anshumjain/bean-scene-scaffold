@@ -1,4 +1,4 @@
-import { MapPin, Phone, Clock, Star, DollarSign, Globe, Navigation, Share2, Copy } from "lucide-react";
+import { MapPin, Phone, Clock, Star, DollarSign, Globe, Navigation, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { GoogleAttribution, GoogleAttributionOverlay, GoogleAttributionInline } 
 import { useToast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
 import { CafeTagsSection } from "@/components/Cafe/CafeTagsSection";
+import { useNavigate } from "react-router-dom";
 
 interface CafeHeaderProps {
   cafe: {
@@ -39,6 +40,7 @@ interface CafeHeaderProps {
 
 export function CafeHeader({ cafe, loading = false, onPhotoAdded, tagRefreshTrigger = 0 }: CafeHeaderProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const renderPriceLevel = (level: number) => {
     return Array.from({ length: 4 }, (_, i) => (
@@ -69,41 +71,6 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded, tagRefreshTrig
     }
   };
 
-  const handleShare = async () => {
-    const shareData = {
-      title: cafe.name,
-      text: `Check out ${cafe.name} in ${cafe.neighborhood}!`,
-      url: window.location.href
-    };
-
-    try {
-      if (navigator.share && navigator.canShare(shareData)) {
-        await navigator.share(shareData);
-      } else {
-        // Fallback to clipboard
-        await navigator.clipboard.writeText(shareData.url);
-        toast({
-          title: "Link copied!",
-          description: "Cafe link copied to clipboard"
-        });
-      }
-    } catch (error) {
-      // Final fallback - copy to clipboard
-      try {
-        await navigator.clipboard.writeText(shareData.url);
-        toast({
-          title: "Link copied!",
-          description: "Cafe link copied to clipboard"
-        });
-      } catch (clipboardError) {
-        toast({
-          title: "Share failed",
-          description: "Unable to share or copy link",
-          variant: "destructive"
-        });
-      }
-    }
-  };
 
   const getCurrentDayHours = (hoursArray: string[]): string | null => {
     if (!hoursArray || hoursArray.length === 0) {
@@ -381,14 +348,18 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded, tagRefreshTrig
         {/* Action Buttons */}
         <div className="flex gap-3">
           <Button 
-            variant="outline" 
-            className="flex-1"
-            onClick={handleShare}
+            className="flex-1 coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth"
+            onClick={() => navigate('/checkin', { 
+              state: { 
+                cafeId: cafe.id, 
+                cafeName: cafe.name,
+                placeId: cafe.placeId,
+                address: cafe.address,
+                neighborhood: cafe.neighborhood
+              } 
+            })}
           >
-            <Share2 className="w-4 h-4 mr-2" />
-            Share
-          </Button>
-          <Button className="flex-1 coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth">
+            <Camera className="w-4 h-4 mr-2" />
             Check In Here
           </Button>
         </div>
