@@ -389,7 +389,7 @@ export default function AdminDashboard() {
       if (data.success) {
         toast({
           title: 'Full seeding completed',
-          description: `Added ${data.stats.cafes_added} cafes with ${data.stats.reviews_added} reviews`,
+          description: `Added ${data.stats.cafes_added} cafes`,
         });
         
         setLastResult(data);

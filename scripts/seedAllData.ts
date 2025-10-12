@@ -89,7 +89,7 @@ async function getCafeDetails(placeId: string): Promise<any> {
   if (!GOOGLE_PLACES_API_KEY) return null;
 
   try {
-    const response = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,formatted_phone_number,website,opening_hours,price_level,photos&key=${GOOGLE_PLACES_API_KEY}`);
+    const response = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,formatted_phone_number,website,opening_hours,price_level&key=${GOOGLE_PLACES_API_KEY}`);
     const data = await response.json();
     
     if (data.status === 'OK' && data.result) {
@@ -97,8 +97,7 @@ async function getCafeDetails(placeId: string): Promise<any> {
         phone_number: data.result.formatted_phone_number,
         website: data.result.website,
         opening_hours: data.result.opening_hours?.weekday_text || [],
-        price_level: data.result.price_level,
-        photos: data.result.photos?.map((p: any) => p.photo_reference) || []
+        price_level: data.result.price_level
       };
     }
   } catch (error) {
@@ -108,25 +107,6 @@ async function getCafeDetails(placeId: string): Promise<any> {
   return null;
 }
 
-// Fetch Google reviews for a cafe
-async function getCafeReviews(placeId: string): Promise<any[]> {
-  if (!GOOGLE_PLACES_API_KEY) return [];
-
-  try {
-    const response = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=reviews&key=${GOOGLE_PLACES_API_KEY}`);
-    const data = await response.json();
-    
-    if (data.status === 'OK' && data.result?.reviews) {
-      return data.result.reviews
-        .filter((review: any) => review.text && review.text.length > 10)
-        .slice(0, 5); // Top 5 reviews
-    }
-  } catch (error) {
-    console.error(`Error fetching reviews for ${placeId}:`, error);
-  }
-  
-  return [];
-}
 
 // Save cafe to database
 async function saveCafeToDatabase(cafeData: CafeData): Promise<{ success: boolean; cafeId?: string; error?: string }> {
@@ -149,35 +129,6 @@ async function saveCafeToDatabase(cafeData: CafeData): Promise<{ success: boolea
   }
 }
 
-// Save reviews to database
-async function saveReviewsToDatabase(cafeId: string, reviews: any[]): Promise<number> {
-  if (reviews.length === 0) return 0;
-
-  try {
-    const reviewData = reviews.map(review => ({
-      cafe_id: cafeId,
-      reviewer_name: review.author_name,
-      rating: review.rating,
-      review_text: review.text,
-      profile_photo_url: review.profile_photo_url,
-      time: new Date(review.time * 1000).toISOString()
-    }));
-
-    const { error } = await supabase
-      .from('cafe_reviews')
-      .insert(reviewData);
-
-    if (error) {
-      console.error('Error saving reviews:', error);
-      return 0;
-    }
-
-    return reviews.length;
-  } catch (error) {
-    console.error('Error saving reviews:', error);
-    return 0;
-  }
-}
 
 // Main seeding function
 export async function seedAllCafeData(): Promise<SeedingResult> {
@@ -216,7 +167,6 @@ export async function seedAllCafeData(): Promise<SeedingResult> {
 
   let totalProcessed = 0;
   let totalAdded = 0;
-  let totalReviews = 0;
   let totalApiCalls = 0;
   const errors: string[] = [];
   const processedPlaceIds = new Set<string>();
@@ -303,38 +253,25 @@ export async function seedAllCafeData(): Promise<SeedingResult> {
               is_active: true
             };
 
-            // Get additional details
-            const details = await getCafeDetails(place.id);
-            if (details) {
-              cafeData.phone_number = details.phone_number;
-              cafeData.website = details.website;
-              cafeData.opening_hours = details.opening_hours;
-              cafeData.price_level = details.price_level || cafeData.price_level;
-              cafeData.photos = details.photos;
-              cafeData.google_photo_reference = details.photos?.[0];
-              totalApiCalls++;
-            }
-
-            // Save cafe to database
-            const saveResult = await saveCafeToDatabase(cafeData);
-            if (saveResult.success) {
-              totalAdded++;
-              console.log(`    ✅ Saved: ${cafeData.name}`);
-
-              // Get and save reviews
-              if (saveResult.cafeId) {
-                const reviews = await getCafeReviews(place.id);
-                if (reviews.length > 0) {
-                  const reviewsAdded = await saveReviewsToDatabase(saveResult.cafeId, reviews);
-                  totalReviews += reviewsAdded;
-                  console.log(`    📝 Added ${reviewsAdded} reviews`);
-                  totalApiCalls++;
-                }
+              // Get additional details
+              const details = await getCafeDetails(place.id);
+              if (details) {
+                cafeData.phone_number = details.phone_number;
+                cafeData.website = details.website;
+                cafeData.opening_hours = details.opening_hours;
+                cafeData.price_level = details.price_level || cafeData.price_level;
+                totalApiCalls++;
               }
-            } else {
-              console.error(`    ❌ Failed to save: ${cafeData.name} - ${saveResult.error}`);
-              errors.push(`Failed to save ${cafeData.name}: ${saveResult.error}`);
-            }
+
+              // Save cafe to database
+              const saveResult = await saveCafeToDatabase(cafeData);
+              if (saveResult.success) {
+                totalAdded++;
+                console.log(`    ✅ Saved: ${cafeData.name}`);
+              } else {
+                console.error(`    ❌ Failed to save: ${cafeData.name} - ${saveResult.error}`);
+                errors.push(`Failed to save ${cafeData.name}: ${saveResult.error}`);
+              }
 
           } catch (error: any) {
             console.error(`    ❌ Error processing ${place.displayName?.text}:`, error);
@@ -364,7 +301,6 @@ export async function seedAllCafeData(): Promise<SeedingResult> {
   console.log(`🔍 Search terms: ${searchTerms.length}`);
   console.log(`📊 Total places found: ${processedPlaceIds.size}`);
   console.log(`✅ Cafes added: ${totalAdded}`);
-  console.log(`📝 Reviews added: ${totalReviews}`);
   console.log(`🌐 API calls made: ${totalApiCalls}`);
   console.log(`❌ Errors: ${errors.length}`);
 
@@ -373,12 +309,12 @@ export async function seedAllCafeData(): Promise<SeedingResult> {
   return {
     success,
     message: success 
-      ? `Successfully seeded ${totalAdded} cafes with ${totalReviews} reviews` 
+      ? `Successfully seeded ${totalAdded} cafes` 
       : `Seeding completed with ${errors.length} errors`,
     stats: {
       cafes_processed: totalProcessed,
       cafes_added: totalAdded,
-      reviews_added: totalReviews,
+      reviews_added: 0,
       api_calls: totalApiCalls,
       errors
     }

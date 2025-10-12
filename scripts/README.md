@@ -47,8 +47,7 @@ npx ts-node scripts/seedAllData.ts
 
 **Features:**
 - Searches 15 Houston areas with 14 different search terms
-- Fetches cafe details, photos, hours, contact info
-- Downloads Google reviews for each cafe
+- Fetches cafe details, hours, contact info, and basic information
 - Handles rate limiting and error recovery
 - Comprehensive coverage of Houston coffee scene
 
@@ -95,8 +94,7 @@ You can also use the admin dashboard to seed data:
 
 After successful seeding, you should have:
 - 200-500+ cafes across Houston
-- 1000+ Google reviews
-- Complete cafe details (hours, phone, website, photos)
+- Complete cafe details (hours, phone, website, basic info)
 - Proper database structure with all relationships
 
 ## Important Notes
