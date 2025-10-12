@@ -6,21 +6,37 @@ const corsHeaders = {
 };
 
 interface PlaceDetails {
-  opening_hours?: { weekday_text: string[] };
-  formatted_phone_number?: string;
-  website?: string;
+  regularOpeningHours?: { 
+    openNow?: boolean;
+    periods?: Array<{
+      open: { day: number; hour: number; minute: number };
+      close?: { day: number; hour: number; minute: number };
+    }>;
+    weekdayDescriptions?: string[];
+  };
+  internationalPhoneNumber?: string;
+  websiteUri?: string;
+  priceLevel?: number;
   reviews?: Array<{
-    author_name: string;
-    text: string;
-    rating: number;
-    time: number;
-    profile_photo_url?: string;
+    authorAttribution?: {
+      displayName: string;
+      uri?: string;
+      photoUri?: string;
+    };
+    text?: {
+      text: string;
+    };
+    rating?: number;
+    publishTime?: string;
   }>;
-  editorial_summary?: { overview: string };
+  editorialSummary?: { 
+    text: string;
+  };
 }
 
 function inferParkingInfo(editorial?: string, reviews?: PlaceDetails['reviews']): string {
-  const text = `${editorial || ''} ${reviews?.map(r => r.text).join(' ') || ''}`.toLowerCase();
+  const reviewTexts = reviews?.map(r => r.text?.text || '').join(' ') || '';
+  const text = `${editorial || ''} ${reviewTexts}`.toLowerCase();
   
   if (text.includes('no parking') || text.includes('limited parking')) {
     return 'Limited or no parking available';
@@ -43,74 +59,147 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
 
+    // Parse request body to get batch information
+    let requestBody = null;
+    let batchNumber = 1;
+    let totalBatches = 1;
+    
+    try {
+      requestBody = await req.json();
+      batchNumber = requestBody?.batchNumber || 1;
+      totalBatches = requestBody?.totalBatches || 1;
+    } catch (e) {
+      // Request body parsing failed, use defaults
+    }
+
     if (!googleApiKey) {
-      throw new Error('GOOGLE_PLACES_API_KEY not configured');
+      console.error('GOOGLE_PLACES_API_KEY environment variable is not set');
+      return new Response(JSON.stringify({ 
+        success: false,
+        message: 'Google Places API key not configured. Please set GOOGLE_PLACES_API_KEY environment variable.',
+        error: 'Missing API key configuration'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch cafes missing opening_hours
+    // Fetch cafes missing key data (opening_hours OR phone_number OR website OR price_level OR parking_info)
     const { data: cafes, error: cafesError } = await supabase
       .from('cafes')
-      .select('id, place_id, name, neighborhood')
+      .select('id, place_id, name, neighborhood, opening_hours, phone_number, website, price_level, parking_info')
       .eq('is_active', true)
-      .is('opening_hours', null);
+      .or('opening_hours.is.null,phone_number.is.null,website.is.null,price_level.is.null,parking_info.is.null');
 
-    if (cafesError) throw cafesError;
+    if (cafesError) {
+      console.error('Database error fetching cafes:', cafesError);
+      return new Response(JSON.stringify({ 
+        success: false,
+        message: 'Database error: ' + cafesError.message,
+        error: cafesError.message
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     console.log(`Starting enrichment for ${cafes.length} cafes missing data`);
+    
+    // Process in smaller batches to avoid timeouts
+    const batchSize = 20;
+    const calculatedTotalBatches = Math.ceil(cafes.length / batchSize);
+    
+    // Use provided totalBatches if available, otherwise calculate it
+    const finalTotalBatches = totalBatches > 1 ? totalBatches : calculatedTotalBatches;
 
     let enriched = 0;
     let totalReviewsInserted = 0;
     let failed = 0;
+    let processed = 0;
 
-    for (let i = 0; i < cafes.length; i++) {
-      const cafe = cafes[i];
+    // Calculate which batch to process
+    const startIndex = (batchNumber - 1) * batchSize;
+    const endIndex = Math.min(startIndex + batchSize, cafes.length);
+    const cafesToProcess = cafes.slice(startIndex, endIndex);
+    
+    console.log(`Processing batch ${batchNumber}/${finalTotalBatches} (cafes ${startIndex + 1}-${endIndex} of ${cafes.length})`);
+
+    for (let i = 0; i < cafesToProcess.length; i++) {
+      const cafe = cafesToProcess[i];
       
       try {
-        const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${cafe.place_id}&fields=opening_hours,formatted_phone_number,website,reviews,editorial_summary&key=${googleApiKey}`;
+        const url = `https://places.googleapis.com/v1/places/${cafe.place_id}?fields=regularOpeningHours,internationalPhoneNumber,websiteUri,reviews,editorialSummary,priceLevel&key=${googleApiKey}`;
         
         const response = await fetch(url);
         if (!response.ok) {
           failed++;
+          console.log(`[${i + 1}/${cafesToProcess.length}] ❌ ${cafe.name} - API error: ${response.status} ${response.statusText}`);
           continue;
         }
 
         const data = await response.json();
-        const details: PlaceDetails = data.result;
+        
+        // Check for Google Places API errors
+        if (data.error) {
+          failed++;
+          console.log(`[${i + 1}/${cafesToProcess.length}] ❌ ${cafe.name} - Google API error: ${data.error.message || 'Unknown error'}`);
+          continue;
+        }
+        
+        // New API returns data directly, not in a 'result' wrapper
+        const details: PlaceDetails = data;
 
-        if (details) {
+        // Always update the cafe record if we got a response (even if no data)
+        if (details && Object.keys(details).length > 0) {
+          processed++;
+          
           // Update cafe
           const updateData: any = {
             updated_at: new Date().toISOString(),
           };
 
-          if (details.opening_hours?.weekday_text) {
-            updateData.opening_hours = details.opening_hours.weekday_text;
+          let hasNewData = false;
+
+          // Only update if the field is currently null/empty
+          if (details.regularOpeningHours?.weekdayDescriptions && !cafe.opening_hours) {
+            updateData.opening_hours = details.regularOpeningHours.weekdayDescriptions;
+            hasNewData = true;
           }
-          if (details.formatted_phone_number) {
-            updateData.phone_number = details.formatted_phone_number;
+          if (details.internationalPhoneNumber && !cafe.phone_number) {
+            updateData.phone_number = details.internationalPhoneNumber;
+            hasNewData = true;
           }
-          if (details.website) {
-            updateData.website = details.website;
+          if (details.websiteUri && !cafe.website) {
+            updateData.website = details.websiteUri;
+            hasNewData = true;
+          }
+          if (details.priceLevel !== undefined && !cafe.price_level) {
+            updateData.price_level = details.priceLevel;
+            hasNewData = true;
           }
           
+          // Add parking info
           updateData.parking_info = inferParkingInfo(
-            details.editorial_summary?.overview,
+            details.editorialSummary?.text,
             details.reviews
           );
 
           await supabase.from('cafes').update(updateData).eq('id', cafe.id);
+        
+        // Add small delay to be gentle on the API
+        await new Promise(resolve => setTimeout(resolve, 100));
 
           // Insert reviews (top 5)
           if (details.reviews && details.reviews.length > 0) {
             const reviewsToInsert = details.reviews.slice(0, 5).map(review => ({
               cafe_id: cafe.id,
-              reviewer_name: review.author_name,
-              review_text: review.text,
-              rating: review.rating,
-              time: new Date(review.time * 1000).toISOString(),
-              profile_photo_url: review.profile_photo_url,
+              reviewer_name: review.authorAttribution?.displayName || 'Anonymous',
+              review_text: review.text?.text || '',
+              rating: review.rating || 0,
+              time: review.publishTime ? new Date(review.publishTime).toISOString() : new Date().toISOString(),
+              profile_photo_url: review.authorAttribution?.photoUri || null,
             }));
 
             const { error: reviewError } = await supabase
@@ -126,8 +215,21 @@ Deno.serve(async (req) => {
             }
           }
 
-          enriched++;
-          console.log(`[${i + 1}/${cafes.length}] ✅ ${cafe.name} (${cafe.neighborhood})`);
+          if (hasNewData) {
+            enriched++;
+            const updates = [];
+            if (updateData.opening_hours) updates.push('hours');
+            if (updateData.phone_number) updates.push('phone');
+            if (updateData.website) updates.push('website');
+            if (updateData.price_level !== undefined) updates.push('price');
+            if (updateData.parking_info) updates.push('parking');
+            console.log(`[${i + 1}/${cafesToProcess.length}] ✅ ${cafe.name} (${cafe.neighborhood}) - Added: ${updates.join(', ')}`);
+          } else {
+            console.log(`[${i + 1}/${cafesToProcess.length}] ⚠️ ${cafe.name} (${cafe.neighborhood}) - Already complete or no data available`);
+          }
+        } else {
+          failed++;
+          console.log(`[${i + 1}/${cafesToProcess.length}] ❌ ${cafe.name} - No data from Google Places`);
         }
 
         // Rate limiting: 100ms between requests
@@ -138,19 +240,54 @@ Deno.serve(async (req) => {
       }
     }
 
-    const message = `✅ Enriched ${enriched} cafés, inserted ${totalReviewsInserted} reviews. Failed: ${failed}`;
+    const message = `✅ Processed ${processed} cafés (batch ${batchNumber}/${finalTotalBatches}), enriched ${enriched} with new data, inserted ${totalReviewsInserted} reviews. Failed: ${failed}`;
     console.log(message);
+
+    // Auto-continue to next batch if there are more batches
+    if (batchNumber < finalTotalBatches) {
+      console.log(`🔄 Auto-continuing to batch ${batchNumber + 1}/${finalTotalBatches}...`);
+      
+      // Trigger the next batch by calling the function again
+      try {
+        const nextBatchResponse = await fetch(`https://${supabaseUrl.split('//')[1]}/functions/v1/enrich-cafes`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            action: 'continue',
+            batchNumber: batchNumber + 1,
+            totalBatches: finalTotalBatches
+          })
+        });
+        
+        if (nextBatchResponse.ok) {
+          const nextBatchData = await nextBatchResponse.json();
+          console.log(`✅ Next batch completed: ${nextBatchData.message}`);
+        } else {
+          console.log(`⚠️ Next batch failed to start automatically`);
+        }
+      } catch (error) {
+        console.log(`⚠️ Error starting next batch: ${error.message}`);
+      }
+    } else {
+      console.log(`🎉 All batches completed! Total: ${finalTotalBatches} batches`);
+    }
 
     return new Response(JSON.stringify({ 
       success: true, 
       message,
       stats: {
-        processed: cafes.length,
-        succeeded: enriched,
+        processed: processed,
+        enriched: enriched,
         failed: failed,
         reviewsAdded: totalReviewsInserted,
-        apiCalls: cafes.length,
-        estimatedCost: cafes.length * 0.017
+        apiCalls: cafesToProcess.length,
+        totalCafes: cafes.length,
+        batchProcessed: batchNumber,
+        totalBatches: finalTotalBatches,
+        estimatedCost: cafesToProcess.length * 0.017
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -162,7 +299,7 @@ Deno.serve(async (req) => {
       message: error.message || 'Failed to run enrichment',
       error: error.message
     }), {
-      status: 200, // Return 200 to match expected format
+      status: 500, // Return 500 for server errors
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

@@ -48,13 +48,23 @@ export function CafeReviews({ cafeId, placeId, maxReviews = 5 }: CafeReviewsProp
 
         if (error) throw error;
 
-        // Transform data to normalize field names
-        const normalizedReviews = (data || []).map(review => ({
-          ...review,
-          review_text: review.review_text || review.text_review,
-          time: review.time || review.created_at,
-          source: review.source || 'user'
-        }));
+        // Transform data to normalize field names and filter for text-based reviews only
+        const normalizedReviews = (data || [])
+          .map(review => ({
+            ...review,
+            review_text: review.review_text || review.text_review,
+            time: review.time || review.created_at,
+            source: review.source || 'user'
+          }))
+          .filter(review => {
+            // Only show reviews that have text content
+            // Exclude post reviews that are primarily image-based (no text or very short text)
+            if (review.review_type === 'post_review') {
+              return review.review_text && review.review_text.trim().length > 20;
+            }
+            // Include all Google reviews and cafe reviews
+            return true;
+          });
 
         setReviews(normalizedReviews);
       } catch (err) {
@@ -151,16 +161,6 @@ export function CafeReviews({ cafeId, placeId, maxReviews = 5 }: CafeReviewsProp
               </div>
             </div>
 
-            {/* Review Image (for post reviews) */}
-            {review.review_type === 'post_review' && review.image_url && (
-              <div className="mb-3">
-                <img 
-                  src={review.image_url} 
-                  alt="Review photo"
-                  className="w-full h-48 object-cover rounded-lg"
-                />
-              </div>
-            )}
 
             {/* Review Text */}
             <p className="text-sm text-foreground leading-relaxed">

@@ -71,7 +71,7 @@ export default function Search() {
     };
   });
 
-  /** Load cafes on mount */
+  /** Load cafes on mount and when page becomes visible */
   useEffect(() => {
     const loadAllCafes = async () => {
       try {
@@ -98,14 +98,46 @@ export default function Search() {
     loadPopularTags();
   }, []);
 
+  // Refresh data when page becomes visible (e.g., returning from photo upload)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible, refresh cafe data
+        const loadAllCafes = async () => {
+          try {
+            const result = await fetchCafes();
+            if (result.success) {
+              setAllCafes(result.data);
+            }
+          } catch (err) {
+            console.error("Error refreshing cafes:", err);
+          }
+        };
+        loadAllCafes();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, []);
+
   /** Load popular tags */
   const loadPopularTags = useCallback(async () => {
     try {
+      console.log('Loading popular tags...');
       const tagStats = await getPopularTags(20); // Increased from 8 to 20
       const tags = tagStats.map(stat => stat.tag);
       
+      console.log('Popular tags from database:', tagStats);
+      console.log('Extracted tag names:', tags);
+      
       // If no dynamic tags yet, use fallback tags
       if (tags.length === 0) {
+        console.log('No tags from database, using fallback tags');
         setPopularTags([
           "student-friendly", "wifi", "bakery", "vegan", "latte-art", 
           "great-coffee", "always-space", "wfh-friendly", "quiet", "group-friendly",
@@ -233,13 +265,24 @@ export default function Search() {
     }
 
     if (filters.selectedTags.length > 0) {
+      console.log('Filtering by tags:', filters.selectedTags);
+      console.log('Total cafes before tag filter:', filtered.length);
+      
       filtered = filtered.filter((cafe) => {
+        // Use OR logic: cafe must have ANY of the selected tags
         const hasMatchingTag = cafe.tags && cafe.tags.some((tag) => filters.selectedTags.includes(tag));
-        if (!hasMatchingTag && cafe.tags) {
-          // Debug: Cafe tags and selected tags
-        }
+        
+        console.log(`Cafe "${cafe.name}":`, {
+          tags: cafe.tags,
+          selectedTags: filters.selectedTags,
+          hasMatchingTag,
+          tagMatches: cafe.tags ? cafe.tags.filter(tag => filters.selectedTags.includes(tag)) : []
+        });
+        
         return hasMatchingTag;
       });
+      
+      console.log('Total cafes after tag filter:', filtered.length);
     }
 
     return filtered;
@@ -374,6 +417,41 @@ export default function Search() {
               className="pl-10 coffee-search-bar bg-white/90 border-white/20 text-foreground"
             />
           </div>
+
+          {/* Popular Tags - Horizontal Scrollable */}
+          {popularTags.length > 0 && (
+            <div className="mb-3">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                {popularTags.slice(0, 10).map((tag) => (
+                  <Button
+                    key={tag}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newTags = filters.selectedTags.includes(tag)
+                        ? filters.selectedTags.filter(t => t !== tag)
+                        : [...filters.selectedTags, tag];
+                      setFilters(prev => ({ ...prev, selectedTags: newTags }));
+                    }}
+                    className={`flex-shrink-0 text-xs h-8 px-4 rounded-full transition-all duration-300 font-medium ${
+                      filters.selectedTags.includes(tag) 
+                        ? "bg-gradient-to-r from-[#8b5a3c] to-[#6b4423] text-white border-[#8b5a3c] shadow-lg transform scale-105 hover:scale-110 ring-2 ring-[#8b5a3c]/30" 
+                        : "bg-gradient-to-r from-white/90 to-white/70 text-[#8b5a3c] border-white/50 hover:from-white hover:to-white/90 hover:border-[#8b5a3c]/60 hover:scale-102 shadow-md hover:shadow-lg backdrop-blur-sm"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1">
+                      {filters.selectedTags.includes(tag) ? (
+                        <span className="text-sm">✨</span>
+                      ) : (
+                        <span className="text-xs opacity-60">#</span>
+                      )}
+                      {tag}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Filters Panel */}
@@ -429,25 +507,34 @@ export default function Search() {
                   >
                     <div className="flex items-center gap-3">
                       {/* Hero image or emoji placeholder */}
-                      {cafe.photos?.[0] ? (
-                        <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden shadow-lg">
-                          <img
-                            src={cafe.photos[0]}
-                            alt={cafe.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              console.error('Failed to load cafe image:', cafe.name);
-                            }}
-                            onLoad={() => {
-                              // Image loaded successfully
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-12 h-12 bg-gradient-to-br from-[#8b5a3c] to-[#6b4423] rounded-lg flex-shrink-0 flex items-center justify-center text-white text-xl shadow-lg">
-                          {getCafeEmoji(cafe.id || cafe.placeId)}
-                        </div>
-                      )}
+                      {(() => {
+                        const hasHeroPhoto = cafe.heroPhotoUrl || cafe.photos?.[0];
+                        console.log(`Cafe "${cafe.name}":`, {
+                          heroPhotoUrl: cafe.heroPhotoUrl,
+                          photos: cafe.photos,
+                          hasHeroPhoto
+                        });
+                        
+                        return hasHeroPhoto ? (
+                          <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden shadow-lg">
+                            <img
+                              src={cafe.heroPhotoUrl || cafe.photos[0]}
+                              alt={cafe.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error('Failed to load cafe image:', cafe.name, cafe.heroPhotoUrl || cafe.photos[0]);
+                              }}
+                              onLoad={() => {
+                                console.log('Successfully loaded cafe image:', cafe.name);
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 bg-gradient-to-br from-[#8b5a3c] to-[#6b4423] rounded-lg flex-shrink-0 flex items-center justify-center text-white text-xl shadow-lg">
+                            {getCafeEmoji(cafe.id || cafe.placeId)}
+                          </div>
+                        );
+                      })()}
                     
                     {/* Cafe info */}
                     <div className="flex-1 min-w-0">

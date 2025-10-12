@@ -14,6 +14,8 @@ export interface TagStats {
  */
 export async function getPopularTags(limit: number = 8): Promise<TagStats[]> {
   try {
+    console.log('Getting popular tags from posts...');
+    
     // Get all posts with their tags
     const { data: posts, error } = await supabase
       .from('posts')
@@ -25,11 +27,27 @@ export async function getPopularTags(limit: number = 8): Promise<TagStats[]> {
       return [];
     }
 
-    // Count tag usage
+    console.log('Posts with tags:', posts?.length || 0);
+
+    // Also get tags directly from cafes
+    console.log('Getting tags from cafes...');
+    const { data: cafes, error: cafeError } = await supabase
+      .from('cafes')
+      .select('tags')
+      .not('tags', 'is', null);
+
+    if (cafeError) {
+      console.error('Error fetching cafes for tag analysis:', cafeError);
+    } else {
+      console.log('Cafes with tags:', cafes?.length || 0);
+    }
+
+    // Count tag usage from both posts and cafes
     const tagCounts: Record<string, { total: number; recent: number }> = {};
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+    // Count tags from posts
     posts?.forEach(post => {
       if (post.tags && Array.isArray(post.tags)) {
         post.tags.forEach(tag => {
@@ -45,6 +63,22 @@ export async function getPopularTags(limit: number = 8): Promise<TagStats[]> {
         });
       }
     });
+
+    // Count tags from cafes (each cafe tag counts as 1 usage)
+    cafes?.forEach(cafe => {
+      if (cafe.tags && Array.isArray(cafe.tags)) {
+        cafe.tags.forEach(tag => {
+          if (!tagCounts[tag]) {
+            tagCounts[tag] = { total: 0, recent: 0 };
+          }
+          tagCounts[tag].total++;
+          // Cafe tags don't have timestamps, so we don't count them as recent
+        });
+      }
+    });
+
+    console.log('Total unique tags found:', Object.keys(tagCounts).length);
+    console.log('Tag counts:', tagCounts);
 
     // Convert to array and sort by popularity
     const tagStats: TagStats[] = Object.entries(tagCounts).map(([tag, counts]) => ({

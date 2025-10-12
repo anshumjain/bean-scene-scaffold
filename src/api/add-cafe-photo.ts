@@ -1,7 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { NextRequest } from 'next/server';
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { cafeId, photoUrl, uploadedBy } = await request.json();
 

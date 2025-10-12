@@ -1,8 +1,6 @@
-import type { NextRequest } from 'next/server';
+const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
 
-const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
-
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   if (!GOOGLE_PLACES_API_KEY) {
     return new Response('Google Places API key not configured', { status: 500 });
   }

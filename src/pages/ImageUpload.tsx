@@ -97,32 +97,71 @@ export default function ImageUpload() {
       if (uploadResult.success && uploadResult.data) {
         const uploadedUrl = uploadResult.data.secure_url;
         
-        // Add photo to cafe via API
-        const response = await fetch('/api/add-cafe-photo', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            cafeId: cafe.id,
-            photoUrl: uploadedUrl,
-            uploadedBy: 'current-user' // Note: Will be replaced with actual user ID from auth context
+        // Add photo to cafe directly via Supabase
+        const { supabase } = await import('@/integrations/supabase/client');
+        
+        // First, add the photo to cafe_photos table
+        const { data: photoData, error: photoError } = await supabase
+          .from('cafe_photos')
+          .insert({
+            cafe_id: cafe.id,
+            photo_url: uploadedUrl,
+            uploaded_by: 'current-user', // Note: Will be replaced with actual user ID from auth context
+            is_hero: false, // Will be set to true if this becomes the hero
+            photo_source: 'user'
           })
-        });
+          .select()
+          .single();
 
-        const result = await response.json();
-
-        if (result.success) {
-          toast({
-            title: "Photo uploaded!",
-            description: result.isHero 
-              ? "Your photo has been set as the cafe's hero image!" 
-              : "Your photo has been added to the cafe"
-          });
-          navigate(`/cafe/${cafe.placeId}`);
-        } else {
-          throw new Error(result.error || 'Failed to add photo to cafe');
+        if (photoError) {
+          console.error('Error adding photo to cafe_photos:', photoError);
+          throw new Error('Failed to add photo to database');
         }
+
+        // Check if this cafe has a hero photo, if not, set this as the hero
+        const { data: cafeData, error: cafeError } = await supabase
+          .from('cafes')
+          .select('hero_photo_url')
+          .eq('id', cafe.id)
+          .single();
+
+        if (cafeError) {
+          console.error('Error fetching cafe:', cafeError);
+          throw new Error('Failed to fetch cafe details');
+        }
+
+        let isHero = false;
+
+        // If no hero photo exists, set this as the hero
+        if (!cafeData.hero_photo_url) {
+          const { error: updateError } = await supabase
+            .from('cafes')
+            .update({ 
+              hero_photo_url: uploadedUrl,
+              photo_source: 'user', // Set photo source to user to remove Google overlay
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', cafe.id);
+
+          if (updateError) {
+            console.error('Error updating hero photo:', updateError);
+          } else {
+            isHero = true;
+            // Mark this photo as the hero
+            await supabase
+              .from('cafe_photos')
+              .update({ is_hero: true })
+              .eq('id', photoData.id);
+          }
+        }
+
+        toast({
+          title: "Photo uploaded!",
+          description: isHero 
+            ? "Your photo has been set as the cafe's hero image!" 
+            : "Your photo has been added to the cafe"
+        });
+        navigate(`/cafe/${cafe.placeId}`);
       } else {
         throw new Error(uploadResult.error || 'Failed to upload image');
       }

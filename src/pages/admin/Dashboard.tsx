@@ -323,10 +323,29 @@ export default function AdminDashboard() {
       await fetchStats();
     } catch (error: any) {
       console.error('Operation error:', error);
+      
+      // Handle specific error cases
+      let errorMessage = error.message || error.error || 'Unknown error occurred';
+      
+      if (error.message?.includes('GOOGLE_PLACES_API_KEY')) {
+        errorMessage = 'Google Places API key is not configured. Please contact the administrator.';
+      } else if (error.message?.includes('Database error')) {
+        errorMessage = 'Database connection error. Please try again later.';
+      } else if (error.message?.includes('Edge Function')) {
+        errorMessage = 'Edge Function not found. Please contact the administrator.';
+      }
+      
       toast({
         title: 'Operation failed',
-        description: error.message || error.error || 'Edge Function not found. Please create the required Edge Functions.',
+        description: errorMessage,
         variant: 'destructive',
+      });
+      
+      // Set error result for display
+      setLastResult({
+        success: false,
+        message: errorMessage,
+        error: error.message
       });
     } finally {
       setOperations(prev => ({ ...prev, [opKey]: false }));
@@ -708,6 +727,19 @@ export default function AdminDashboard() {
             <CardDescription>Current state of café data</CardDescription>
           </CardHeader>
           <CardContent>
+            {lastResult && !lastResult.success && (
+              <div className="mb-4 p-4 border border-destructive/50 rounded-lg bg-destructive/10">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-destructive">Operation failed</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {lastResult.message || lastResult.error || 'Unknown error occurred'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             {isLoadingStats ? (
               <div className="grid grid-cols-2 gap-4">
                 {[...Array(6)].map((_, i) => (

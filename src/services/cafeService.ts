@@ -36,7 +36,7 @@ function transformCafeData(cafe: any): Cafe {
     ) ? 'google' : 
     (cafe.google_photo_reference ? 'google' : 'user'));
 
-  return {
+  const transformedCafe = {
     id: cafe.id,
     placeId: cafe.place_id,
     name: cafe.name,
@@ -62,6 +62,13 @@ function transformCafeData(cafe: any): Cafe {
     updatedAt: cafe.updated_at,
     isActive: cafe.is_active
   };
+
+  // Debug: Log hero photo data for cafes with hero photos
+  if (cafe.hero_photo_url) {
+    console.log(`Cafe "${cafe.name}" has hero photo:`, cafe.hero_photo_url);
+  }
+
+  return transformedCafe;
 }
 
 /**
@@ -86,7 +93,7 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
       while (hasMore) {
         let query = supabase
           .from('cafes')
-          .select('*')
+          .select('*, hero_photo_url')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .range(offset, offset + pageSize - 1);
@@ -101,8 +108,9 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
         }
         
         if (filters.tags && filters.tags.length > 0) {
-          // Use AND logic: cafe must have ALL selected tags
-          query = query.contains('tags', filters.tags);
+          // Use OR logic: cafe must have ANY of the selected tags
+          // Use overlaps operator for PostgreSQL arrays
+          query = query.overlaps('tags', filters.tags);
         }
         
         if (filters.rating) {
@@ -135,7 +143,7 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
       while (hasMore) {
         const { data, error } = await supabase
           .from('cafes')
-          .select('*')
+          .select('*, hero_photo_url')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .range(offset, offset + pageSize - 1);
@@ -157,8 +165,16 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
       }
     }
 
-        // Transform database format to app format
-        const cafes: Cafe[] = allData.map(transformCafeData);
+    // Transform database format to app format
+    const cafes: Cafe[] = allData.map(transformCafeData);
+    
+    // Debug: Log cafe data to see if hero photos are being loaded
+    console.log('Loaded cafes with hero photos:', cafes.filter(cafe => cafe.heroPhotoUrl).length);
+    console.log('Sample cafe data:', cafes[0] ? {
+      name: cafes[0].name,
+      heroPhotoUrl: cafes[0].heroPhotoUrl,
+      photos: cafes[0].photos
+    } : 'No cafes loaded');
 
     return {
       data: cafes,
