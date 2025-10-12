@@ -266,7 +266,7 @@ export default function CheckIn() {
             state: { showSuccess: true } 
           });
         } else {
-          navigate('/explore');
+          navigate('/moments', { state: { refreshPosts: true } });
         }
       } else {
         trackError('checkin_submission_failed', result.error || 'Failed to share check-in', {

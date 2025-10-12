@@ -9,10 +9,17 @@ interface Review {
   id: string;
   reviewer_name: string;
   rating: number;
-  review_text: string;
+  review_text?: string;
+  text_review?: string; // For post reviews
   profile_photo_url?: string;
-  time: string;
+  time?: string;
+  created_at?: string; // For post reviews
   source: 'google' | 'user';
+  review_type?: 'cafe_review' | 'post_review';
+  username?: string;
+  device_id?: string;
+  image_url?: string;
+  tags?: string[];
 }
 
 interface CafeReviewsProps {
@@ -32,23 +39,24 @@ export function CafeReviews({ cafeId, placeId, maxReviews = 5 }: CafeReviewsProp
         setLoading(true);
         setError(null);
 
+        // Use the unified reviews function
         const { data, error } = await supabase
-          .from('cafe_reviews')
-          .select('*')
-          .eq('cafe_id', cafeId)
-          .order('rating', { ascending: false })
-          .order('time', { ascending: false })
-          .limit(maxReviews);
+          .rpc('get_cafe_reviews_unified', { 
+            p_cafe_id: cafeId, 
+            p_limit: maxReviews 
+          });
 
         if (error) throw error;
 
-        // Transform data to include source information
-        const reviewsWithSource = (data || []).map(review => ({
+        // Transform data to normalize field names
+        const normalizedReviews = (data || []).map(review => ({
           ...review,
-          source: review.source || 'google' // Default to google since existing reviews are seeded from Google
+          review_text: review.review_text || review.text_review,
+          time: review.time || review.created_at,
+          source: review.source || 'user'
         }));
 
-        setReviews(reviewsWithSource);
+        setReviews(normalizedReviews);
       } catch (err) {
         console.error('Error fetching reviews:', err);
         setError(err instanceof Error ? err.message : 'Failed to load reviews');
@@ -103,7 +111,7 @@ export function CafeReviews({ cafeId, placeId, maxReviews = 5 }: CafeReviewsProp
   return (
     <div className="space-y-4">
       {reviews.map((review) => (
-        <Card key={review.id} className={`shadow-coffee border-0 ${review.source === 'google' ? 'opacity-90' : ''}`}>
+        <Card key={`${review.review_type}-${review.id}`} className={`shadow-coffee border-0 ${review.source === 'google' ? 'opacity-90' : ''}`}>
           <CardContent className="p-4">
             {/* Reviewer Info */}
             <div className="flex items-start gap-3 mb-3">
@@ -134,7 +142,7 @@ export function CafeReviews({ cafeId, placeId, maxReviews = 5 }: CafeReviewsProp
                 </div>
                 
                 <p className="text-xs text-muted-foreground">
-                  {new Date(review.time).toLocaleDateString('en-US', {
+                  {new Date(review.time || review.created_at).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric'
@@ -143,10 +151,32 @@ export function CafeReviews({ cafeId, placeId, maxReviews = 5 }: CafeReviewsProp
               </div>
             </div>
 
+            {/* Review Image (for post reviews) */}
+            {review.review_type === 'post_review' && review.image_url && (
+              <div className="mb-3">
+                <img 
+                  src={review.image_url} 
+                  alt="Review photo"
+                  className="w-full h-48 object-cover rounded-lg"
+                />
+              </div>
+            )}
+
             {/* Review Text */}
             <p className="text-sm text-foreground leading-relaxed">
               {review.review_text}
             </p>
+
+            {/* Tags (for post reviews) */}
+            {review.review_type === 'post_review' && review.tags && review.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {review.tags.slice(0, 3).map((tag, index) => (
+                  <span key={index} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
             
             {/* Google Attribution */}
             {review.source === 'google' && (

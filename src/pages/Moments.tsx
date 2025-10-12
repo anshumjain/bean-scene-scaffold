@@ -1,43 +1,68 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { PostCard } from "@/components/Feed/PostCard";
 import { fetchPosts } from "@/services/postService";
-import { Loader2, Coffee } from "lucide-react";
+import { Loader2, Coffee, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function Moments() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadPosts() {
-      setLoading(true);
-      try {
-        const result = await fetchPosts();
-        if (result.success) {
-          setPosts(result.data);
-        } else {
-          setError(result.error || 'Failed to load posts');
-        }
-      } catch (err) {
-        setError('Failed to load posts');
-      } finally {
-        setLoading(false);
+  const loadPosts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await fetchPosts();
+      if (result.success) {
+        setPosts(result.data);
+      } else {
+        setError(result.error || 'Failed to load posts');
       }
+    } catch (err) {
+      setError('Failed to load posts');
+    } finally {
+      setLoading(false);
     }
-    loadPosts();
   }, []);
+
+  useEffect(() => {
+    loadPosts();
+  }, [loadPosts]);
+
+  // Refresh posts when returning from other pages (like after creating a post)
+  useEffect(() => {
+    if (location.state?.refreshPosts) {
+      loadPosts();
+      // Clear the refresh flag
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, loadPosts]);
 
   return (
     <AppLayout>
       <div className="max-w-md mx-auto min-h-screen bg-background pb-20">
         {/* Header */}
         <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border p-4">
-          <h1 className="text-2xl font-bold">Moments</h1>
-          <p className="text-sm text-muted-foreground">Coffee moments from the community</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">Moments</h1>
+              <p className="text-sm text-muted-foreground">Coffee moments from the community</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={loadPosts}
+              disabled={loading}
+              className="p-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
 
         {/* Content */}

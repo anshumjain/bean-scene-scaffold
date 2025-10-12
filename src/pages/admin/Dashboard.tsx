@@ -372,6 +372,43 @@ export default function AdminDashboard() {
     }
   };
 
+  const runFullSeeding = async () => {
+    setOperations(prev => ({ ...prev, fullEnrichment: true }));
+    setLastResult(null);
+    
+    try {
+      toast({ title: 'Starting full seeding...', description: 'This will seed all cafe data from Google Places' });
+      
+      // Call the seeding function via Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('seed-cafes', {
+        body: { action: 'seed-all' }
+      });
+      
+      if (error) throw error;
+      
+      if (data.success) {
+        toast({
+          title: 'Full seeding completed',
+          description: `Added ${data.stats.cafes_added} cafes with ${data.stats.reviews_added} reviews`,
+        });
+        
+        setLastResult(data);
+      } else {
+        throw new Error(data.message || 'Seeding failed');
+      }
+      
+      await fetchStats();
+    } catch (error: any) {
+      toast({
+        title: 'Full seeding failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setOperations(prev => ({ ...prev, fullEnrichment: false }));
+    }
+  };
+
   const estimatedCost = (stats.totalCafes * 0.017).toFixed(2);
   const apiKeyConfigured = true; // Simplified - assuming configured
 
@@ -540,55 +577,75 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Google Places Data Enrichment
+              <Database className="h-5 w-5" />
+              Database Seeding & Data Management
             </CardTitle>
             <CardDescription>
-              Fetch and update café data from Google Places API
+              Seed all cafe data from Google Places API and manage existing data
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-sm text-muted-foreground">Est. cost: ~${estimatedCost} for all cafés</span>
+              <span className="text-sm text-muted-foreground">
+                {stats.totalCafes === 0 
+                  ? 'No cafes found - run full seeding to populate database' 
+                  : `Current: ${stats.totalCafes} cafes | Est. cost: ~$${estimatedCost} for enrichment`}
+              </span>
             </div>
 
             <div className="grid gap-3">
               <Button
                 onClick={() => showConfirmation(
-                  'Add Reviews',
-                  `This will fetch reviews from Google Places for ${stats.totalCafes} cafés. Estimated cost: $${estimatedCost}. Continue?`,
-                  () => runOperation('add-reviews')
-                )}
-                disabled={operations.addReviews}
-                className="w-full justify-start"
-              >
-                {operations.addReviews ? 'Adding Reviews...' : 'Add Reviews from Google Places'}
-              </Button>
-
-              <Button
-                onClick={() => showConfirmation(
-                  'Refresh Amenities',
-                  `This will refresh amenities for ${stats.totalCafes} cafés. Estimated cost: $${estimatedCost}. Continue?`,
-                  () => runOperation('refresh-amenities')
-                )}
-                disabled={operations.refreshAmenities}
-                className="w-full justify-start"
-              >
-                {operations.refreshAmenities ? 'Refreshing Amenities...' : 'Refresh Amenities & Hours'}
-              </Button>
-
-              <Button
-                onClick={() => showConfirmation(
-                  'Full Enrichment',
-                  `This will run both reviews and amenities operations. Estimated cost: $${(parseFloat(estimatedCost) * 2).toFixed(2)}. Continue?`,
-                  runFullEnrichment
+                  'Full Database Seeding',
+                  `This will seed the entire database with cafe data from Google Places API. This is a comprehensive operation that will fetch cafes from all Houston areas. Continue?`,
+                  runFullSeeding
                 )}
                 disabled={operations.fullEnrichment}
-                variant="secondary"
-                className="w-full justify-start"
+                className="w-full justify-start coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth"
               >
-                {operations.fullEnrichment ? 'Running Full Enrichment...' : 'Full Enrichment (Reviews + Amenities)'}
+                {operations.fullEnrichment ? 'Seeding Database...' : '🌱 Seed All Cafe Data'}
               </Button>
+
+              <div className="border-t pt-3">
+                <p className="text-sm text-muted-foreground mb-3">Existing Data Enrichment:</p>
+                
+                <Button
+                  onClick={() => showConfirmation(
+                    'Add Reviews',
+                    `This will fetch reviews from Google Places for ${stats.totalCafes} cafés. Estimated cost: $${estimatedCost}. Continue?`,
+                    () => runOperation('add-reviews')
+                  )}
+                  disabled={operations.addReviews || stats.totalCafes === 0}
+                  className="w-full justify-start"
+                >
+                  {operations.addReviews ? 'Adding Reviews...' : 'Add Reviews from Google Places'}
+                </Button>
+
+                <Button
+                  onClick={() => showConfirmation(
+                    'Refresh Amenities',
+                    `This will refresh amenities for ${stats.totalCafes} cafés. Estimated cost: $${estimatedCost}. Continue?`,
+                    () => runOperation('refresh-amenities')
+                  )}
+                  disabled={operations.refreshAmenities || stats.totalCafes === 0}
+                  className="w-full justify-start"
+                >
+                  {operations.refreshAmenities ? 'Refreshing Amenities...' : 'Refresh Amenities & Hours'}
+                </Button>
+
+                <Button
+                  onClick={() => showConfirmation(
+                    'Full Enrichment',
+                    `This will run both reviews and amenities operations. Estimated cost: $${(parseFloat(estimatedCost) * 2).toFixed(2)}. Continue?`,
+                    runFullEnrichment
+                  )}
+                  disabled={operations.fullEnrichment || stats.totalCafes === 0}
+                  variant="secondary"
+                  className="w-full justify-start"
+                >
+                  {operations.fullEnrichment ? 'Running Full Enrichment...' : 'Full Enrichment (Reviews + Amenities)'}
+                </Button>
+              </div>
             </div>
 
             {lastResult && lastResult.errors && lastResult.errors.length > 0 && (

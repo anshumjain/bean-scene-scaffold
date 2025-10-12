@@ -115,7 +115,9 @@ export default function ImageUpload() {
         if (result.success) {
           toast({
             title: "Photo uploaded!",
-            description: "Your photo has been added to the cafe"
+            description: result.isHero 
+              ? "Your photo has been set as the cafe's hero image!" 
+              : "Your photo has been added to the cafe"
           });
           navigate(`/cafe/${cafe.placeId}`);
         } else {

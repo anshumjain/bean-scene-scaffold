@@ -1,6 +1,6 @@
 # Database Seeding Scripts
 
-This directory contains scripts to populate the Bean Scene database with initial data.
+This directory contains scripts to populate the Bean Scene database with initial data and restore the database schema.
 
 ## Prerequisites
 
@@ -8,6 +8,7 @@ This directory contains scripts to populate the Bean Scene database with initial
    ```
    VITE_SUPABASE_URL=your_supabase_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
    GOOGLE_PLACES_API_KEY=your_google_places_api_key
    ```
 
@@ -16,51 +17,87 @@ This directory contains scripts to populate the Bean Scene database with initial
    npm install
    ```
 
-## Scripts
+## Database Restoration
 
-### 1. Seed Cafes (`seedCafes.ts`)
-Populates the database with cafe information from Google Places API.
+### 1. Restore Database Schema (`restore-database.ts`)
+**⚠️ IMPORTANT: Run this first if your database was accidentally purged**
+
+This script restores the core database schema including all tables, indexes, and RLS policies.
 
 ```bash
-npx ts-node scripts/seedCafes.ts
+npx ts-node scripts/restore-database.ts
 ```
 
-### 2. Seed Posts (`seedPosts.ts`) - **Updated with Google Reviews**
-Creates mock posts for the memories/moments feed using **real Google reviews** from each cafe.
+**What it does:**
+- Creates all essential tables (cafes, users, posts, cafe_reviews, favorites, feedback, tag_reports)
+- Sets up proper indexes for performance
+- Configures Row Level Security (RLS) policies
+- Verifies the database structure
+
+## Seeding Scripts
+
+### 2. Comprehensive Seeding (`seedAllData.ts`)
+**🌱 NEW: Complete seeding solution**
+
+Populates the database with comprehensive cafe data from Google Places API.
+
+```bash
+npx ts-node scripts/seedAllData.ts
+```
 
 **Features:**
-- Fetches actual Google reviews for each cafe
-- Uses Google reviews as post captions for authentic content
-- Falls back to generic templates if Google reviews are unavailable
-- Creates Instagram-like feed experience for users
+- Searches 15 Houston areas with 14 different search terms
+- Fetches cafe details, photos, hours, contact info
+- Downloads Google reviews for each cafe
+- Handles rate limiting and error recovery
+- Comprehensive coverage of Houston coffee scene
+
+### 3. Individual Cafe Seeding (`seedCafes.ts`)
+Original cafe seeding script for basic cafe data.
 
 ```bash
-npx ts-node scripts/seedPosts.ts
-```
-
-**Note:** This script will make API calls to Google Places API to fetch reviews. Make sure you have sufficient API quota.
-
-### 3. Seed Reviews & Amenities (`seedReviewsAmenities.ts`)
-Adds additional review data and cafe amenities.
-
-```bash
-npx ts-node scripts/seedReviewsAmenities.ts
-```
-
-## Running All Scripts
-
-To seed the entire database:
-
-```bash
-# 1. First, seed cafes
 npx ts-node scripts/seedCafes.ts
+```
 
-# 2. Then, seed posts with Google reviews
-npx ts-node scripts/seedPosts.ts
+### 4. Reviews & Amenities (`seedReviewsAmenities.ts`)
+Adds additional review data and cafe amenities to existing cafes.
 
-# 3. Finally, add reviews and amenities
+```bash
 npx ts-node scripts/seedReviewsAmenities.ts
 ```
+
+## Quick Recovery Process
+
+If your database was accidentally purged, follow these steps:
+
+```bash
+# 1. First, restore the database schema
+npx ts-node scripts/restore-database.ts
+
+# 2. Then, seed all cafe data (recommended)
+npx ts-node scripts/seedAllData.ts
+
+# OR use individual scripts:
+npx ts-node scripts/seedCafes.ts
+npx ts-node scripts/seedReviewsAmenities.ts
+```
+
+## Admin Dashboard
+
+You can also use the admin dashboard to seed data:
+
+1. Go to `/admin/login`
+2. Login with: `admin` / `beanscene2024`
+3. Use the "🌱 Seed All Cafe Data" button
+4. Monitor progress and results
+
+## Expected Results
+
+After successful seeding, you should have:
+- 200-500+ cafes across Houston
+- 1000+ Google reviews
+- Complete cafe details (hours, phone, website, photos)
+- Proper database structure with all relationships
 
 ## Important Notes
 

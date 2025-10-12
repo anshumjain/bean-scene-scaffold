@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Camera, X, Loader2, ArrowLeft } from "lucide-react";
+import { Camera, X, Loader2, ArrowLeft, Plus } from "lucide-react";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,7 +124,7 @@ export default function CreatePost() {
           title: "Quick post shared!",
           description: "Your photo has been posted successfully"
         });
-        navigate("/explore");
+        navigate("/moments", { state: { refreshPosts: true } });
       } else {
         setError(result.error || "Failed to share photo");
         toast({

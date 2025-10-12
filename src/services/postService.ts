@@ -25,7 +25,7 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
       .from('posts')
       .select(`
         *,
-        cafes (name, neighborhood, place_id)
+        cafes (name, neighborhood, place_id, address)
       `)
       .order('created_at', { ascending: false });
 
@@ -36,11 +36,12 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
     }
     
     if (filters.neighborhoods && filters.neighborhoods.length > 0) {
-      query = query.in('cafes.neighborhood', filters.neighborhoods);
+      // Only filter by neighborhood if the post has a cafe association
+      query = query.or(`cafe_id.is.null,cafes.neighborhood.in.(${filters.neighborhoods.join(',')})`);
     }
     
     if (filters.query) {
-      // Search in text_review, cafe name, and tags
+      // Search in text_review, cafe name, and tags (handle posts without cafes)
       query = query.or(`text_review.ilike.%${filters.query}%,cafes.name.ilike.%${filters.query}%,tags.overlaps.{${filters.query}}`);
     }
 
