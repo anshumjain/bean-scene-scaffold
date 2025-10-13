@@ -15,7 +15,9 @@
     "migrate:photos:auto": "tsx scripts/migratePhotosAuto.ts",
     "mark-google-content": "tsx scripts/markGoogleContent.ts",
     "update:cafe-tags": "tsx scripts/updateCafeTags.ts",
-    "update:seeded-cafe-tags": "tsx scripts/updateSeededCafeTags.ts"
+    "update:seeded-cafe-tags": "tsx scripts/updateSeededCafeTags.ts",
+    "seed:missouri-city": "tsx scripts/seedMissouriCityCafes.ts",
+    "seed:missouri-city-minimal": "tsx scripts/seedMissouriCityMinimal.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^9.4.0",

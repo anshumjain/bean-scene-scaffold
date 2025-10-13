@@ -3,11 +3,19 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 // Use import.meta.env for Vite/browser builds
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://hhdcequsdmosxzjebdyj.supabase.co";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZGNlcXVzZG1vc3h6amViZHlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjQwODMsImV4cCI6MjA3MzY0MDA4M30.BJ8tbA2zBC_IgC3Li_uE5P1-cPHA1Gi6mESaJVToPqA";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
+
+// Validate environment variables
+if (!SUPABASE_URL) {
+  throw new Error('Missing VITE_SUPABASE_URL environment variable');
+}
+if (!SUPABASE_ANON_KEY) {
+  throw new Error('Missing VITE_SUPABASE_PUBLISHABLE_KEY environment variable');
+}
 
 // Singleton pattern to prevent multiple client instances
 let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;

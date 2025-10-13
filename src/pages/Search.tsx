@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search as SearchIcon, MapPin, Star, Navigation, Cloud, Sun, Filter, ChevronDown, X } from "lucide-react";
+import { Search as SearchIcon, MapPin, Star, Navigation, Cloud, Sun, Filter, ChevronDown, X, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,13 +7,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { useNavigate } from "react-router-dom";
-import { fetchCafes } from "@/services/cafeService";
 import { Cafe } from "@/services/types";
 import { debounce, getCurrentLocation } from "@/services/utils";
 import { calculateDistance } from "@/utils/distanceUtils";
 import { toast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
 import { getPopularTags } from "@/services/tagService";
+import { useInfiniteCafes } from "@/hooks/useOptimizedCafes";
+import { InfiniteCafeList } from "@/components/InfiniteCafeList";
+import { isCafeOpenNow } from "@/utils/openingHours";
 
 interface UserLocation {
   latitude: number;
@@ -28,12 +30,7 @@ export default function Search() {
   });
   const [showFilters, setShowFilters] = useState(false);
 
-  const [allCafes, setAllCafes] = useState<Cafe[]>([]);
-  const [searchResults, setSearchResults] = useState<Cafe[]>([]);
   const [popularTags, setPopularTags] = useState<string[]>([]);
-
-  const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
 
   // Location
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
@@ -71,58 +68,57 @@ export default function Search() {
     };
   });
 
-  /** Load cafes on mount and when page becomes visible */
-  useEffect(() => {
-    const loadAllCafes = async () => {
-      try {
-        setInitialLoading(true);
-        const result = await fetchCafes();
-        if (result.success) {
-          setAllCafes(result.data);
-          // Don't set searchResults directly - let updateResults handle it
-        } else {
-          toast({
-            title: "Error loading cafes",
-            description: result.error || "Failed to load cafes",
-            variant: "destructive",
+  /** Auto-detect location on page load */
+  const autoDetectLocation = useCallback(async () => {
+    try {
+      // Check if we already have location stored
+      const storedLocation = localStorage.getItem('user-location');
+      if (storedLocation) {
+        const parsedLocation = JSON.parse(storedLocation);
+        // Check if location is not too old (less than 1 hour)
+        if (parsedLocation.timestamp && Date.now() - parsedLocation.timestamp < 3600000) {
+          setUserLocation({ latitude: parsedLocation.latitude, longitude: parsedLocation.longitude });
+          console.log('Using stored location:', parsedLocation);
+          
+          // Update distance filter immediately when using stored location
+          setFilters(prev => {
+            console.log('Using stored location: updating distance filter from', prev.distance, 'to 5');
+            return {
+              ...prev,
+              distance: 5 // Always set to 5 miles when location is available
+            };
           });
+          return;
         }
-      } catch (err) {
-        console.error("Error loading cafes:", err);
-      } finally {
-        setInitialLoading(false);
       }
-    };
 
-    loadAllCafes();
-    loadPopularTags();
-  }, []);
-
-  // Refresh data when page becomes visible (e.g., returning from photo upload)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // Page became visible, refresh cafe data
-        const loadAllCafes = async () => {
-          try {
-            const result = await fetchCafes();
-            if (result.success) {
-              setAllCafes(result.data);
-            }
-          } catch (err) {
-            console.error("Error refreshing cafes:", err);
-          }
+      // Try to get current location automatically (without user interaction)
+      const position = await getCurrentLocation();
+      const { latitude, longitude } = position.coords;
+      
+      // Store location with timestamp
+      const locationData = {
+        latitude,
+        longitude,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('user-location', JSON.stringify(locationData));
+      
+      setUserLocation({ latitude, longitude });
+      console.log('Auto-detected location:', { latitude, longitude });
+      
+      // Update distance filter to a reasonable default when location is auto-detected
+      setFilters(prev => {
+        console.log('Auto-detecting location: updating distance filter from', prev.distance, 'to 5');
+        return {
+          ...prev,
+          distance: 5 // Always set to 5 miles when location is available
         };
-        loadAllCafes();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
-    };
+      });
+    } catch (error) {
+      // Silently fail for auto-detection - user can still manually request location
+      console.log('Auto-location detection failed:', error);
+    }
   }, []);
 
   /** Load popular tags */
@@ -159,43 +155,104 @@ export default function Search() {
     }
   }, []);
 
+  // Use React Query for optimized cafe loading
+  const {
+    data: cafesData,
+    isLoading: cafesLoading,
+    error: cafesError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteCafes({
+    filters: {
+      ...filters,
+      query: searchQuery || undefined
+    },
+    userLocation
+  });
 
-  /** Update results when allCafes changes */
-  useEffect(() => {
-    if (allCafes.length > 0) {
-      // Inline the updateResults logic to avoid circular dependencies
+  // Debug: Log when React Query refetches
+  console.log('React Query filters:', {
+    userLocation: userLocation ? `${userLocation.latitude}, ${userLocation.longitude}` : null,
+    distance: filters.distance,
+    selectedTags: filters.selectedTags.length,
+    shouldUseLocationBased: userLocation && filters.distance < 25
+  });
+
+  // Flatten all pages of cafes into a single array
+  const allCafes = cafesData?.pages.flatMap((page: any) => page.cafes) || [];
+  
+  // Apply client-side filters (like open now) that can't be done at database level
+  const filteredCafes = allCafes.filter(cafe => {
+    // Open now filter
+    if (filters.openNow) {
+      if (!cafe.openingHours || cafe.openingHours.length === 0) {
+        return false; // No hours data, assume closed
+      }
+      
       try {
-        let results = allCafes;
-
-        if (searchQuery.trim()) {
-          const query = searchQuery.toLowerCase();
-          
-          // Check if it's a tag search (starts with #)
-          if (query.startsWith('#')) {
-            const tagQuery = query.substring(1); // Remove the # symbol
-            results = results.filter((cafe) =>
-              cafe.tags.some((tag) => tag.toLowerCase().includes(tagQuery))
-            );
-          } else {
-            // Regular search (cafe name, neighborhood, or tags)
-            results = results.filter(
-              (cafe) =>
-                cafe.name.toLowerCase().includes(query) ||
-                (cafe.neighborhood &&
-                  cafe.neighborhood.toLowerCase().includes(query)) ||
-                cafe.tags.some((tag) => tag.toLowerCase().includes(query))
-            );
-          }
-        }
-
-        results = applyFilters(results);
-        results = sortCafes(results);
-        setSearchResults(results);
+        // Use the isCafeOpenNow function
+        return isCafeOpenNow(cafe.openingHours);
       } catch (error) {
-        console.error("Error updating results:", error);
+        console.warn('Error checking if cafe is open:', error, 'for cafe:', cafe.name);
+        return false; // If we can't parse hours, assume closed
       }
     }
-  }, [allCafes, filters, searchQuery, userLocation]);
+    
+    return true; // Include all cafes if open now filter is not active
+  });
+  
+  const searchResults = filteredCafes; // For compatibility with existing code
+
+  // Debug logging
+  console.log('Search page state:', {
+    cafesLoading,
+    cafesError: cafesError?.message,
+    cafesCount: allCafes.length,
+    userLocation: userLocation ? `${userLocation.latitude}, ${userLocation.longitude}` : null,
+    distanceFilter: filters.distance,
+    hasActiveFilters: filters.selectedTags.length > 0 || filters.priceLevel.length > 0 || filters.rating > 0 || filters.neighborhoods.length > 0
+  });
+
+  // Debug: Show sample cafe locations
+  if (allCafes.length > 0) {
+    console.log('Sample cafe locations:', allCafes.slice(0, 10).map(cafe => ({
+      name: cafe.name,
+      location: `${cafe.latitude}, ${cafe.longitude}`,
+      neighborhood: cafe.neighborhood,
+      distance: userLocation ? calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        cafe.latitude,
+        cafe.longitude
+      ).toFixed(2) : 'N/A'
+    })));
+  }
+
+  /** Load popular tags and auto-detect location on mount */
+  useEffect(() => {
+    loadPopularTags();
+    autoDetectLocation(); // Auto-detect location on page load
+  }, [autoDetectLocation, loadPopularTags]);
+
+  // Refresh data when page becomes visible (e.g., returning from photo upload)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible, React Query will handle refreshing automatically
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, []);
+
+
+  // Results are now handled by React Query - no manual filtering needed
 
   /** Save filters to localStorage whenever they change */
   useEffect(() => {
@@ -208,85 +265,7 @@ export default function Search() {
   }, [searchQuery]);
 
 
-  /** Sort logic - default to rating */
-  const sortCafes = (cafes: Cafe[]): Cafe[] => {
-    const sorted = [...cafes];
-    
-    // Default sort by rating (highest first)
-    return sorted.sort(
-      (a, b) =>
-        (b.googleRating || b.rating || 0) - (a.googleRating || a.rating || 0)
-    );
-  };
-
-  /** Filter logic */
-  const applyFilters = (cafes: Cafe[]): Cafe[] => {
-    let filtered = [...cafes];
-
-    if (filters.priceLevel.length > 0) {
-      filtered = filtered.filter(
-        (cafe) =>
-          cafe.priceLevel && filters.priceLevel.includes(cafe.priceLevel)
-      );
-    }
-
-    if (filters.rating > 0) {
-      filtered = filtered.filter(
-        (cafe) =>
-          (cafe.googleRating || cafe.rating || 0) >= filters.rating
-      );
-    }
-
-    if (userLocation && filters.distance < 25) {
-      filtered = filtered.filter((cafe) => {
-        if (!cafe.latitude || !cafe.longitude) {
-          return false; // Skip cafes without coordinates
-        }
-        const distance = calculateDistance(
-          userLocation.latitude,
-          userLocation.longitude,
-          cafe.latitude,
-          cafe.longitude
-        );
-        return distance <= filters.distance;
-      });
-    }
-
-    if (filters.neighborhoods.length > 0) {
-      filtered = filtered.filter((cafe) =>
-        cafe.neighborhood && filters.neighborhoods.includes(cafe.neighborhood)
-      );
-    }
-
-    if (filters.openNow) {
-      // For now, we'll skip the openNow filter since we don't have real-time hours data
-      // This could be implemented later with actual opening hours data
-      // Open now filter is active but not implemented yet
-    }
-
-    if (filters.selectedTags.length > 0) {
-      console.log('Filtering by tags:', filters.selectedTags);
-      console.log('Total cafes before tag filter:', filtered.length);
-      
-      filtered = filtered.filter((cafe) => {
-        // Use OR logic: cafe must have ANY of the selected tags
-        const hasMatchingTag = cafe.tags && cafe.tags.some((tag) => filters.selectedTags.includes(tag));
-        
-        console.log(`Cafe "${cafe.name}":`, {
-          tags: cafe.tags,
-          selectedTags: filters.selectedTags,
-          hasMatchingTag,
-          tagMatches: cafe.tags ? cafe.tags.filter(tag => filters.selectedTags.includes(tag)) : []
-        });
-        
-        return hasMatchingTag;
-      });
-      
-      console.log('Total cafes after tag filter:', filtered.length);
-    }
-
-    return filtered;
-  };
+  // Sorting and filtering are now handled by OptimizedCafeService
 
 
   /** Debounced search */
@@ -306,13 +285,25 @@ export default function Search() {
       // Location received
       
       const { latitude, longitude } = position.coords;
+      
+      // Store location with timestamp
+      const locationData = {
+        latitude,
+        longitude,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('user-location', JSON.stringify(locationData));
+      
       setUserLocation({ latitude, longitude });
       
       // Update distance filter to a reasonable default when location is enabled
-      setFilters(prev => ({
-        ...prev,
-        distance: prev.distance === 25 ? 10 : prev.distance
-      }));
+      setFilters(prev => {
+        console.log('Manual location request: updating distance filter from', prev.distance, 'to 5');
+        return {
+          ...prev,
+          distance: 5 // Always set to 5 miles when location is available
+        };
+      });
       
       toast({
         title: "Location Enabled",
@@ -344,9 +335,8 @@ export default function Search() {
   /** Filters + sort handlers */
   const handleFiltersChange = (newFilters: FilterState) => {
     try {
-      // Filter change applied
       setFilters(newFilters);
-      // updateResults() will be called automatically by useEffect
+      // React Query will automatically refetch with new filters
     } catch (error) {
       console.error("Error in handleFiltersChange:", error);
       toast({
@@ -362,12 +352,12 @@ export default function Search() {
     setFilters({
       priceLevel: [],
       rating: 0,
-      distance: userLocation ? 10 : 25,
+      distance: userLocation ? 5 : 25,
       openNow: false,
       neighborhoods: [],
       selectedTags: []
     });
-    // updateResults() will be called automatically by useEffect
+    // React Query will automatically refetch with cleared filters
   };
 
 
@@ -388,6 +378,17 @@ export default function Search() {
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold coffee-heading">Explore</h1>
             <div className="flex items-center gap-3">
+              {/* Request Cafe Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/request-cafe')}
+                className="text-white/90 hover:text-white hover:bg-white/20 text-sm px-3 py-2"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Request Missing Cafe
+              </Button>
+              
               {/* Filter Icon with Badge */}
               <div className="relative">
                 <Button
@@ -471,12 +472,12 @@ export default function Search() {
 
           {/* Cafes Results */}
           <div className="space-y-4 mt-4">
-              {initialLoading ? (
+              {cafesLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
                   <p className="text-muted-foreground">Loading cafes...</p>
                 </div>
-              ) : searchResults.length === 0 ? (
+              ) : allCafes.length === 0 ? (
                 <div className="text-center py-12">
                   <SearchIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Cafes Found</h3>
@@ -499,65 +500,15 @@ export default function Search() {
                   </div>
                 </div>
               ) : (
-                searchResults.map((cafe) => (
-                  <div
-                    key={cafe.id}
-                    className="coffee-card p-3 cursor-pointer coffee-interactive"
-                    onClick={() => navigate(`/cafe/${cafe.placeId}`)}
-                  >
-                    <div className="flex items-center gap-3">
-                      {/* Hero image or emoji placeholder */}
-                      {(() => {
-                        const hasHeroPhoto = cafe.heroPhotoUrl || cafe.photos?.[0];
-                        console.log(`Cafe "${cafe.name}":`, {
-                          heroPhotoUrl: cafe.heroPhotoUrl,
-                          photos: cafe.photos,
-                          hasHeroPhoto
-                        });
-                        
-                        return hasHeroPhoto ? (
-                          <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden shadow-lg">
-                            <img
-                              src={cafe.heroPhotoUrl || cafe.photos[0]}
-                              alt={cafe.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                console.error('Failed to load cafe image:', cafe.name, cafe.heroPhotoUrl || cafe.photos[0]);
-                              }}
-                              onLoad={() => {
-                                console.log('Successfully loaded cafe image:', cafe.name);
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-12 h-12 bg-gradient-to-br from-[#8b5a3c] to-[#6b4423] rounded-lg flex-shrink-0 flex items-center justify-center text-white text-xl shadow-lg">
-                            {getCafeEmoji(cafe.id || cafe.placeId)}
-                          </div>
-                        );
-                      })()}
-                    
-                    {/* Cafe info */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate text-sm">
-                        {cafe.name.length > 30 ? `${cafe.name.substring(0, 30)}...` : cafe.name}
-                      </h3>
-                      <div className="flex items-center gap-1 mt-1">
-                        <span className="text-xs text-muted-foreground">
-                          {cafe.neighborhood || "Houston"}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Rating */}
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 coffee-star" />
-                      <span className="text-sm font-medium">
-                        {(cafe.googleRating || cafe.rating || 0).toFixed(1)}
-                      </span>
-                    </div>
-                    </div>
-                  </div>
-                ))
+                <InfiniteCafeList
+                  cafes={allCafes}
+                  loading={cafesLoading}
+                  loadingMore={isFetchingNextPage}
+                  hasMore={!!hasNextPage}
+                  onLoadMore={() => fetchNextPage()}
+                  error={cafesError?.message}
+                  onCafeClick={(cafe) => navigate(`/cafe/${cafe.placeId}`)}
+                />
               )}
           </div>
         </div>

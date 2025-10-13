@@ -24,6 +24,7 @@ export interface Cafe {
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
+  distance?: number; // Distance in miles from user location
 }
 
 export interface Post {

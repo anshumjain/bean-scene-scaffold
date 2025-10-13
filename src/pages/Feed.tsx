@@ -45,6 +45,47 @@ export default function Feed() {
   // Get tag from URL parameters
   const tagFromUrl = searchParams.get('tag');
 
+  // Auto-detect location on page load
+  const autoDetectLocation = async () => {
+    try {
+      // Check if we already have location stored
+      const storedLocation = localStorage.getItem('user-location');
+      if (storedLocation) {
+        const parsedLocation = JSON.parse(storedLocation);
+        // Check if location is not too old (less than 1 hour)
+        if (parsedLocation.timestamp && Date.now() - parsedLocation.timestamp < 3600000) {
+          setUserLocation({ lat: parsedLocation.latitude, lng: parsedLocation.longitude });
+          console.log('Using stored location:', parsedLocation);
+          return;
+        }
+      }
+
+      // Try to get current location automatically (without user interaction)
+      const position = await getCurrentLocation();
+      const { latitude, longitude } = position.coords;
+      
+      // Store location with timestamp
+      const locationData = {
+        latitude,
+        longitude,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('user-location', JSON.stringify(locationData));
+      
+      setUserLocation({ lat: latitude, lng: longitude });
+      console.log('Auto-detected location:', { latitude, longitude });
+      
+      // Update distance filter to a reasonable default when location is auto-detected
+      setFilters(prev => ({
+        ...prev,
+        distance: prev.distance === 25 ? 10 : prev.distance
+      }));
+    } catch (error) {
+      // Silently fail for auto-detection - user can still manually request location
+      console.log('Auto-location detection failed:', error);
+    }
+  };
+
   // Load posts based on filters
   const loadPosts = async (tag?: string) => {
     try {
@@ -111,6 +152,15 @@ export default function Feed() {
       setLocationError(null);
       const position = await getCurrentLocation();
       const { latitude, longitude } = position.coords;
+      
+      // Store location with timestamp
+      const locationData = {
+        latitude,
+        longitude,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('user-location', JSON.stringify(locationData));
+      
       setUserLocation({ lat: latitude, lng: longitude });
     } catch (error) {
       setLocationError("Enable location to find cafes near you");
@@ -176,41 +226,96 @@ export default function Feed() {
       });
     }
 
-    // Apply sorting
-    filtered.sort((a, b) => {
-      let comparison = 0;
+    // Apply hybrid sorting: distance first (if location available), then popularity
+    if (userLocation && filters.sortBy === 'newest') {
+      // Default hybrid sorting when location is available
+      filtered.sort((a, b) => {
+        if (!a.latitude || !a.longitude || !b.latitude || !b.longitude) {
+          // If either cafe lacks coordinates, put it at the end
+          return (a.latitude && a.longitude) ? -1 : 1;
+        }
+        
+        const aDistance = calculateDistance(userLocation.lat, userLocation.lng, a.latitude, a.longitude);
+        const bDistance = calculateDistance(userLocation.lat, userLocation.lng, b.latitude, b.longitude);
+        
+        // Primary sort: by distance (closest first)
+        const distanceDiff = aDistance - bDistance;
+        if (Math.abs(distanceDiff) > 0.1) { // Only consider significant distance differences
+          return distanceDiff;
+        }
+        
+        // Secondary sort: by rating (highest first) for cafes at similar distances
+        const aRating = a.googleRating || a.rating || 0;
+        const bRating = b.googleRating || b.rating || 0;
+        return bRating - aRating;
+      });
+    } else if (!userLocation && filters.sortBy === 'newest') {
+      // No location available - sort by neighborhood popularity, then rating
+      const neighborhoodOrder = [
+        "Montrose", "Heights", "Downtown", "Midtown", "Rice Village",
+        "West University", "River Oaks", "Memorial", "Galleria", "East End",
+        "Museum District", "Washington Avenue", "EaDo", "Third Ward", "Fifth Ward"
+      ];
       
-      switch (filters.sortBy) {
-        case 'rating':
-          const aRating = a.googleRating || a.rating || 0;
-          const bRating = b.googleRating || b.rating || 0;
-          comparison = aRating - bRating;
-          break;
-        case 'price':
-          const aPrice = a.priceLevel || 0;
-          const bPrice = b.priceLevel || 0;
-          comparison = aPrice - bPrice;
-          break;
-        case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case 'distance':
-          if (userLocation) {
-            const aDistance = calculateDistance(userLocation.lat, userLocation.lng, a.latitude, a.longitude);
-            const bDistance = calculateDistance(userLocation.lat, userLocation.lng, b.latitude, b.longitude);
-            comparison = aDistance - bDistance;
-          } else {
-            comparison = Math.random() - 0.5;
+      filtered.sort((a, b) => {
+        // Primary sort: by neighborhood popularity (order in array)
+        const aNeighborhoodIndex = neighborhoodOrder.indexOf(a.neighborhood || '');
+        const bNeighborhoodIndex = neighborhoodOrder.indexOf(b.neighborhood || '');
+        
+        // If neighborhoods are in our priority list, sort by priority
+        if (aNeighborhoodIndex !== -1 && bNeighborhoodIndex !== -1) {
+          const neighborhoodDiff = aNeighborhoodIndex - bNeighborhoodIndex;
+          if (neighborhoodDiff !== 0) {
+            return neighborhoodDiff;
           }
-          break;
-        case 'newest':
-        default:
-          comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-          break;
-      }
-      
-      return filters.sortOrder === 'asc' ? comparison : -comparison;
-    });
+        } else if (aNeighborhoodIndex !== -1) {
+          return -1; // Prioritize known neighborhoods
+        } else if (bNeighborhoodIndex !== -1) {
+          return 1;
+        }
+        
+        // Secondary sort: by rating (highest first)
+        const aRating = a.googleRating || a.rating || 0;
+        const bRating = b.googleRating || b.rating || 0;
+        return bRating - aRating;
+      });
+    } else {
+      // Apply explicit sorting when user selects a specific sort option
+      filtered.sort((a, b) => {
+        let comparison = 0;
+        
+        switch (filters.sortBy) {
+          case 'rating':
+            const aRating = a.googleRating || a.rating || 0;
+            const bRating = b.googleRating || b.rating || 0;
+            comparison = aRating - bRating;
+            break;
+          case 'price':
+            const aPrice = a.priceLevel || 0;
+            const bPrice = b.priceLevel || 0;
+            comparison = aPrice - bPrice;
+            break;
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'distance':
+            if (userLocation) {
+              const aDistance = calculateDistance(userLocation.lat, userLocation.lng, a.latitude, a.longitude);
+              const bDistance = calculateDistance(userLocation.lat, userLocation.lng, b.latitude, b.longitude);
+              comparison = aDistance - bDistance;
+            } else {
+              comparison = Math.random() - 0.5;
+            }
+            break;
+          case 'newest':
+          default:
+            comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            break;
+        }
+        
+        return filters.sortOrder === 'asc' ? comparison : -comparison;
+      });
+    }
 
     setFilteredCafes(filtered);
   };
@@ -279,6 +384,7 @@ export default function Feed() {
   useEffect(() => {
     loadPosts(tagFromUrl || undefined);
     loadCafes();
+    autoDetectLocation(); // Auto-detect location on page load
   }, [tagFromUrl]);
 
   if (loading) {

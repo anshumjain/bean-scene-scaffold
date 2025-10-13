@@ -303,7 +303,7 @@ export default function CafeDetail() {
               googleRating: cafe.googleRating,
               userRating: cafe.userRating,
               photoSource: cafe.photoSource, // ADD THIS LINE!
-              hours: cafe.openingHours?.[0] || "Hours not available",
+              hours: cafe.openingHours?.length > 0 ? cafe.openingHours[0] : "Hours not available",
               hoursArray: cafe.openingHours, // Pass full hours array for current day logic
               phone: cafe.phoneNumber,
               website: cafe.website,
@@ -521,14 +521,14 @@ export default function CafeDetail() {
             <div className="bg-card rounded-lg p-4 shadow-coffee border border-border">
               <h3 className="font-semibold mb-3">Contact Information</h3>
               <div className="space-y-4">
-                {cafe.phone && (
+                {cafe.phoneNumber && (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      <span className="text-sm truncate">{cafe.phone}</span>
+                      <span className="text-sm truncate">{cafe.phoneNumber}</span>
                     </div>
                     <Button variant="outline" size="sm" asChild className="flex-shrink-0 ml-2">
-                      <a href={`tel:${cafe.phone}`}>Call</a>
+                      <a href={`tel:${cafe.phoneNumber}`}>Call</a>
                     </Button>
                   </div>
                 )}
@@ -543,7 +543,7 @@ export default function CafeDetail() {
                     </Button>
                   </div>
                 )}
-                {!cafe.phone && !cafe.website && (
+                {!cafe.phoneNumber && !cafe.website && (
                   <p className="text-sm text-muted-foreground">Contact information not available</p>
                 )}
               </div>

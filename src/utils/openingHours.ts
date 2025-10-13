@@ -93,8 +93,17 @@ export function isCafeOpenNow(openingHoursArray: string[]): boolean {
   }
 
   const [, openTime, closeTime] = timeMatch;
-  const openTimeFormatted = formatTimeForComparison(parseTimeString(openTime));
-  const closeTimeFormatted = formatTimeForComparison(parseTimeString(closeTime));
+  
+  let openTimeFormatted: number;
+  let closeTimeFormatted: number;
+  
+  try {
+    openTimeFormatted = formatTimeForComparison(parseTimeString(openTime));
+    closeTimeFormatted = formatTimeForComparison(parseTimeString(closeTime));
+  } catch (error) {
+    console.warn('Error parsing opening hours:', error, 'for time range:', timeRange);
+    return false; // Can't parse time, assume closed
+  }
 
   // Handle overnight hours (e.g., 10 PM - 6 AM)
   if (closeTimeFormatted < openTimeFormatted) {
@@ -117,15 +126,42 @@ function getDayName(dayNumber: number): string {
  * Parse time string like "6:00 AM" into a Date object for today
  */
 function parseTimeString(timeString: string): Date {
-  const [time, period] = timeString.trim().split(' ');
-  const [hours, minutes] = time.split(':').map(Number);
+  if (!timeString || typeof timeString !== 'string') {
+    throw new Error('Invalid time string');
+  }
+  
+  const trimmed = timeString.trim();
+  const parts = trimmed.split(' ');
+  
+  if (parts.length < 2) {
+    throw new Error('Time string must include AM/PM');
+  }
+  
+  const [time, period] = parts;
+  const timeParts = time.split(':');
+  
+  if (timeParts.length !== 2) {
+    throw new Error('Time must be in HH:MM format');
+  }
+  
+  const hours = parseInt(timeParts[0], 10);
+  const minutes = parseInt(timeParts[1], 10);
+  
+  if (isNaN(hours) || isNaN(minutes)) {
+    throw new Error('Invalid time format');
+  }
+  
+  if (!period) {
+    throw new Error('Period (AM/PM) is required');
+  }
   
   const date = new Date();
   let hour24 = hours;
   
-  if (period.toUpperCase() === 'PM' && hours !== 12) {
+  const periodUpper = period.toUpperCase();
+  if (periodUpper === 'PM' && hours !== 12) {
     hour24 += 12;
-  } else if (period.toUpperCase() === 'AM' && hours === 12) {
+  } else if (periodUpper === 'AM' && hours === 12) {
     hour24 = 0;
   }
   

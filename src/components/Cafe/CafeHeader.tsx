@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
 import { CafeTagsSection } from "@/components/Cafe/CafeTagsSection";
 import { useNavigate } from "react-router-dom";
+import { getOpeningStatus } from "@/utils/openingHours";
 
 interface CafeHeaderProps {
   cafe: {
@@ -88,56 +89,27 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded, tagRefreshTrig
     return todayHours || null;
   };
 
-  const getOpenStatus = (hours: string, isOpen?: boolean) => {
-    if (isOpen !== undefined) {
-      return isOpen ? "Open" : "Closed";
+  const getOpenStatus = (hours: string, hoursArray?: string[]) => {
+    // Use the proper opening hours utility
+    if (hoursArray && hoursArray.length > 0) {
+      const { status } = getOpeningStatus(hoursArray);
+      return status;
     }
     
-    // Parse hours string to determine if currently open
+    // Fallback for when we only have the hours string
     if (!hours || hours === "Hours not available") {
       return "Hours not available";
     }
     
-    try {
-      // Extract time from hours string (e.g., "Monday: 7:00 AM – 4:00 PM")
-      const timeMatch = hours.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*–\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!timeMatch) {
-        return "Hours not available";
-      }
-      
-      const [, openHour, openMin, openPeriod, closeHour, closeMin, closePeriod] = timeMatch;
-      
-      // Convert to 24-hour format
-      let open24 = parseInt(openHour);
-      let close24 = parseInt(closeHour);
-      
-      if (openPeriod.toUpperCase() === 'PM' && open24 !== 12) open24 += 12;
-      if (openPeriod.toUpperCase() === 'AM' && open24 === 12) open24 = 0;
-      
-      if (closePeriod.toUpperCase() === 'PM' && close24 !== 12) close24 += 12;
-      if (closePeriod.toUpperCase() === 'AM' && close24 === 12) close24 = 0;
-      
-      // Get current time
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMin = now.getMinutes();
-      const currentTime = currentHour * 60 + currentMin;
-      
-      const openTime = open24 * 60 + parseInt(openMin);
-      const closeTime = close24 * 60 + parseInt(closeMin);
-      
-      // Check if currently open
-      return (currentTime >= openTime && currentTime <= closeTime) ? "Open" : "Closed";
-    } catch (error) {
-      return "Hours not available";
-    }
+    // If we have hours but no array, show the hours string
+    return hours;
   };
 
   // Get current day's hours if available, otherwise use the passed hours
   const currentDayHours = cafe.hoursArray ? getCurrentDayHours(cafe.hoursArray) : null;
   const hoursToUse = currentDayHours || cafe.hours;
   
-  const openStatus = getOpenStatus(hoursToUse, cafe.isOpen);
+  const openStatus = getOpenStatus(hoursToUse, cafe.hoursArray);
   const isCurrentlyOpen = openStatus === "Open";
 
   if (loading) {

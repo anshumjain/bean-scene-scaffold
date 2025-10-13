@@ -20,9 +20,11 @@ import CreatePost from "./pages/CreatePost";
 import EditPost from "./pages/EditPost";
 import PostView from "./pages/PostView";
 import Feedback from "./pages/Feedback";
+import RequestCafe from "./pages/RequestCafe";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/admin/Login";
 import AdminDashboard from "./pages/admin/Dashboard";
+import CafeRequests from "./pages/admin/CafeRequests";
 
 const queryClient = new QueryClient();
 
@@ -68,9 +70,11 @@ const App = () => {
             <Route path="/cafe/:id" element={<CafeDetail />} />
             <Route path="/cafe/:id/upload" element={<ImageUpload />} />
             <Route path="/feedback" element={<Feedback />} />
+            <Route path="/request-cafe" element={<RequestCafe />} />
             <Route path="/admin/validation" element={<DataValidation />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/cafe-requests" element={<CafeRequests />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
