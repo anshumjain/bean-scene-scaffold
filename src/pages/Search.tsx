@@ -17,12 +17,16 @@ import { useInfiniteCafes } from "@/hooks/useOptimizedCafes";
 import { InfiniteCafeList } from "@/components/InfiniteCafeList";
 import { isCafeOpenNow } from "@/utils/openingHours";
 
+import { useSEO } from "@/hooks/useSEO";
+
 interface UserLocation {
   latitude: number;
   longitude: number;
 }
 
 export default function Search() {
+  // Set SEO meta tags for search page
+  useSEO('search');
   const navigate = useNavigate();
   
   const [searchQuery, setSearchQuery] = useState(() => {

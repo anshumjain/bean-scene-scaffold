@@ -3,9 +3,13 @@ import { AppLayout } from "@/components/Layout/AppLayout";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function Home() {
   const navigate = useNavigate();
+  
+  // Set SEO meta tags for home page
+  useSEO('home');
   return (
     <AppLayout>
       <div className="max-w-md mx-auto min-h-screen bg-background pb-20">

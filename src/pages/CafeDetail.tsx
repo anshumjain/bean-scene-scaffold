@@ -18,6 +18,7 @@ import { getCafeTips, submitTip, deleteTip, Tip } from "@/services/tipsService";
 import { useToast } from "@/hooks/use-toast";
 import type { Cafe, Post } from "@/services/types";
 import { GoogleAttributionOverlay } from "@/components/Attribution/GoogleAttribution";
+import { updateMetaTags, generateCafeSEO, addStructuredData, cleanupSEO } from "@/services/seoService";
 
 export default function CafeDetail() {
   const navigate = useNavigate();
@@ -172,8 +173,22 @@ export default function CafeDetail() {
         image: cafe.heroPhotoUrl || cafe.photos?.[0] || "/placeholder.svg",
         priceLevel: cafe.priceLevel,
       });
+
+      // Update SEO meta tags and structured data
+      const seoData = generateCafeSEO(cafe);
+      updateMetaTags(seoData);
+      if (seoData.structuredData) {
+        addStructuredData(seoData.structuredData);
+      }
     }
   }, [cafe]);
+
+  // Cleanup SEO when component unmounts
+  useEffect(() => {
+    return () => {
+      cleanupSEO();
+    };
+  }, []);
 
   // Handle favorite toggle
   const handleFavoriteToggle = async () => {

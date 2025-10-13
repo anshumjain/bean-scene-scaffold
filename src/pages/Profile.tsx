@@ -14,6 +14,7 @@ import { formatTimeAgo } from "@/services/utils";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useSEO } from "@/hooks/useSEO";
 
 // Mock data - will be replaced with real data from Supabase
 const userStats = {
@@ -26,6 +27,9 @@ const userStats = {
 export default function Profile() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Set SEO meta tags for profile page
+  useSEO('profile');
   const [username, setUsername] = useState<string | null>(null);
   const [showUsernameSelect, setShowUsernameSelect] = useState(false);
   const [loading, setLoading] = useState(true);

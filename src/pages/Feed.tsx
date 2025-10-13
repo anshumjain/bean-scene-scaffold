@@ -17,8 +17,11 @@ import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters
 import { RadiusFilter } from "@/components/Filters/RadiusFilter";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
 import { isCafeOpenNow } from "@/utils/openingHours";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function Feed() {
+  // Set SEO meta tags for feed page
+  useSEO('feed');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");

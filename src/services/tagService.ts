@@ -170,7 +170,7 @@ export function normalizeTag(tag: string): string {
 }
 
 /**
- * Get top 3 tags for a specific cafe based on recent posts
+ * Get top tags for a specific cafe based on recent posts and direct cafe tags
  */
 export async function getCafeTopTags(cafeId: string, limit: number = 3): Promise<string[]> {
   try {
@@ -187,23 +187,41 @@ export async function getCafeTopTags(cafeId: string, limit: number = 3): Promise
 
     if (error) {
       console.error('Error fetching cafe posts for tag analysis:', error);
-      return [];
     }
 
-    if (!posts || posts.length === 0) {
-      return [];
+    // Get direct cafe tags
+    const { data: cafe, error: cafeError } = await supabase
+      .from('cafes')
+      .select('tags')
+      .eq('id', cafeId)
+      .single();
+
+    if (cafeError) {
+      console.error('Error fetching cafe tags:', cafeError);
     }
 
-    // Count tag usage
+    // Count tag usage from posts
     const tagCounts: Record<string, number> = {};
     
-    posts.forEach(post => {
+    posts?.forEach(post => {
       if (post.tags && Array.isArray(post.tags)) {
         post.tags.forEach(tag => {
           tagCounts[tag] = (tagCounts[tag] || 0) + 1;
         });
       }
     });
+
+    // Add direct cafe tags (each counts as 1)
+    if (cafe?.tags && Array.isArray(cafe.tags)) {
+      cafe.tags.forEach(tag => {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      });
+    }
+
+    // If no tags found, return empty array
+    if (Object.keys(tagCounts).length === 0) {
+      return [];
+    }
 
     // Convert to array and sort by usage count
     const sortedTags = Object.entries(tagCounts)
@@ -240,8 +258,8 @@ export function validateTag(tag: string): { valid: boolean; error?: string } {
 }
 
 /**
- * Add tags directly to a cafe without requiring a check-in
- * Creates a lightweight post with just the tags
+ * Add tags directly to a cafe without creating a post
+ * Updates the cafe's tags array directly
  */
 export async function addTagsToCafe(cafeId: string, tags: string[]): Promise<{ success: boolean; error?: string }> {
   try {
@@ -252,44 +270,10 @@ export async function addTagsToCafe(cafeId: string, tags: string[]): Promise<{ s
       return { success: false, error: 'No valid tags provided' };
     }
     
-    // Get current user info
-    const { data: { user } } = await supabase.auth.getUser();
-    const deviceId = getDeviceId();
-    
-    // Get username (works for both authenticated and anonymous users)
-    const username = await getUsername();
-    
-    // Get or create user profile (only for authenticated users)
-    let userProfile = null;
-    if (user) {
-      let { data: profile } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-      
-      if (!profile) {
-        // Create user profile if it doesn't exist
-        const { data: newProfile, error: profileError } = await supabase
-          .from('users')
-          .insert({
-            auth_user_id: user.id,
-            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous',
-            email: user.email || '',
-          })
-          .select('id')
-          .single();
-        
-        if (profileError) throw new Error(profileError.message);
-        profile = newProfile;
-      }
-      userProfile = profile;
-    }
-    
-    // Get cafe details for place_id
+    // Get current cafe tags
     const { data: cafe, error: cafeError } = await supabase
       .from('cafes')
-      .select('place_id')
+      .select('tags')
       .eq('id', cafeId)
       .single();
     
@@ -297,29 +281,19 @@ export async function addTagsToCafe(cafeId: string, tags: string[]): Promise<{ s
       return { success: false, error: 'Cafe not found' };
     }
     
-    // Create a lightweight post with just the tags
-    const postData = {
-      user_id: userProfile?.id || null,
-      cafe_id: cafeId,
-      place_id: cafe.place_id || '', // Handle case where place_id might be null
-      image_url: null, // No image for direct tagging
-      image_urls: [], // No images for direct tagging
-      rating: null, // No rating for direct tagging - use null instead of 0
-      text_review: `Added tags: ${normalizedTags.join(', ')}`,
-      tags: normalizedTags,
-      username: username.success ? username.data : null,
-      device_id: deviceId,
-      source: 'user',
-      photo_source: 'user'
-    };
+    // Merge new tags with existing tags (avoid duplicates)
+    const existingTags = cafe.tags || [];
+    const allTags = [...new Set([...existingTags, ...normalizedTags])];
     
-    const { error: insertError } = await supabase
-      .from('posts')
-      .insert(postData);
+    // Update cafe with new tags
+    const { error: updateError } = await supabase
+      .from('cafes')
+      .update({ tags: allTags })
+      .eq('id', cafeId);
     
-    if (insertError) {
-      console.error('Error adding tags to cafe:', insertError);
-      return { success: false, error: insertError.message };
+    if (updateError) {
+      console.error('Error updating cafe tags:', updateError);
+      return { success: false, error: updateError.message };
     }
     
     return { success: true };
