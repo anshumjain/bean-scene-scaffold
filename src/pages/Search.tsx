@@ -12,7 +12,7 @@ import { debounce, getCurrentLocation } from "@/services/utils";
 import { calculateDistance } from "@/utils/distanceUtils";
 import { toast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
-import { getPopularTags } from "@/services/tagService";
+import { getPopularTags, findBestTagMatch } from "@/services/tagService";
 import { useInfiniteCafes } from "@/hooks/useOptimizedCafes";
 import { InfiniteCafeList } from "@/components/InfiniteCafeList";
 import { isCafeOpenNow } from "@/utils/openingHours";
@@ -274,20 +274,44 @@ export default function Search() {
   // Sorting and filtering are now handled by OptimizedCafeService
 
 
-  /** Debounced search */
-  const handleSearchChange = (value: string) => {
+  /** Debounced search with partial tag matching */
+  const handleSearchChange = async (value: string) => {
     setSearchQuery(value);
     
     // Check if the search query is a tag search (starts with #)
     if (value.startsWith('#')) {
-      const tagName = value.slice(1).trim().toLowerCase();
-      if (tagName) {
-        // Add this tag to selectedTags if not already present
-        if (!filters.selectedTags.includes(tagName)) {
-          setFilters(prev => ({
-            ...prev,
-            selectedTags: [tagName] // Replace current tags with the searched tag
-          }));
+      const partialTagName = value.slice(1).trim().toLowerCase();
+      if (partialTagName) {
+        try {
+          // Find the best matching tag for partial input
+          const bestMatch = await findBestTagMatch(partialTagName);
+          
+          if (bestMatch) {
+            // Use the best matching tag
+            if (!filters.selectedTags.includes(bestMatch)) {
+              setFilters(prev => ({
+                ...prev,
+                selectedTags: [bestMatch] // Replace current tags with the best matching tag
+              }));
+            }
+          } else {
+            // No good match found, clear tag filters
+            if (filters.selectedTags.length > 0) {
+              setFilters(prev => ({
+                ...prev,
+                selectedTags: []
+              }));
+            }
+          }
+        } catch (error) {
+          console.error('Error finding tag match:', error);
+          // Fallback to exact matching if there's an error
+          if (!filters.selectedTags.includes(partialTagName)) {
+            setFilters(prev => ({
+              ...prev,
+              selectedTags: [partialTagName]
+            }));
+          }
         }
       }
     } else {

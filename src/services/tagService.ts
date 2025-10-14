@@ -157,6 +157,96 @@ export async function getTagSuggestions(input: string): Promise<string[]> {
 }
 
 /**
+ * Find the best matching tag for partial input
+ * Returns the most likely tag match for search functionality
+ */
+export async function findBestTagMatch(partialInput: string): Promise<string | null> {
+  try {
+    if (!partialInput || partialInput.length < 1) {
+      return null;
+    }
+
+    // Get all unique tags from posts and cafes
+    const { data: posts, error: postsError } = await supabase
+      .from('posts')
+      .select('tags')
+      .not('tags', 'is', null);
+
+    if (postsError) {
+      console.error('Error fetching posts for tag matching:', postsError);
+      return null;
+    }
+
+    // Also get tags from cafes
+    const { data: cafes, error: cafesError } = await supabase
+      .from('cafes')
+      .select('tags')
+      .not('tags', 'is', null);
+
+    if (cafesError) {
+      console.error('Error fetching cafes for tag matching:', cafesError);
+    }
+
+    // Extract and normalize all tags
+    const allTags = new Set<string>();
+    posts?.forEach(post => {
+      if (post.tags && Array.isArray(post.tags)) {
+        post.tags.forEach(tag => {
+          allTags.add(tag.toLowerCase().trim());
+        });
+      }
+    });
+
+    cafes?.forEach(cafe => {
+      if (cafe.tags && Array.isArray(cafe.tags)) {
+        cafe.tags.forEach(tag => {
+          allTags.add(tag.toLowerCase().trim());
+        });
+      }
+    });
+
+    const normalizedInput = partialInput.toLowerCase().trim();
+    
+    // Find the best match using a scoring system
+    let bestMatch: string | null = null;
+    let bestScore = -1;
+
+    for (const tag of allTags) {
+      let score = 0;
+      
+      // Exact match gets highest score
+      if (tag === normalizedInput) {
+        score = 1000;
+      }
+      // Starts with input gets high score
+      else if (tag.startsWith(normalizedInput)) {
+        score = 500 + (normalizedInput.length / tag.length) * 100;
+      }
+      // Contains input gets medium score
+      else if (tag.includes(normalizedInput)) {
+        score = 100 + (normalizedInput.length / tag.length) * 50;
+      }
+      
+      // Prefer shorter tags for same score (more specific)
+      if (score > 0) {
+        score -= tag.length * 0.1;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = tag;
+      }
+    }
+
+    // Only return a match if it has a reasonable score
+    return bestScore > 50 ? bestMatch : null;
+  } catch (error) {
+    console.error('Error finding best tag match:', error);
+    return null;
+  }
+}
+
+/**
  * Normalize a tag (lowercase, trim, replace spaces with hyphens)
  */
 export function normalizeTag(tag: string): string {
