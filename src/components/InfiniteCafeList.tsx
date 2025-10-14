@@ -3,6 +3,7 @@ import { Cafe } from '@/services/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getCafeEmoji } from '@/utils/emojiPlaceholders';
+import { formatTagCount } from '@/services/tagService';
 
 interface InfiniteCafeListProps {
   cafes: Cafe[];
@@ -12,6 +13,7 @@ interface InfiniteCafeListProps {
   onLoadMore: () => void;
   error?: string | null;
   onCafeClick: (cafe: Cafe) => void;
+  activeTagFilter?: string; // For highlighting and prioritizing specific tag
 }
 
 export function InfiniteCafeList({
@@ -21,10 +23,41 @@ export function InfiniteCafeList({
   hasMore,
   onLoadMore,
   error,
-  onCafeClick
+  onCafeClick,
+  activeTagFilter
 }: InfiniteCafeListProps) {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  // Helper function to get top tags for display
+  const getTopTagsForDisplay = (cafe: Cafe): Array<{ tag: string; count: number }> => {
+    // If we have tag counts, use them
+    if (cafe.tagCounts && Object.keys(cafe.tagCounts).length > 0) {
+      // Convert tag counts to array and sort by count
+      const tagEntries = Object.entries(cafe.tagCounts)
+        .map(([tag, count]) => ({ tag, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // If there's an active tag filter and it exists in this cafe, prioritize it
+      if (activeTagFilter && cafe.tagCounts[activeTagFilter]) {
+        const filteredTag = tagEntries.find(entry => entry.tag === activeTagFilter);
+        const otherTags = tagEntries.filter(entry => entry.tag !== activeTagFilter);
+        
+        // Return filtered tag first, then next 2 most popular
+        return [filteredTag!, ...otherTags].slice(0, 3);
+      }
+
+      // Otherwise, return top 3 most popular tags
+      return tagEntries.slice(0, 3);
+    }
+
+    // Fallback: If no tag counts available, use basic cafe tags with count of 1
+    if (cafe.tags && cafe.tags.length > 0) {
+      return cafe.tags.slice(0, 3).map(tag => ({ tag, count: 1 }));
+    }
+
+    return [];
+  };
 
   // Set up intersection observer for infinite scroll
   useEffect(() => {
@@ -81,10 +114,23 @@ export function InfiniteCafeList({
   if (cafes.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500 mb-4">No cafes found matching your criteria.</p>
-        <Button onClick={onLoadMore} variant="outline">
-          Load Popular Cafes
-        </Button>
+        {activeTagFilter ? (
+          <>
+            <p className="text-gray-500 mb-4">
+              No user has tagged a cafe with this vibe; be first to help others find the right cafe by tagging the next cafe you visit
+            </p>
+            <Button onClick={onLoadMore} variant="outline">
+              Show All Cafes
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="text-gray-500 mb-4">No cafes found matching your criteria.</p>
+            <Button onClick={onLoadMore} variant="outline">
+              Load Popular Cafes
+            </Button>
+          </>
+        )}
       </div>
     );
   }
@@ -126,24 +172,31 @@ export function InfiniteCafeList({
                   )}
                 </div>
                 
-                {/* Tags */}
-                {cafe.tags && cafe.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {cafe.tags.slice(0, 3).map((tag) => (
-                      <span 
-                        key={tag}
-                        className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                    {cafe.tags.length > 3 && (
-                      <span className="text-xs text-gray-500">
-                        +{cafe.tags.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                )}
+                {/* Tags with Counts */}
+                {(() => {
+                  const topTags = getTopTagsForDisplay(cafe);
+                  if (topTags.length === 0) return null;
+                  
+                  return (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {topTags.map(({ tag, count }) => {
+                        const isFilteredTag = activeTagFilter === tag;
+                        return (
+                          <span 
+                            key={tag}
+                            className={`text-xs px-2 py-1 rounded ${
+                              isFilteredTag 
+                                ? 'bg-primary text-primary-foreground font-medium border border-primary/20' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            #{tag} {formatTagCount(count)}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </CardContent>

@@ -170,7 +170,8 @@ export default function Search() {
   } = useInfiniteCafes({
     filters: {
       ...filters,
-      query: searchQuery || undefined
+      query: searchQuery || undefined,
+      activeTagFilter: filters.selectedTags.length > 0 ? filters.selectedTags[0] : undefined
     },
     userLocation
   });
@@ -512,6 +513,7 @@ export default function Search() {
                   onLoadMore={() => fetchNextPage()}
                   error={cafesError?.message}
                   onCafeClick={(cafe) => navigate(`/cafe/${cafe.placeId}`)}
+                  activeTagFilter={filters.selectedTags.length > 0 ? filters.selectedTags[0] : undefined}
                 />
               )}
           </div>

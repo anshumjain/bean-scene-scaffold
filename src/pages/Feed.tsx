@@ -502,26 +502,34 @@ export default function Feed() {
                 </div>
               )}
 
-              {posts.map((post) => (
-                <PostCard 
-                  key={post.id}
-                  post={{
-                    id: post.id,
-                    cafeName: post.cafe?.name || 'Unknown Cafe',
-                    neighborhood: post.cafe?.neighborhood || 'Houston',
-                    imageUrl: post.imageUrl,
-                    tags: post.tags,
-                    rating: post.rating,
-                    textReview: post.textReview,
-                    createdAt: new Date(post.createdAt).toLocaleString(),
-                    likes: post.likes,
-                    comments: post.comments,
-                    username: post.username,
-                    placeId: post.cafe?.placeId || post.placeId,
-                    photoSource: post.photoSource // ADD THIS LINE!
-                  }} 
-                />
-              ))}
+              {posts.map((post) => {
+                // Determine if this is a check-in or post based on data characteristics
+                const isCheckIn = post.tags && post.tags.length > 0 && post.rating !== 5;
+                const postType = isCheckIn ? 'check-in' : 'post';
+                
+                return (
+                  <PostCard 
+                    key={post.id}
+                    type={postType}
+                    post={{
+                      id: post.id,
+                      cafeName: post.cafe?.name || 'Unknown Cafe',
+                      neighborhood: post.cafe?.neighborhood || 'Houston',
+                      imageUrl: post.imageUrl,
+                      imageUrls: post.imageUrls,
+                      tags: post.tags,
+                      rating: post.rating,
+                      textReview: post.textReview,
+                      createdAt: new Date(post.createdAt).toLocaleString(),
+                      likes: post.likes,
+                      comments: post.comments,
+                      username: post.username,
+                      placeId: post.cafe?.placeId || post.placeId,
+                      photoSource: post.photoSource
+                    }} 
+                  />
+                );
+              })}
               
               {posts.length > 0 && (
                 <div className="text-center py-8">

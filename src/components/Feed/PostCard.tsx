@@ -84,7 +84,15 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
     <Card className="overflow-hidden shadow-coffee border-0 bg-card/80 backdrop-blur-sm">
       {/* Label */}
       <div className="px-4 pt-4">
-        <span className={`inline-block text-xs font-bold rounded px-2 py-1 mb-2 ${type === 'check-in' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{type === 'check-in' ? 'Check-In' : 'Shared Photo'}</span>
+        {type === 'check-in' ? (
+          <div className="text-xs font-medium text-green-700 mb-2">
+            @{post.username || 'Anonymous'} checked in to @{post.cafeName}
+          </div>
+        ) : (
+          <span className="inline-block text-xs font-bold rounded px-2 py-1 mb-2 bg-blue-100 text-blue-700">
+            Shared Photo
+          </span>
+        )}
       </div>
       {/* Header */}
       <div className="p-4 pb-3">
@@ -188,19 +196,6 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
 
       {/* Content */}
       <div className="p-4">
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2 mb-3">
-          {post.tags.map((tag) => (
-            <Badge
-              key={tag}
-              variant="secondary"
-              className="text-xs px-2 py-1 bg-accent/50 text-accent-foreground border-0"
-            >
-              #{tag}
-            </Badge>
-          ))}
-        </div>
-
         {/* Review Text */}
         <p className="text-sm text-foreground mb-3 leading-relaxed">
           {post.textReview}

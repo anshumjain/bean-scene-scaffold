@@ -21,6 +21,7 @@ export interface Cafe {
   photoSource?: 'google' | 'user' | null;
   googlePhotoReference?: string;
   tags: string[];
+  tagCounts?: Record<string, number>; // Count of how many times each tag has been used for this cafe
   createdAt: string;
   updatedAt: string;
   isActive: boolean;

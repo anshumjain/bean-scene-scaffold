@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Cafe, SearchFilters, ApiResponse } from "@/services/types";
+import { getCafeTagsWithCounts } from "@/services/tagService";
 
 interface PaginatedCafeResponse {
   cafes: Cafe[];
@@ -13,6 +14,7 @@ interface LocationBasedFilters extends SearchFilters {
     latitude: number;
     longitude: number;
   };
+  activeTagFilter?: string; // For sorting by specific tag count
 }
 
 /**
@@ -152,7 +154,7 @@ export class OptimizedCafeService {
     return {
       success: true,
       data: {
-        cafes: this.transformCafeData(pageCafes),
+        cafes: await this.transformCafeData(pageCafes),
         hasMore,
         total: sortedCafes.length,
         currentPage: page
@@ -280,7 +282,7 @@ export class OptimizedCafeService {
     return {
       success: true,
       data: {
-        cafes: this.transformCafeData(pageCafes),
+        cafes: await this.transformCafeData(pageCafes),
         hasMore,
         total: cafesInRange.length,
         currentPage: page
@@ -328,7 +330,7 @@ export class OptimizedCafeService {
     return {
       success: true,
       data: {
-        cafes: this.transformCafeData(data || []),
+        cafes: await this.transformCafeData(data || []),
         hasMore,
         total: data?.length || 0,
         currentPage: page
@@ -411,7 +413,7 @@ export class OptimizedCafeService {
     return {
       success: true,
       data: {
-        cafes: this.transformCafeData(sortedCafes),
+        cafes: await this.transformCafeData(sortedCafes),
         hasMore,
         total: sortedCafes.length,
         currentPage: page
@@ -463,10 +465,33 @@ export class OptimizedCafeService {
   }
 
   /**
+   * Sort cafes by tag count when a tag filter is active
+   */
+  private static sortCafesByTagCount(cafes: Cafe[], activeTagFilter?: string): Cafe[] {
+    if (!activeTagFilter) {
+      return cafes;
+    }
+
+    return cafes.sort((a, b) => {
+      const aTagCount = a.tagCounts?.[activeTagFilter] || 0;
+      const bTagCount = b.tagCounts?.[activeTagFilter] || 0;
+      
+      // Sort by tag count (descending), then by existing sort criteria
+      if (aTagCount !== bTagCount) {
+        return bTagCount - aTagCount;
+      }
+      
+      // If tag counts are equal, maintain existing sort order (distance/rating)
+      return 0;
+    });
+  }
+
+  /**
    * Transform database data to app format
    */
-  private static transformCafeData(data: any[], filters?: LocationBasedFilters): Cafe[] {
-    return data.map(cafe => ({
+  private static async transformCafeData(data: any[], filters?: LocationBasedFilters): Promise<Cafe[]> {
+    // Transform basic cafe data first
+    const basicCafes = data.map(cafe => ({
       id: cafe.id,
       placeId: cafe.place_id,
       name: cafe.name,
@@ -492,6 +517,25 @@ export class OptimizedCafeService {
       // Add distance if calculated
       ...(typeof cafe.distance_miles === 'number' && { distance: cafe.distance_miles })
     }));
+
+    // Enrich with tag counts (do this in parallel for better performance)
+    const cafesWithTagCounts = await Promise.all(
+      basicCafes.map(async (cafe) => {
+        try {
+          const tagCounts = await getCafeTagsWithCounts(cafe.id, cafe.placeId);
+          return {
+            ...cafe,
+            tagCounts
+          };
+        } catch (error) {
+          console.error(`Error getting tag counts for cafe ${cafe.name}:`, error);
+          return cafe; // Return cafe without tag counts if there's an error
+        }
+      })
+    );
+
+    // Apply tag-based sorting if activeTagFilter is specified
+    return this.sortCafesByTagCount(cafesWithTagCounts, filters?.activeTagFilter);
   }
 }
 

@@ -305,6 +305,69 @@ export async function addTagsToCafe(cafeId: string, tags: string[]): Promise<{ s
 
 
 /**
+ * Get tag counts for a specific cafe from both posts and direct cafe tags
+ */
+export async function getCafeTagsWithCounts(cafeId: string, placeId: string): Promise<Record<string, number>> {
+  try {
+    const tagCounts: Record<string, number> = {};
+
+    // Get tags from posts for this cafe
+    const { data: posts, error: postsError } = await supabase
+      .from('posts')
+      .select('tags')
+      .eq('place_id', placeId)
+      .not('tags', 'is', null);
+
+    if (postsError) {
+      console.error('Error fetching posts for tag counting:', postsError);
+    } else {
+      // Count tags from posts
+      posts?.forEach(post => {
+        if (post.tags && Array.isArray(post.tags)) {
+          post.tags.forEach(tag => {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+          });
+        }
+      });
+    }
+
+    // Get direct cafe tags
+    const { data: cafe, error: cafeError } = await supabase
+      .from('cafes')
+      .select('tags')
+      .eq('id', cafeId)
+      .single();
+
+    if (cafeError) {
+      console.error('Error fetching cafe tags:', cafeError);
+    } else if (cafe?.tags && Array.isArray(cafe.tags)) {
+      // Add direct cafe tags (each counts as 1)
+      cafe.tags.forEach(tag => {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      });
+    }
+
+    return tagCounts;
+  } catch (error) {
+    console.error('Error in getCafeTagsWithCounts:', error);
+    return {};
+  }
+}
+
+/**
+ * Format tag count for display
+ * 1-999: Show exact number
+ * 1000+: Show "1k+" format
+ */
+export function formatTagCount(count: number): string {
+  if (count >= 1000) {
+    const thousands = Math.floor(count / 1000);
+    return `${thousands}k+`;
+  }
+  return count.toString();
+}
+
+/**
  * Get username for current user
  */
 async function getUsername(): Promise<{ success: boolean; data?: string }> {
