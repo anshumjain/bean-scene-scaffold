@@ -1,8 +1,9 @@
-import { Camera, Coffee, Heart, MapPin, Settings, User as UserIcon, MessageSquare, Star, X, Trophy } from "lucide-react";
+import { Camera, Coffee, Heart, MapPin, Settings, User as UserIcon, MessageSquare, Star, X, Trophy, Edit, Info, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { ProfilePostCard } from "@/components/Profile/ProfilePostCard";
 import { UsernameSelection } from "@/components/UsernameSelection";
@@ -215,9 +216,80 @@ export default function Profile() {
         <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border p-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">Profile</h1>
-            <Button variant="ghost" size="icon">
-              <Settings className="w-5 h-5" />
-            </Button>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Settings className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Settings</SheetTitle>
+                </SheetHeader>
+                <div className="space-y-4 mt-6">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      // Navigate to edit profile or show username selection
+                      setShowUsernameSelect(true);
+                    }}
+                  >
+                    <Edit className="w-4 h-4 mr-3" />
+                    Edit Profile
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => navigate('/feedback')}
+                  >
+                    <MessageSquare className="w-4 h-4 mr-3" />
+                    Send Feedback
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      // Show About Bean Scene content
+                      window.alert(`
+About Bean Scene
+
+Connected, but Lonely
+We live in a world more connected than ever, yet most of us feel more isolated than ever. Algorithms keep us scrolling, but rarely help us belong in our own cities.
+
+Why Coffee?
+Coffee is more than caffeine. It's ritual, comfort, and the backdrop for so many parts of life, whether you're working solo, catching up with a friend, or starting a new conversation.
+
+The Idea
+Bean Scene helps you discover cafés that fit your vibe: laptop-friendly, cozy, social, or just a quiet corner to think. And along the way, it makes it easier to turn everyday coffee runs into real connections.
+
+The Vision
+This is just the beginning. Our bigger goal is to help people step away from algorithms and into real life, building a culture where belonging happens naturally, one café at a time.
+
+✨ More than coffee. More than connections.
+                      `);
+                    }}
+                  >
+                    <Info className="w-4 h-4 mr-3" />
+                    About Bean Scene
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      const confirmed = window.confirm("Are you sure you want to logout?");
+                      if (confirmed) {
+                        localStorage.clear();
+                        window.location.reload();
+                      }
+                    }}
+                  >
+                    <LogOut className="w-4 h-4 mr-3" />
+                    Logout
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
 
@@ -249,14 +321,10 @@ export default function Profile() {
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary">{gamificationStats.total_checkins}</div>
                   <div className="text-xs text-muted-foreground">Check-ins</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{stats.favorites}</div>
-                  <div className="text-xs text-muted-foreground">Favorites</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary">{gamificationStats.total_photos}</div>
@@ -303,7 +371,7 @@ export default function Profile() {
 
           {/* Content Tabs */}
           <Tabs defaultValue="posts" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-muted/50">
+            <TabsList className="grid w-full grid-cols-2 bg-muted/50">
               <TabsTrigger value="posts" className="flex items-center gap-2">
                 <div className="grid grid-cols-3 gap-0.5 w-4 h-4">
                   <div className="bg-current rounded-sm"></div>
@@ -317,10 +385,6 @@ export default function Profile() {
                   <div className="bg-current rounded-sm"></div>
                 </div>
                 Posts
-              </TabsTrigger>
-              <TabsTrigger value="favorites" className="flex items-center gap-2">
-                <Heart className="w-4 h-4" />
-                Favorites
               </TabsTrigger>
               <TabsTrigger value="activity" className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4" />
@@ -382,83 +446,6 @@ export default function Profile() {
               )}
             </TabsContent>
 
-            <TabsContent value="favorites" className="mt-4 space-y-4">
-              {favorites.length > 0 ? (
-                favorites.map((favorite) => (
-                  <Card key={favorite.id} className="overflow-hidden shadow-coffee border-0 bg-card/80 backdrop-blur-sm">
-                    <div className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg">{favorite.cafe?.name || 'Unknown Cafe'}</h3>
-                          <p className="text-sm text-muted-foreground">{favorite.cafe?.neighborhood || ''}</p>
-                          {favorite.cafe?.address && (
-                            <p className="text-xs text-muted-foreground mt-1">{favorite.cafe.address}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => navigate(`/cafe/${favorite.cafe?.place_id || favorite.cafe_id}`)}
-                          >
-                            View
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            title="Remove from favorites"
-                            onClick={async () => {
-                              const confirmed = window.confirm(
-                                `Are you sure you want to remove "${favorite.cafe?.name || 'this cafe'}" from your favorites?`
-                              );
-                              
-                              if (!confirmed) {
-                                return;
-                              }
-                              
-                              try {
-                                const result = await removeFavorite(favorite.cafe_id);
-                                if (result.success) {
-                                  setFavorites(prev => prev.filter(f => f.id !== favorite.id));
-                                  setStats(prev => ({ ...prev, favorites: prev.favorites - 1 }));
-                                  toast({
-                                    title: "Removed from favorites",
-                                    description: "Cafe removed from your favorites.",
-                                  });
-                                }
-                              } catch (error) {
-                                toast({
-                                  title: "Error",
-                                  description: "Failed to remove from favorites.",
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
-                          >
-                            <Heart className="w-4 h-4 fill-red-500 text-red-500" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <Heart className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No favorites yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Start exploring cafes and add them to your favorites!
-                  </p>
-                  <Button 
-                    onClick={() => navigate('/explore')}
-                    className="coffee-gradient text-white"
-                  >
-                    Explore Cafes
-                  </Button>
-                  </div>
-              )}
-            </TabsContent>
 
             <TabsContent value="activity" className="mt-4 space-y-4">
               <div className="space-y-4">

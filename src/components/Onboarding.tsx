@@ -1,36 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Sparkles, Coffee, ChevronRight, Shield, Smartphone } from 'lucide-react';
+import { MapPin, Users, Coffee, ChevronRight, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 const onboardingSteps = [
   {
     icon: MapPin,
-    title: "Discover Cafés Near You",
-    description: "Find the best spots around you, cozy corners, local gems, and new favorites.",
-    insight: "Your coffee runs could spark unexpected connections.",
+    title: "Discover Houston's Coffee Scene",
+    description: "Find the best cafes around you—cozy corners, study spots, and local gems waiting to be discovered.",
+    insight: "Every great cafe has a story. Let's find yours.",
     emoji: "📍"
   },
   {
-    icon: Sparkles,
-    title: "Choose Your Vibe",
-    description: "Cozy, laptop-friendly, or lively, pick the space that fits your mood.",
-    insight: "Every vibe is an opportunity to focus, relax, or meet someone new.",
-    emoji: "✨"
-  },
-  {
     icon: Coffee,
-    title: "More Than Coffee",
-    description: "Turn your everyday coffee into something more, catch-ups, co-working, or a friendly hello.",
-    insight: "We're creating a culture where real-life interactions happen naturally, one café at a time.",
+    title: "Share Your Coffee Moments",
+    description: "Check in at cafes, share photos, and tag the vibe. Help others discover what makes each spot special.",
+    insight: "Your posts help the community find their next favorite cafe.",
     emoji: "☕"
   },
   {
-    icon: Shield,
-    title: "Share Your Coffee Moments",
-    description: "Your posts are shared with the community to help others discover great cafes. Your username is tied to this browser for now.",
-    insight: "Account system coming soon to sync your posts across devices!",
-    emoji: "☕"
+    icon: Users,
+    title: "Join the Community",
+    description: "See what other Houston coffee lovers are discovering. Real check-ins, real vibes, real recommendations.",
+    insight: "More than coffee. More than an app. A community discovering together.",
+    emoji: "🤝"
+  },
+  {
+    icon: Heart,
+    title: "Track Your Coffee Journey",
+    description: "Unlock badges, level up, and build your coffee passport as you explore Houston's cafe scene.",
+    insight: "Your username is saved to this device. Accounts coming soon to sync across devices!",
+    emoji: "🏆"
   }
 ];
 
@@ -94,15 +94,15 @@ export default function Onboarding({ onComplete }) {
               {currentCard.description}
             </p>
 
-            {/* Special styling for sharing card */}
-            {currentStep === 3 && (
-              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-center gap-2 text-green-700 dark:text-green-300">
+            {/* Special styling for community card */}
+            {currentStep === 2 && (
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-center gap-2 text-amber-700 dark:text-amber-300">
                   <Coffee className="w-4 h-4" />
-                  <span className="text-sm font-medium">Community Sharing</span>
+                  <span className="text-sm font-medium">Real People, Real Recommendations</span>
                 </div>
-                <p className="text-sm text-green-600 dark:text-green-400">
-                  Your posts help others discover amazing cafes. Share your coffee moments and inspire fellow coffee lovers!
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  No algorithms. No ads. Just Houston coffee lovers sharing their favorite spots.
                 </p>
               </div>
             )}

@@ -3,10 +3,10 @@ import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { icon: Home, label: "Origins", href: "/home" },
+  { icon: Home, label: "Feed", href: "/feed" },
   { icon: Search, label: "Explore", href: "/explore" },
   { icon: Plus, label: "Share", href: "/share" },
-  { icon: Heart, label: "Moments", href: "/moments" },
+  { icon: Heart, label: "Favorites", href: "/favorites" },
   { icon: User, label: "Profile", href: "/profile" },
 ];
 

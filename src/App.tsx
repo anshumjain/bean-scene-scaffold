@@ -22,6 +22,7 @@ import PostView from "./pages/PostView";
 import Feedback from "./pages/Feedback";
 import RequestCafe from "./pages/RequestCafe";
 import Badges from "./pages/Badges";
+import Favorites from "./pages/Favorites";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/admin/Login";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -57,10 +58,12 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Search />} />
+            <Route path="/" element={<Feed />} />
+            <Route path="/feed" element={<Feed />} />
             <Route path="/explore" element={<Search />} />
             <Route path="/home" element={<Home />} />
             <Route path="/moments" element={<Moments />} />
+            <Route path="/favorites" element={<Favorites />} />
             <Route path="/share" element={<Share />} />
             <Route path="/checkin" element={<CheckIn />} />
             <Route path="/post" element={<CreatePost />} />
