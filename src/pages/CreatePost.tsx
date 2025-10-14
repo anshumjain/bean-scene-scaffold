@@ -11,6 +11,7 @@ import { submitCheckin } from "@/services/postService";
 import { getCurrentLocation } from "@/services/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useGoogleAnalytics } from "@/hooks/use-google-analytics";
+import { processPostCreation, getUserStats } from "@/services/gamificationService";
 import type { Cafe } from "@/services/types";
 
 function getAnonId() {
@@ -20,6 +21,10 @@ function getAnonId() {
     localStorage.setItem("anonId", id);
   }
   return id;
+}
+
+function getUsername() {
+  return localStorage.getItem("username") || null;
 }
 
 export default function CreatePost() {
@@ -119,6 +124,48 @@ export default function CreatePost() {
       if (result.success) {
         // Track successful quick post
         trackQuickPost(selectedCafe?.name, selectedCafe?.id, imageFiles.length > 0);
+        
+        // Process gamification (XP and badges)
+        const deviceId = getAnonId();
+        const username = getUsername();
+        
+        try {
+          const gamificationResult = await processPostCreation(
+            undefined, // userId (not available for anonymous users)
+            deviceId,
+            username,
+            selectedCafe?.id,
+            imageFiles.length > 0, // hasImage
+            caption.trim().length > 0, // hasReview
+            false // isFirstDiscoverer (would need additional logic to check)
+          );
+          
+          // Show XP gained notification
+          if (gamificationResult.stats) {
+            const xpGained = (imageFiles.length > 0 ? 5 : 0) + (caption.trim().length > 0 ? 15 : 0) + 10; // Check-in base XP
+            toast({
+              title: "XP Gained!",
+              description: `+${xpGained} XP • Level ${gamificationResult.stats.current_level}`,
+              duration: 3000,
+            });
+          }
+          
+          // Show new badges notification
+          if (gamificationResult.newBadges.length > 0) {
+            gamificationResult.newBadges.forEach((badge, index) => {
+              setTimeout(() => {
+                toast({
+                  title: "🎉 Badge Earned!",
+                  description: `${badge.badge_name}: ${badge.badge_description}`,
+                  duration: 4000,
+                });
+              }, index * 1000); // Stagger badge notifications
+            });
+          }
+        } catch (error) {
+          console.error('Gamification error:', error);
+          // Don't block the user flow if gamification fails
+        }
         
         toast({
           title: "Quick post shared!",

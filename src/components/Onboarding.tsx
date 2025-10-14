@@ -27,10 +27,10 @@ const onboardingSteps = [
   },
   {
     icon: Shield,
-    title: "Your Identity is Secure",
-    description: "Your username is tied to this browser for security. Your posts stay private and no one can access them from another device.",
-    insight: "Switching devices won't show your posts here. Account system coming soon for cross-device access!",
-    emoji: "🔒"
+    title: "Share Your Coffee Moments",
+    description: "Your posts are shared with the community to help others discover great cafes. Your username is tied to this browser for now.",
+    insight: "Account system coming soon to sync your posts across devices!",
+    emoji: "☕"
   }
 ];
 
@@ -94,15 +94,15 @@ export default function Onboarding({ onComplete }) {
               {currentCard.description}
             </p>
 
-            {/* Special styling for security card */}
+            {/* Special styling for sharing card */}
             {currentStep === 3 && (
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-center gap-2 text-blue-700 dark:text-blue-300">
-                  <Smartphone className="w-4 h-4" />
-                  <span className="text-sm font-medium">Device Security</span>
+              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-center gap-2 text-green-700 dark:text-green-300">
+                  <Coffee className="w-4 h-4" />
+                  <span className="text-sm font-medium">Community Sharing</span>
                 </div>
-                <p className="text-sm text-blue-600 dark:text-blue-400">
-                  Posts created on this device stay here. Account system coming soon to sync across devices!
+                <p className="text-sm text-green-600 dark:text-green-400">
+                  Your posts help others discover amazing cafes. Share your coffee moments and inspire fellow coffee lovers!
                 </p>
               </div>
             )}

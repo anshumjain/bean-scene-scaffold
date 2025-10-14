@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Heart, MessageCircle, MapPin, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GoogleAttribution, GoogleAttributionOverlay } from "@/components/Attribution/GoogleAttribution";
+import { UserLevelDisplay } from "@/components/ui/level-badge";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { formatTimeAgo } from "@/services/utils";
+import { getUserStats } from "@/services/gamificationService";
 
 interface PostCardProps {
   post: {
@@ -36,6 +38,25 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
   const [liking, setLiking] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [imageUrlsError, setImageUrlsError] = useState<boolean[]>([]);
+  const [userLevel, setUserLevel] = useState<number>(1);
+
+  // Fetch user level when component mounts
+  useEffect(() => {
+    const fetchUserLevel = async () => {
+      if (post.username) {
+        try {
+          const stats = await getUserStats(undefined, undefined, post.username);
+          if (stats) {
+            setUserLevel(stats.current_level);
+          }
+        } catch (error) {
+          console.error('Error fetching user level:', error);
+        }
+      }
+    };
+
+    fetchUserLevel();
+  }, [post.username]);
 
   // Handle like functionality
   const handleLike = async () => {
@@ -86,7 +107,11 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
       <div className="px-4 pt-4">
         {type === 'check-in' ? (
           <div className="text-xs font-medium text-green-700 mb-2">
-            @{post.username || 'Anonymous'} checked in to @{post.cafeName}
+            {post.username ? (
+              <UserLevelDisplay username={post.username} level={userLevel} className="text-green-700" />
+            ) : (
+              'Anonymous'
+            )} checked in to @{post.cafeName}
           </div>
         ) : (
           <span className="inline-block text-xs font-bold rounded px-2 py-1 mb-2 bg-blue-100 text-blue-700">
@@ -214,9 +239,9 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
         
         {/* Username */}
         {post.username && (
-          <p className="text-xs text-muted-foreground mb-3">
-            by @{post.username}
-          </p>
+          <div className="mb-3">
+            <UserLevelDisplay username={post.username} level={userLevel} />
+          </div>
         )}
 
         {/* Actions */}

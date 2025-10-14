@@ -1,4 +1,4 @@
-import { Camera, Coffee, Heart, MapPin, Settings, User as UserIcon, MessageSquare, Star, X } from "lucide-react";
+import { Camera, Coffee, Heart, MapPin, Settings, User as UserIcon, MessageSquare, Star, X, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { getUsername, getDeviceId } from "@/services/userService";
 import { getFavorites, removeFavorite } from "@/services/favoritesService";
 import { getActivityFeed } from "@/services/activityService";
 import { fetchUserPosts, updatePost, deletePost } from "@/services/postService";
+import { getUserStats, getUserBadges } from "@/services/gamificationService";
 import { formatTimeAgo } from "@/services/utils";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -42,6 +43,15 @@ export default function Profile() {
     photos: 0,
     badges: []
   });
+  const [gamificationStats, setGamificationStats] = useState({
+    total_xp: 0,
+    current_level: 1,
+    total_checkins: 0,
+    total_photos: 0,
+    total_reviews: 0,
+    total_cafes_visited: 0
+  });
+  const [userBadges, setUserBadges] = useState<any[]>([]);
 
   // Handle post editing
   const handleEditPost = (postId: string) => {
@@ -123,15 +133,17 @@ export default function Profile() {
         const deviceId = getDeviceId();
         console.log('Device ID:', deviceId);
         
-        // Load favorites, activities, and user posts
+        // Load favorites, activities, user posts, and gamification data
         console.log('Loading data...');
-        const [favoritesRes, activitiesRes, postsRes] = await Promise.all([
+        const [favoritesRes, activitiesRes, postsRes, gamificationStatsRes, userBadgesRes] = await Promise.all([
         getFavorites(),
           getActivityFeed(),
-          fetchUserPosts(usernameRes.data, deviceId) // Pass username or deviceId
+          fetchUserPosts(usernameRes.data, deviceId), // Pass username or deviceId
+          getUserStats(undefined, deviceId, usernameRes.data),
+          getUserBadges(undefined, deviceId, usernameRes.data)
       ]);
         
-        console.log('Data loaded:', { favoritesRes, activitiesRes, postsRes });
+        console.log('Data loaded:', { favoritesRes, activitiesRes, postsRes, gamificationStatsRes, userBadgesRes });
       
       if (favoritesRes.success) {
         setFavorites(favoritesRes.data);
@@ -153,6 +165,16 @@ export default function Profile() {
           const checkins = postsRes.data.length;
           const photos = postsRes.data.filter(post => post.imageUrl || (post.imageUrls && post.imageUrls.length > 0)).length;
           setStats(prev => ({ ...prev, checkins, photos }));
+        }
+
+        // Load gamification stats
+        if (gamificationStatsRes) {
+          setGamificationStats(gamificationStatsRes);
+        }
+
+        // Load user badges
+        if (userBadgesRes) {
+          setUserBadges(userBadgesRes);
         }
       } catch (error) {
         console.error('Error loading profile data:', error);
@@ -209,10 +231,27 @@ export default function Profile() {
               <h2 className="text-xl font-bold mb-1">@{username || "Coffee Lover"}</h2>
               <p className="text-sm text-muted-foreground mb-4">Houston, TX</p>
               
+              {/* Level and XP */}
+              <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-4 mb-6">
+                <div className="text-center mb-3">
+                  <div className="text-3xl font-bold text-primary mb-1">Level {gamificationStats.current_level}</div>
+                  <div className="text-sm text-muted-foreground">{gamificationStats.total_xp} XP</div>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2 mb-2">
+                  <div 
+                    className="bg-gradient-to-r from-primary to-primary/70 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${((gamificationStats.total_xp % 100) / 100) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-center text-muted-foreground">
+                  {100 - (gamificationStats.total_xp % 100)} XP to next level
+                </div>
+              </div>
+
               {/* Stats */}
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{stats.checkins}</div>
+                  <div className="text-2xl font-bold text-primary">{gamificationStats.total_checkins}</div>
                   <div className="text-xs text-muted-foreground">Check-ins</div>
                 </div>
                 <div className="text-center">
@@ -220,26 +259,41 @@ export default function Profile() {
                   <div className="text-xs text-muted-foreground">Favorites</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{stats.photos}</div>
+                  <div className="text-2xl font-bold text-primary">{gamificationStats.total_photos}</div>
                   <div className="text-xs text-muted-foreground">Photos</div>
                 </div>
               </div>
 
               {/* Badges */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold">Badges</h3>
+              <div 
+                className="space-y-2 cursor-pointer hover:bg-muted/50 rounded-lg p-2 -m-2 transition-colors"
+                onClick={() => navigate('/badges')}
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Badges ({userBadges.length})</h3>
+                  <Trophy className="w-4 h-4 text-primary" />
+                </div>
                 <div className="flex flex-wrap justify-center gap-2">
-                  {stats.badges.map((badge) => (
+                  {userBadges.slice(0, 3).map((badge) => (
                     <Badge
-                      key={badge}
+                      key={badge.id}
                       variant="secondary"
                       className="bg-primary/10 text-primary border-0"
+                      title={badge.badge_description}
                     >
-                      {badge}
+                      {badge.badge_name}
                     </Badge>
                   ))}
-                  {stats.badges.length === 0 && (
-                    <p className="text-xs text-muted-foreground">Badges coming soon</p>
+                  {userBadges.length > 3 && (
+                    <Badge
+                      variant="outline"
+                      className="text-muted-foreground"
+                    >
+                      +{userBadges.length - 3} more
+                    </Badge>
+                  )}
+                  {userBadges.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Start posting to earn badges!</p>
                   )}
                 </div>
               </div>

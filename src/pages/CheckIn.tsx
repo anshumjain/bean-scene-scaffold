@@ -14,6 +14,7 @@ import { getCurrentLocation } from "@/services/utils";
 import { getNearbyCafes, formatDistance } from "@/utils/distanceUtils";
 import { useGoogleAnalytics } from "@/hooks/use-google-analytics";
 import { getTagSuggestions, normalizeTag } from "@/services/tagService";
+import { processPostCreation } from "@/services/gamificationService";
 import type { Cafe } from "@/services/types";
 
 const predefinedTags = [
@@ -254,6 +255,48 @@ export default function CheckIn() {
       if (result.success) {
         // Track successful check-in
         trackCheckIn(selectedCafeData.name, selectedCafe, rating, !!imageFile, selectedTags.length);
+        
+        // Process gamification (XP and badges)
+        const deviceId = localStorage.getItem("anonId") || Math.random().toString(36).slice(2);
+        const username = localStorage.getItem("username") || null;
+        
+        try {
+          const gamificationResult = await processPostCreation(
+            undefined, // userId (not available for anonymous users)
+            deviceId,
+            username,
+            selectedCafe,
+            !!imageFile, // hasImage
+            review.trim().length > 0, // hasReview
+            false // isFirstDiscoverer (would need additional logic to check)
+          );
+          
+          // Show XP gained notification
+          if (gamificationResult.stats) {
+            const xpGained = (!!imageFile ? 5 : 0) + (review.trim().length > 0 ? 15 : 0) + 10; // Check-in base XP
+            toast({
+              title: "XP Gained!",
+              description: `+${xpGained} XP • Level ${gamificationResult.stats.current_level}`,
+              duration: 3000,
+            });
+          }
+          
+          // Show new badges notification
+          if (gamificationResult.newBadges.length > 0) {
+            gamificationResult.newBadges.forEach((badge, index) => {
+              setTimeout(() => {
+                toast({
+                  title: "🎉 Badge Earned!",
+                  description: `${badge.badge_name}: ${badge.badge_description}`,
+                  duration: 4000,
+                });
+              }, index * 1000); // Stagger badge notifications
+            });
+          }
+        } catch (error) {
+          console.error('Gamification error:', error);
+          // Don't block the user flow if gamification fails
+        }
         
         toast({
           title: "Check-in shared!",

@@ -21,6 +21,7 @@ import EditPost from "./pages/EditPost";
 import PostView from "./pages/PostView";
 import Feedback from "./pages/Feedback";
 import RequestCafe from "./pages/RequestCafe";
+import Badges from "./pages/Badges";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/admin/Login";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -67,6 +68,7 @@ const App = () => {
             <Route path="/post-view" element={<PostView />} />
             <Route path="/recent" element={<RecentlyViewed />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/badges" element={<Badges />} />
             <Route path="/cafe/:id" element={<CafeDetail />} />
             <Route path="/cafe/:id/upload" element={<ImageUpload />} />
             <Route path="/feedback" element={<Feedback />} />

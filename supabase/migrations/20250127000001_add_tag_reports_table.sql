@@ -40,3 +40,4 @@ CREATE POLICY "Allow reading all reports" ON tag_reports
 
 
 
+
