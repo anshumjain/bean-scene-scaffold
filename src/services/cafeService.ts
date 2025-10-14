@@ -100,7 +100,9 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
 
         // Apply database-level filters
         if (filters.query) {
-          query = query.or(`name.ilike.%${filters.query}%,address.ilike.%${filters.query}%,neighborhood.ilike.%${filters.query}%`);
+          const searchTerm = filters.query.trim();
+          console.log('Searching for:', searchTerm);
+          query = query.or(`name.ilike.%${searchTerm}%,address.ilike.%${searchTerm}%,neighborhood.ilike.%${searchTerm}%`);
         }
         
         if (filters.neighborhoods && filters.neighborhoods.length > 0) {

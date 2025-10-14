@@ -91,11 +91,14 @@ export default function ImageUpload() {
 
     setIsUploading(true);
     try {
+      console.log('Starting photo upload for cafe:', cafe.name);
+      
       // Upload to Cloudinary
       const uploadResult = await uploadImage(selectedFile);
       
       if (uploadResult.success && uploadResult.data) {
         const uploadedUrl = uploadResult.data.secure_url;
+        console.log('Cloudinary upload successful:', uploadedUrl);
         
         // Add photo to cafe directly via Supabase
         const { supabase } = await import('@/integrations/supabase/client');
@@ -115,8 +118,15 @@ export default function ImageUpload() {
 
         if (photoError) {
           console.error('Error adding photo to cafe_photos:', photoError);
-          throw new Error('Failed to add photo to database');
+          toast({
+            title: "Database Error",
+            description: `Failed to save photo to database: ${photoError.message}`,
+            variant: "destructive"
+          });
+          return;
         }
+
+        console.log('Photo added to cafe_photos table:', photoData.id);
 
         // Check if this cafe has a hero photo, if not, set this as the hero
         const { data: cafeData, error: cafeError } = await supabase
@@ -127,13 +137,19 @@ export default function ImageUpload() {
 
         if (cafeError) {
           console.error('Error fetching cafe:', cafeError);
-          throw new Error('Failed to fetch cafe details');
+          toast({
+            title: "Database Error",
+            description: `Failed to fetch cafe details: ${cafeError.message}`,
+            variant: "destructive"
+          });
+          return;
         }
 
         let isHero = false;
 
         // If no hero photo exists, set this as the hero
         if (!cafeData.hero_photo_url) {
+          console.log('No existing hero photo, setting this as hero');
           const { error: updateError } = await supabase
             .from('cafes')
             .update({ 
@@ -145,8 +161,15 @@ export default function ImageUpload() {
 
           if (updateError) {
             console.error('Error updating hero photo:', updateError);
+            toast({
+              title: "Warning",
+              description: "Photo uploaded but failed to set as hero image. You may need to refresh the page.",
+              variant: "destructive"
+            });
           } else {
             isHero = true;
+            console.log('Hero photo updated successfully');
+            
             // Mark this photo as the hero
             await supabase
               .from('cafe_photos')
@@ -163,13 +186,18 @@ export default function ImageUpload() {
         });
         navigate(`/cafe/${cafe.placeId}`);
       } else {
-        throw new Error(uploadResult.error || 'Failed to upload image');
+        console.error('Cloudinary upload failed:', uploadResult.error);
+        toast({
+          title: "Upload Failed",
+          description: uploadResult.error || 'Failed to upload image to cloud storage',
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Upload failed:', error);
       toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "Failed to upload photo",
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred during upload",
         variant: "destructive"
       });
     } finally {

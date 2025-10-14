@@ -94,7 +94,9 @@ export class OptimizedCafeService {
 
       // Apply search query (this is the key filter)
       if (filters.query) {
-        query = query.or(`name.ilike.%${filters.query}%,address.ilike.%${filters.query}%,neighborhood.ilike.%${filters.query}%`);
+        const searchTerm = filters.query.trim();
+        console.log('Searching for:', searchTerm);
+        query = query.or(`name.ilike.%${searchTerm}%,address.ilike.%${searchTerm}%,neighborhood.ilike.%${searchTerm}%`);
       }
 
       // Apply other filters but NOT distance filter for search
@@ -617,7 +619,9 @@ export class OptimizedCafeService {
     }
 
     if (filters.query) {
-      query = query.or(`name.ilike.%${filters.query}%,address.ilike.%${filters.query}%,neighborhood.ilike.%${filters.query}%`);
+      const searchTerm = filters.query.trim();
+      console.log('Applying search filter:', searchTerm);
+      query = query.or(`name.ilike.%${searchTerm}%,address.ilike.%${searchTerm}%,neighborhood.ilike.%${searchTerm}%`);
     }
 
     // Note: Open now filter is handled client-side after fetching data

@@ -67,7 +67,12 @@ export function CafePhotoUpload({ cafeId, placeId, cafeName, onPhotoAdded }: Caf
 
         if (photoError) {
           console.error('Error adding photo to cafe_photos:', photoError);
-          throw new Error('Failed to add photo to database');
+          toast({
+            title: "Database Error",
+            description: `Failed to save photo to database: ${photoError.message}`,
+            variant: "destructive"
+          });
+          return;
         }
 
         // Check if this cafe has a hero photo, if not, set this as the hero
@@ -79,7 +84,12 @@ export function CafePhotoUpload({ cafeId, placeId, cafeName, onPhotoAdded }: Caf
 
         if (cafeError) {
           console.error('Error fetching cafe:', cafeError);
-          throw new Error('Failed to fetch cafe details');
+          toast({
+            title: "Database Error",
+            description: `Failed to fetch cafe details: ${cafeError.message}`,
+            variant: "destructive"
+          });
+          return;
         }
 
         console.log('Current cafe hero_photo_url:', cafeData.hero_photo_url);
@@ -101,6 +111,11 @@ export function CafePhotoUpload({ cafeId, placeId, cafeName, onPhotoAdded }: Caf
 
           if (updateError) {
             console.error('Error updating hero photo:', updateError);
+            toast({
+              title: "Warning",
+              description: "Photo uploaded but failed to set as hero image. You may need to refresh the page.",
+              variant: "destructive"
+            });
           } else {
             console.log('Successfully updated hero photo in database');
             isHero = true;
@@ -125,13 +140,18 @@ export function CafePhotoUpload({ cafeId, placeId, cafeName, onPhotoAdded }: Caf
           onPhotoAdded(uploadedUrl);
         }
       } else {
-        throw new Error(uploadResult.error || 'Failed to upload image');
+        console.error('Cloudinary upload failed:', uploadResult.error);
+        toast({
+          title: "Upload Failed",
+          description: uploadResult.error || 'Failed to upload image to cloud storage',
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Upload failed:', error);
       toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "Failed to upload photo",
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred during upload",
         variant: "destructive"
       });
     } finally {
