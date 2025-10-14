@@ -580,6 +580,7 @@ export default function Search() {
                   error={cafesError?.message}
                   onCafeClick={(cafe) => navigate(`/cafe/${cafe.placeId}`)}
                   activeTagFilter={filters.selectedTags.length > 0 ? filters.selectedTags[0] : undefined}
+                  radiusExpansionMessage={cafesData?.pages?.[0]?.radiusExpansionMessage}
                 />
               )}
           </div>

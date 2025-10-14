@@ -7,6 +7,7 @@ interface PaginatedCafeResponse {
   hasMore: boolean;
   total: number;
   currentPage: number;
+  radiusExpansionMessage?: string;
 }
 
 interface LocationBasedFilters extends SearchFilters {
@@ -46,15 +47,10 @@ export class OptimizedCafeService {
         console.log('NOT using location-based loading - no user location available');
       }
 
-      // Strategy 2: If filters applied, try exact match
+      // Strategy 2: If tag filters or other filters applied (and no location), search ALL cafes
       if (this.hasActiveFilters(filters)) {
-        const result = await this.fetchWithFilters(filters, page);
-        if (result.data.cafes.length >= 10 || page > 0) {
-          return result;
-        }
-        
-        // Fallback: relax filters if not enough results
-        return await this.fetchWithFallback(filters, page);
+        console.log('Active filters detected without location - searching all cafes:', filters);
+        return await this.fetchAllCafesWithFilters(filters, page);
       }
 
       // Strategy 3: No filters - load popular cafes
@@ -76,90 +72,102 @@ export class OptimizedCafeService {
     filters: LocationBasedFilters,
     page: number
   ): Promise<ApiResponse<PaginatedCafeResponse>> {
-    const offset = page * this.DEFAULT_PAGE_SIZE;
-
-    // For search queries, we fetch more results and then sort by relevance + distance
-    const searchPageSize = this.DEFAULT_PAGE_SIZE * 2; // Get more results for better sorting
-
-    let query = supabase
-      .from('cafes')
-      .select('*, hero_photo_url')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + searchPageSize - 1);
-
-    // Apply search query (this is the key filter)
-    if (filters.query) {
-      query = query.or(`name.ilike.%${filters.query}%,address.ilike.%${filters.query}%,neighborhood.ilike.%${filters.query}%`);
-    }
-
-    // Apply other filters but NOT distance filter for search
-    if (filters.selectedTags?.length > 0) {
-      query = query.overlaps('tags', filters.selectedTags);
-    }
-    if (filters.neighborhoods?.length > 0) {
-      query = query.in('neighborhood', filters.neighborhoods);
-    }
-    if (filters.rating > 0) {
-      query = query.gte('google_rating', filters.rating);
-    }
-    if (filters.priceLevel?.length > 0) {
-      query = query.in('price_level', filters.priceLevel);
-    }
-
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-
-    console.log(`Search results: Found ${data?.length || 0} cafes matching "${filters.query}"`);
-
-    // Sort by relevance first, then by distance if location is available
-    let sortedCafes = data || [];
-    
-    if (filters.userLocation) {
-      // Add distance calculation and sort by relevance + distance
-      const cafesWithDistance = sortedCafes.map(cafe => ({
-        ...cafe,
-        distance_miles: this.calculateDistance(
-          filters.userLocation!.latitude,
-          filters.userLocation!.longitude,
-          cafe.latitude,
-          cafe.longitude
-        )
-      }));
-
-      // Sort by name relevance first, then by distance
-      sortedCafes = cafesWithDistance.sort((a, b) => {
-        const aNameMatch = a.name.toLowerCase().includes(filters.query!.toLowerCase());
-        const bNameMatch = b.name.toLowerCase().includes(filters.query!.toLowerCase());
-        
-        // Exact name matches first
-        if (aNameMatch && !bNameMatch) return -1;
-        if (!aNameMatch && bNameMatch) return 1;
-        
-        // Then by distance
-        return a.distance_miles - b.distance_miles;
-      });
-
-      console.log(`Search results sorted: First 5 cafes`, sortedCafes.slice(0, 5).map(cafe => ({
-        name: cafe.name,
-        distance: cafe.distance_miles?.toFixed(2),
-        neighborhood: cafe.neighborhood
-      })));
-    }
-
-    // Return only the requested page size
-    const pageCafes = sortedCafes.slice(0, this.DEFAULT_PAGE_SIZE);
-    const hasMore = sortedCafes.length > this.DEFAULT_PAGE_SIZE;
-
-    return {
-      success: true,
-      data: {
-        cafes: await this.transformCafeData(pageCafes),
-        hasMore,
-        total: sortedCafes.length,
-        currentPage: page
+    try {
+      // If no location available, search ALL cafes to ensure complete results
+      if (!filters.userLocation) {
+        console.log('No location available for search - searching ALL cafes');
+        return await this.fetchAllCafesWithFilters(filters, page);
       }
-    };
+
+      // Location available - use optimized search with distance sorting
+      const offset = page * this.DEFAULT_PAGE_SIZE;
+
+      // For search queries, we fetch more results and then sort by relevance + distance
+      const searchPageSize = this.DEFAULT_PAGE_SIZE * 2; // Get more results for better sorting
+
+      let query = supabase
+        .from('cafes')
+        .select('*, hero_photo_url')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + searchPageSize - 1);
+
+      // Apply search query (this is the key filter)
+      if (filters.query) {
+        query = query.or(`name.ilike.%${filters.query}%,address.ilike.%${filters.query}%,neighborhood.ilike.%${filters.query}%`);
+      }
+
+      // Apply other filters but NOT distance filter for search
+      if (filters.selectedTags?.length > 0) {
+        query = query.overlaps('tags', filters.selectedTags);
+      }
+      if (filters.neighborhoods?.length > 0) {
+        query = query.in('neighborhood', filters.neighborhoods);
+      }
+      if (filters.rating > 0) {
+        query = query.gte('google_rating', filters.rating);
+      }
+      if (filters.priceLevel?.length > 0) {
+        query = query.in('price_level', filters.priceLevel);
+      }
+
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+
+      console.log(`Search results: Found ${data?.length || 0} cafes matching "${filters.query}"`);
+
+      // Sort by relevance first, then by distance if location is available
+      let sortedCafes = data || [];
+      
+      if (filters.userLocation) {
+        // Add distance calculation and sort by relevance + distance
+        const cafesWithDistance = sortedCafes.map(cafe => ({
+          ...cafe,
+          distance_miles: this.calculateDistance(
+            filters.userLocation!.latitude,
+            filters.userLocation!.longitude,
+            cafe.latitude,
+            cafe.longitude
+          )
+        }));
+
+        // Sort by name relevance first, then by distance
+        sortedCafes = cafesWithDistance.sort((a, b) => {
+          const aNameMatch = a.name.toLowerCase().includes(filters.query!.toLowerCase());
+          const bNameMatch = b.name.toLowerCase().includes(filters.query!.toLowerCase());
+          
+          // Exact name matches first
+          if (aNameMatch && !bNameMatch) return -1;
+          if (!aNameMatch && bNameMatch) return 1;
+          
+          // Then by distance
+          return a.distance_miles - b.distance_miles;
+        });
+
+        console.log(`Search results sorted: First 5 cafes`, sortedCafes.slice(0, 5).map(cafe => ({
+          name: cafe.name,
+          distance: cafe.distance_miles?.toFixed(2),
+          neighborhood: cafe.neighborhood
+        })));
+      }
+
+      // Return only the requested page size
+      const pageCafes = sortedCafes.slice(0, this.DEFAULT_PAGE_SIZE);
+      const hasMore = sortedCafes.length > this.DEFAULT_PAGE_SIZE;
+
+      return {
+        success: true,
+        data: {
+          cafes: await this.transformCafeData(pageCafes),
+          hasMore,
+          total: sortedCafes.length,
+          currentPage: page
+        }
+      };
+    } catch (error) {
+      console.error('Error in fetchSearchResults:', error);
+      throw error;
+    }
   }
 
   /**
@@ -191,8 +199,10 @@ export class OptimizedCafeService {
     const { userLocation, distance } = filters;
     if (!userLocation) throw new Error('User location required');
     
-    // If no distance filter is set, progressively expand radius to find 50 closest cafes
+    // Use user-set distance filter if provided, otherwise use optimal radius for pagination
     const targetDistance = distance || this.findOptimalRadius(userLocation, page);
+    const isUserSetDistance = !!distance; // Track if user explicitly set distance
+    const hasActiveFilters = this.hasActiveFilters(filters);
 
     // Load more cafes initially to account for distance filtering and ensure we have enough for sorting
     const loadSize = Math.max(this.DEFAULT_PAGE_SIZE * 5, 250); // Load more initially for better sorting
@@ -270,6 +280,49 @@ export class OptimizedCafeService {
 
     const hasMore = cafesInRange.length > endIndex;
 
+    // Check if we need to expand radius due to no results with filters
+    // Only expand if user hasn't explicitly set a distance filter
+    let radiusExpansionMessage = null;
+    if (cafesInRange.length === 0 && hasActiveFilters && page === 0 && !isUserSetDistance) {
+      // Try expanding radius to find cafes with filters
+      const expandedDistance = Math.min(targetDistance * 2, 25); // Double the radius, max 25 miles
+      if (expandedDistance > targetDistance) {
+        console.log(`No cafes found within ${targetDistance} miles with filters, trying ${expandedDistance} miles`);
+        
+        // Try with expanded radius
+        const expandedResult = await this.fetchNearbyCafesWithExpandedRadius(
+          filters, 
+          userLocation, 
+          expandedDistance, 
+          page
+        );
+        
+        if (expandedResult.data.cafes.length > 0) {
+          radiusExpansionMessage = `No cafes found within ${targetDistance} miles matching your filters. Showing results within ${expandedDistance} miles instead.`;
+          return {
+            success: true,
+            data: {
+              ...expandedResult.data,
+              radiusExpansionMessage
+            }
+          };
+        } else {
+          // Still no cafes found even after expansion
+          radiusExpansionMessage = `No cafes found within ${targetDistance} miles matching your filters. Expanded search to ${expandedDistance} miles but still no results.`;
+          return {
+            success: true,
+            data: {
+              cafes: [],
+              hasMore: false,
+              total: 0,
+              currentPage: page,
+              radiusExpansionMessage
+            }
+          };
+        }
+      }
+    }
+
     console.log(`Location-based loading: Found ${cafesInRange.length} cafes within ${targetDistance} miles, returning ${pageCafes.length}`);
     console.log(`User location: ${userLocation.latitude}, ${userLocation.longitude}`);
     console.log(`Sample cafe distances:`, pageCafes.slice(0, 5).map(cafe => ({
@@ -278,6 +331,80 @@ export class OptimizedCafeService {
       distance: cafe.distance_miles?.toFixed(2),
       neighborhood: cafe.neighborhood
     })));
+
+    return {
+      success: true,
+      data: {
+        cafes: await this.transformCafeData(pageCafes),
+        hasMore,
+        total: cafesInRange.length,
+        currentPage: page,
+        radiusExpansionMessage
+      }
+    };
+  }
+
+  /**
+   * Helper method to search with expanded radius when no cafes found with filters
+   */
+  private static async fetchNearbyCafesWithExpandedRadius(
+    filters: LocationBasedFilters,
+    userLocation: { latitude: number; longitude: number },
+    expandedDistance: number,
+    page: number
+  ): Promise<ApiResponse<PaginatedCafeResponse>> {
+    const loadSize = Math.max(this.DEFAULT_PAGE_SIZE * 5, 250);
+    const offset = page * loadSize;
+
+    // Use expanded bounding box
+    const latRange = (expandedDistance / 69) * 1.5;
+    const lngRange = (expandedDistance / (69 * Math.cos(userLocation.latitude * Math.PI / 180))) * 1.5;
+
+    let query = supabase
+      .from('cafes')
+      .select('*, hero_photo_url')
+      .eq('is_active', true)
+      .gte('latitude', userLocation.latitude - latRange)
+      .lte('latitude', userLocation.latitude + latRange)
+      .gte('longitude', userLocation.longitude - lngRange)
+      .lte('longitude', userLocation.longitude + lngRange)
+      .order('latitude', { ascending: true })
+      .order('longitude', { ascending: true })
+      .range(offset, offset + loadSize - 1);
+
+    // Apply filters
+    query = this.applyFilters(query, filters);
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+
+    // Calculate distances and filter by expanded radius
+    const cafesWithDistance = data?.map(cafe => ({
+      ...cafe,
+      distance_miles: this.calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        cafe.latitude,
+        cafe.longitude
+      )
+    })) || [];
+
+    const cafesInRange = cafesWithDistance
+      .filter(cafe => cafe.distance_miles <= expandedDistance)
+      .sort((a, b) => {
+        const distanceDiff = a.distance_miles - b.distance_miles;
+        if (Math.abs(distanceDiff) > 0.1) {
+          return distanceDiff;
+        }
+        const aRating = a.google_rating || 0;
+        const bRating = b.google_rating || 0;
+        return bRating - aRating;
+      });
+
+    const startIndex = page * this.DEFAULT_PAGE_SIZE;
+    const endIndex = Math.min(startIndex + this.DEFAULT_PAGE_SIZE, cafesInRange.length);
+    const pageCafes = cafesInRange.slice(startIndex, endIndex);
+    const hasMore = cafesInRange.length > endIndex;
 
     return {
       success: true,
@@ -305,7 +432,55 @@ export class OptimizedCafeService {
   }
 
   /**
-   * Load cafes with exact filter matching
+   * Load ALL cafes with filters when location is not available
+   * This ensures tag filtering and search work across the entire database
+   */
+  private static async fetchAllCafesWithFilters(
+    filters: SearchFilters,
+    page: number
+  ): Promise<ApiResponse<PaginatedCafeResponse>> {
+    try {
+      // Load ALL cafes that match the filters (no pagination limit)
+      let query = supabase
+        .from('cafes')
+        .select('*, hero_photo_url')
+        .eq('is_active', true);
+
+      // Apply filters to get all matching cafes
+      query = this.applyFilters(query, filters);
+
+      // Order by created_at for consistency
+      query = query.order('created_at', { ascending: false });
+
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+
+      console.log(`Found ${data?.length || 0} cafes matching filters (no location)`);
+
+      // Apply pagination client-side after getting all matching cafes
+      const allMatchingCafes = data || [];
+      const startIndex = page * this.DEFAULT_PAGE_SIZE;
+      const endIndex = startIndex + this.DEFAULT_PAGE_SIZE;
+      const pageCafes = allMatchingCafes.slice(startIndex, endIndex);
+      const hasMore = endIndex < allMatchingCafes.length;
+
+      return {
+        success: true,
+        data: {
+          cafes: await this.transformCafeData(pageCafes, { activeTagFilter: filters.selectedTags?.[0] }),
+          hasMore,
+          total: allMatchingCafes.length,
+          currentPage: page
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching all cafes with filters:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load cafes with exact filter matching (legacy method - now only used for fallback)
    */
   private static async fetchWithFilters(
     filters: SearchFilters,

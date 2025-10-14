@@ -14,6 +14,7 @@ interface InfiniteCafeListProps {
   error?: string | null;
   onCafeClick: (cafe: Cafe) => void;
   activeTagFilter?: string; // For highlighting and prioritizing specific tag
+  radiusExpansionMessage?: string; // Message about radius expansion
 }
 
 export function InfiniteCafeList({
@@ -24,7 +25,8 @@ export function InfiniteCafeList({
   onLoadMore,
   error,
   onCafeClick,
-  activeTagFilter
+  activeTagFilter,
+  radiusExpansionMessage
 }: InfiniteCafeListProps) {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -114,7 +116,22 @@ export function InfiniteCafeList({
   if (cafes.length === 0) {
     return (
       <div className="text-center py-8">
-        {activeTagFilter ? (
+        {/* Show radius expansion message if present */}
+        {radiusExpansionMessage ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-left">
+            <div className="flex items-start gap-2">
+              <div className="text-blue-500 mt-0.5">📍</div>
+              <div>
+                <p className="text-sm text-blue-800 font-medium">Expanding search radius</p>
+                <p className="text-xs text-blue-600 mt-1">{radiusExpansionMessage}</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 mt-4">No cafes found matching your criteria within the expanded radius.</p>
+            <Button onClick={onLoadMore} variant="outline" className="mt-4">
+              Load More Cafes
+            </Button>
+          </div>
+        ) : activeTagFilter ? (
           <>
             <p className="text-gray-500 mb-4">
               No user has tagged a cafe with this vibe; be first to help others find the right cafe by tagging the next cafe you visit
@@ -137,6 +154,19 @@ export function InfiniteCafeList({
 
   return (
     <div className="space-y-4">
+      {/* Radius Expansion Message (only shown if cafes are found after expansion) */}
+      {radiusExpansionMessage && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-2">
+            <div className="text-blue-500 mt-0.5">📍</div>
+            <div>
+              <p className="text-sm text-blue-800 font-medium">Expanding search radius</p>
+              <p className="text-xs text-blue-600 mt-1">{radiusExpansionMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {cafes.map((cafe) => (
         <Card 
           key={cafe.id} 
