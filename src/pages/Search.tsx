@@ -170,7 +170,8 @@ export default function Search() {
   } = useInfiniteCafes({
     filters: {
       ...filters,
-      query: searchQuery || undefined,
+      // Only pass query if it's not a tag search (doesn't start with #)
+      query: searchQuery && !searchQuery.startsWith('#') ? searchQuery : undefined,
       activeTagFilter: filters.selectedTags.length > 0 ? filters.selectedTags[0] : undefined
     },
     userLocation
@@ -276,6 +277,29 @@ export default function Search() {
   /** Debounced search */
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
+    
+    // Check if the search query is a tag search (starts with #)
+    if (value.startsWith('#')) {
+      const tagName = value.slice(1).trim().toLowerCase();
+      if (tagName) {
+        // Add this tag to selectedTags if not already present
+        if (!filters.selectedTags.includes(tagName)) {
+          setFilters(prev => ({
+            ...prev,
+            selectedTags: [tagName] // Replace current tags with the searched tag
+          }));
+        }
+      }
+    } else {
+      // If not a tag search, clear any tag filters
+      if (filters.selectedTags.length > 0) {
+        setFilters(prev => ({
+          ...prev,
+          selectedTags: []
+        }));
+      }
+    }
+    
     // Results will be updated automatically by useEffect when searchQuery changes
   };
 
@@ -365,6 +389,17 @@ export default function Search() {
     // React Query will automatically refetch with cleared filters
   };
 
+  const clearTagFilters = () => {
+    setFilters(prev => ({
+      ...prev,
+      selectedTags: []
+    }));
+    // Clear search query if it was a tag search
+    if (searchQuery.startsWith('#')) {
+      setSearchQuery("");
+    }
+  };
+
 
   // Calculate active filter count
   const activeFilterCount = filters.selectedTags.length + 
@@ -438,6 +473,11 @@ export default function Search() {
                         ? filters.selectedTags.filter(t => t !== tag)
                         : [...filters.selectedTags, tag];
                       setFilters(prev => ({ ...prev, selectedTags: newTags }));
+                      
+                      // Clear search query if it was searching for this tag
+                      if (searchQuery === `#${tag}`) {
+                        setSearchQuery("");
+                      }
                     }}
                     className={`flex-shrink-0 text-xs h-8 px-4 rounded-full transition-all duration-300 font-medium ${
                       filters.selectedTags.includes(tag) 
@@ -489,9 +529,11 @@ export default function Search() {
                   <p className="text-muted-foreground mb-4">
                     {filters.selectedTags.length > 0 
                       ? "We're still growing! Help by tagging the vibe to your favorite cafe or checking into your nearest cafe."
-                      : searchQuery || activeFilterCount > 0
-                        ? "Try adjusting your search terms or filters"
-                        : "No cafes match your current filters"}
+                      : searchQuery?.startsWith('#')
+                        ? `No cafes found with the tag "${searchQuery.slice(1)}". Be the first to tag a cafe with this vibe!`
+                        : searchQuery || activeFilterCount > 0
+                          ? "Try adjusting your search terms or filters"
+                          : "No cafes match your current filters"}
                   </p>
                   <div className="flex gap-2 justify-center">
                     <Button onClick={clearFilters} variant="outline">
