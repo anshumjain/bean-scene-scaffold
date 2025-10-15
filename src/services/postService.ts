@@ -317,9 +317,11 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
     const usernameRes = await getUsername();
     username = usernameRes.success ? usernameRes.data : null;
 
-    // Get or create user profile (only for authenticated users)
+    // Get or create user profile (works for both authenticated and anonymous users)
     let userProfile = null;
+    
     if (user) {
+      // For authenticated users
       let { data: profile } = await supabase
         .from('users')
         .select('id')
@@ -332,8 +334,34 @@ export async function submitCheckin(checkinData: CheckInData): Promise<ApiRespon
           .from('users')
           .insert({
             auth_user_id: user.id,
-            name: user.user_metadata?.name || 'Anonymous User',
-            email: user.email || ''
+            name: user.user_metadata?.name || username || 'Anonymous User',
+            email: user.email || '',
+            username: username
+          })
+          .select('id')
+          .single();
+
+        if (profileError) throw new Error(profileError.message);
+        profile = newProfile;
+      }
+      userProfile = profile;
+    } else if (username) {
+      // For anonymous users, ensure they have a user record
+      let { data: profile } = await supabase
+        .from('users')
+        .select('id')
+        .eq('device_id', deviceId)
+        .single();
+
+      if (!profile) {
+        // Create anonymous user profile
+        const { data: newProfile, error: profileError } = await supabase
+          .from('users')
+          .insert({
+            device_id: deviceId,
+            username: username,
+            name: username,
+            email: `anonymous-${deviceId}@beanscene.local`
           })
           .select('id')
           .single();

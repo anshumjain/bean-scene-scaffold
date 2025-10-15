@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Onboarding from "@/components/Onboarding";
+import { migrateLocalStorageToSupabase, migrateAnonymousToAuthenticated } from "@/services/userService";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
 import Feed from "./pages/Feed";
 import Search from "./pages/Search";
@@ -32,6 +35,7 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Check if user has seen onboarding
@@ -40,7 +44,56 @@ const App = () => {
     if (!hasSeenOnboarding) {
       setShowOnboarding(true);
     }
-  }, []);
+
+    // Run client-side migration for existing users
+    const runMigration = async () => {
+      try {
+        // First, try to migrate anonymous data to authenticated user if they're logged in
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          // User is authenticated, try to migrate anonymous data to authenticated account
+          const authMigrationResult = await migrateAnonymousToAuthenticated();
+          
+          if (authMigrationResult.success && authMigrationResult.data?.migrated) {
+            toast({
+              title: "Account Migrated!",
+              description: authMigrationResult.data.message,
+              duration: 5000,
+            });
+          }
+        } else {
+          // User is anonymous, migrate localStorage data to database
+          const migrationResult = await migrateLocalStorageToSupabase();
+          
+          if (migrationResult.success && migrationResult.data?.migrated) {
+            // Show success message only if data was actually migrated
+            toast({
+              title: "Data Migrated!",
+              description: migrationResult.data.message,
+              duration: 5000,
+            });
+          } else if (migrationResult.success && migrationResult.data?.message.includes("already taken")) {
+            // Show warning if username is taken
+            toast({
+              title: "Username Conflict",
+              description: migrationResult.data.message,
+              variant: "destructive",
+              duration: 8000,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Migration failed:", error);
+        // Don't show error to user as this is background migration
+      }
+    };
+
+    // Run migration after a short delay to not interfere with app loading
+    const migrationTimeout = setTimeout(runMigration, 1000);
+    
+    return () => clearTimeout(migrationTimeout);
+  }, [toast]);
 
   const handleOnboardingComplete = () => {
     localStorage.setItem('hasSeenOnboarding', 'true');
