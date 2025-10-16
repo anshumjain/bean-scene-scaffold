@@ -125,6 +125,7 @@ const App = () => {
             <Route path="/share" element={<Share />} />
             <Route path="/share/unified" element={<UnifiedShare />} />
             <Route path="/edit-post" element={<EditPost />} />
+            <Route path="/post/:id" element={<PostView />} />
             <Route path="/post-view" element={<PostView />} />
             <Route path="/recent" element={<RecentlyViewed />} />
             <Route path="/profile" element={<Profile />} />

@@ -40,12 +40,13 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
   const [imageError, setImageError] = useState(false);
   const [imageUrlsError, setImageUrlsError] = useState<boolean[]>([]);
   const [userLevel, setUserLevel] = useState<number>(1);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   // Determine layout type
   const layoutType = getPostLayoutType(post);
   const postHasPhoto = hasPhoto(post);
 
-  // Fetch user level when component mounts
+  // Fetch user level and check if post is liked when component mounts
   useEffect(() => {
     const fetchUserLevel = async () => {
       if (post.username) {
@@ -60,8 +61,21 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
       }
     };
 
+    const checkLikeStatus = async () => {
+      try {
+        const { hasUserLikedPost } = await import('@/services/postService');
+        const result = await hasUserLikedPost(post.id);
+        if (result.success) {
+          setLiked(result.data);
+        }
+      } catch (error) {
+        console.error('Error checking like status:', error);
+      }
+    };
+
     fetchUserLevel();
-  }, [post.username]);
+    checkLikeStatus();
+  }, [post.username, post.id]);
 
   // Handle like functionality
   const handleLike = async () => {
@@ -76,12 +90,17 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
     setLikeCount(newCount);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Call actual API
+      const { likePost, unlikePost } = await import('@/services/postService');
+      const result = newLiked ? await likePost(post.id) : await unlikePost(post.id);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update like');
+      }
       
       toast({
         title: newLiked ? "Liked!" : "Unliked",
-        description: newLiked ? "Added to your favorites" : "Removed from favorites",
+        description: newLiked ? "You liked this post" : "You unliked this post",
       });
     } catch (error) {
       // Revert on error
@@ -98,12 +117,38 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
     }
   };
 
-  // Handle disabled comments
+  // Handle comments - navigate to individual post view with post data
   const handleComments = () => {
-    toast({
-      title: "Coming Soon",
-      description: "Comments feature will be available soon!",
+    navigate(`/post/${post.id}`, { 
+      state: { post: post } 
     });
+  };
+
+  // Handle image navigation
+  const handlePreviousImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (post.imageUrls && post.imageUrls.length > 1) {
+      setCurrentImageIndex((prev) => 
+        prev === 0 ? post.imageUrls!.length - 1 : prev - 1
+      );
+    }
+  };
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (post.imageUrls && post.imageUrls.length > 1) {
+      setCurrentImageIndex((prev) => 
+        prev === post.imageUrls!.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  // Get current image to display
+  const getCurrentImage = () => {
+    if (post.imageUrls && post.imageUrls.length > 0) {
+      return post.imageUrls[currentImageIndex];
+    }
+    return post.imageUrl;
   };
 
   // Render photo layout (existing behavior)
@@ -154,49 +199,82 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
 
         {/* Images */}
         <div className="relative">
-          {/* Show multiple images if available, otherwise fallback to single image */}
+          {/* Image Carousel for multiple images */}
           {post.imageUrls && post.imageUrls.length > 1 ? (
-            <div className="grid grid-cols-2 gap-1 h-64">
-              {post.imageUrls.slice(0, 4).map((url, index) => (
-                <div key={index} className="relative">
-                  {imageUrlsError[index] ? (
-                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                      <div className="text-center text-muted-foreground">
-                        <div className="text-2xl mb-1">📷</div>
-                        <div className="text-xs">Image unavailable</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <img
-                      src={url}
-                      alt={`${post.cafeName} post ${index + 1}`}
-                      className={`w-full h-full object-cover ${
-                        index === 0 && post.imageUrls!.length === 3 ? 'col-span-2' : ''
-                      }`}
-                      onError={() => {
-                        console.error('Failed to load image:', url);
-                        setImageUrlsError(prev => {
-                          const newErrors = [...prev];
-                          newErrors[index] = true;
-                          return newErrors;
-                        });
+            <div className="relative w-full h-64 bg-muted overflow-hidden">
+              {/* Main image display */}
+              <div className="w-full h-full flex items-center justify-center">
+                {imageUrlsError[currentImageIndex] ? (
+                  <div className="text-center text-muted-foreground">
+                    <div className="text-4xl mb-2">📷</div>
+                    <div className="text-sm">Image unavailable</div>
+                  </div>
+                ) : (
+                  <img
+                    src={getCurrentImage()}
+                    alt={`${post.cafeName} post ${currentImageIndex + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={() => {
+                      console.error('Failed to load image:', getCurrentImage());
+                      setImageUrlsError(prev => {
+                        const newErrors = [...prev];
+                        newErrors[currentImageIndex] = true;
+                        return newErrors;
+                      });
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Navigation arrows */}
+              {post.imageUrls.length > 1 && (
+                <>
+                  <button
+                    onClick={handlePreviousImage}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleNextImage}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              )}
+
+              {/* Image indicators */}
+              {post.imageUrls.length > 1 && (
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                  {post.imageUrls.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentImageIndex(index);
                       }}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        index === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                      }`}
                     />
-                  )}
-                  {/* Show +N indicator for more images */}
-                  {index === 3 && post.imageUrls!.length > 4 && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <span className="text-white font-bold text-lg">
-                        +{post.imageUrls!.length - 4}
-                      </span>
-                    </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* Image counter */}
+              <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                {currentImageIndex + 1}/{post.imageUrls.length}
+              </div>
             </div>
           ) : (
+            /* Single image display */
             <div className="w-full h-64 bg-muted flex items-center justify-center">
-              {imageError || !post.imageUrl || post.imageUrl === 'null' || post.imageUrl === '' ? (
+              {imageError || !getCurrentImage() || getCurrentImage() === 'null' || getCurrentImage() === '' ? (
                 <div className="text-center text-muted-foreground">
                   <div className="text-4xl mb-2">☕</div>
                   <div className="text-sm font-medium">{post.cafeName} post</div>
@@ -204,11 +282,11 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
                 </div>
               ) : (
                 <img
-                  src={post.imageUrl}
+                  src={getCurrentImage()}
                   alt={`${post.cafeName} post`}
                   className="w-full h-full object-cover"
                   onError={() => {
-                    console.error('Failed to load image:', post.imageUrl);
+                    console.error('Failed to load image:', getCurrentImage());
                     setImageError(true);
                   }}
                 />
@@ -278,11 +356,11 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
                 <span className="text-sm">{likeCount}</span>
               </Button>
               
-              {/* Disabled Comments Button */}
+              {/* Comments Button */}
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-8 px-2 opacity-50 cursor-not-allowed"
+                className="h-8 px-2 transition-smooth hover:bg-muted"
                 onClick={handleComments}
               >
                 <MessageCircle className="w-4 h-4 mr-1" />
@@ -404,7 +482,7 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-8 px-2 opacity-50 cursor-not-allowed"
+                className="h-8 px-2 transition-smooth hover:bg-muted"
                 onClick={handleComments}
               >
                 <MessageCircle className="w-4 h-4 mr-1" />

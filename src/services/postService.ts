@@ -269,23 +269,37 @@ export async function fetchUserPosts(username?: string, deviceId?: string): Prom
 
 
 /**
- * Like a post
+ * Like a post (server-side tracking)
  */
 export async function likePost(postId: string): Promise<ApiResponse<boolean>> {
   try {
-    // First get current likes count
-    const { data: currentPost, error: fetchError } = await supabase
-      .from('posts')
-      .select('likes')
-      .eq('id', postId)
+    const username = await getUsername();
+    const deviceId = getDeviceId();
+    
+    // Check if already liked
+    const { data: existingLike, error: checkError } = await supabase
+      .from('post_likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('device_id', deviceId)
       .single();
 
-    if (fetchError) throw new Error(fetchError.message);
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows found
+      throw new Error(checkError.message);
+    }
 
+    if (existingLike) {
+      return { data: true, success: true }; // Already liked
+    }
+
+    // Insert like record
     const { error } = await supabase
-      .from('posts')
-      .update({ likes: (currentPost?.likes || 0) + 1 })
-      .eq('id', postId);
+      .from('post_likes')
+      .insert({
+        post_id: postId,
+        device_id: deviceId,
+        username: username.success ? username.data : 'Anonymous'
+      });
     
     if (error) {
       throw new Error(error.message);
@@ -305,25 +319,19 @@ export async function likePost(postId: string): Promise<ApiResponse<boolean>> {
 }
 
 /**
- * Unlike a post
+ * Unlike a post (server-side tracking)
  */
 export async function unlikePost(postId: string): Promise<ApiResponse<boolean>> {
   try {
-    // First get current likes count
-    const { data: currentPost, error: fetchError } = await supabase
-      .from('posts')
-      .select('likes')
-      .eq('id', postId)
-      .single();
-
-    if (fetchError) throw new Error(fetchError.message);
-
-    const newLikes = Math.max((currentPost?.likes || 0) - 1, 0);
-
+    const username = await getUsername();
+    const deviceId = getDeviceId();
+    
+    // Delete like record
     const { error } = await supabase
-      .from('posts')
-      .update({ likes: newLikes })
-      .eq('id', postId);
+      .from('post_likes')
+      .delete()
+      .eq('post_id', postId)
+      .eq('device_id', deviceId);
     
     if (error) {
       throw new Error(error.message);
@@ -338,6 +346,124 @@ export async function unlikePost(postId: string): Promise<ApiResponse<boolean>> 
       data: false,
       success: false,
       error: error instanceof Error ? error.message : 'Failed to unlike post'
+    };
+  }
+}
+
+/**
+ * Check if current user has liked a post (server-side tracking)
+ */
+export async function hasUserLikedPost(postId: string): Promise<ApiResponse<boolean>> {
+  try {
+    const username = await getUsername();
+    const deviceId = getDeviceId();
+    
+    const { data, error } = await supabase
+      .from('post_likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('device_id', deviceId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+      throw new Error(error.message);
+    }
+
+    return {
+      data: !!data,
+      success: true
+    };
+  } catch (error) {
+    return {
+      data: false,
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to check like status'
+    };
+  }
+}
+
+/**
+ * Get comments for a post (server-side)
+ */
+export async function getPostComments(postId: string): Promise<ApiResponse<Comment[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('post_comments')
+      .select('*')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const comments: Comment[] = (data || []).map(comment => ({
+      id: comment.id,
+      postId: comment.post_id,
+      userId: comment.user_id,
+      deviceId: comment.device_id,
+      username: comment.username,
+      content: comment.content,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at
+    }));
+
+    return {
+      data: comments,
+      success: true
+    };
+  } catch (error) {
+    return {
+      data: [],
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch comments'
+    };
+  }
+}
+
+/**
+ * Add a comment to a post (server-side)
+ */
+export async function addComment(postId: string, content: string): Promise<ApiResponse<Comment>> {
+  try {
+    const username = await getUsername();
+    const deviceId = getDeviceId();
+
+    const { data, error } = await supabase
+      .from('post_comments')
+      .insert({
+        post_id: postId,
+        device_id: deviceId,
+        username: username.success ? username.data : 'Anonymous',
+        content: content.trim()
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const comment: Comment = {
+      id: data.id,
+      postId: data.post_id,
+      userId: data.user_id,
+      deviceId: data.device_id,
+      username: data.username,
+      content: data.content,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+    };
+
+    return {
+      data: comment,
+      success: true
+    };
+  } catch (error) {
+    return {
+      data: {} as Comment,
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to add comment'
     };
   }
 }

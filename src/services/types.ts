@@ -199,3 +199,14 @@ export interface UserActivity {
   createdAt: string;
   metadata?: any;
 }
+
+export interface Comment {
+  id: string;
+  postId: string;
+  userId?: string;
+  deviceId?: string;
+  username?: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
