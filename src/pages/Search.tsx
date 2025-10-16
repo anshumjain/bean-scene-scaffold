@@ -564,8 +564,8 @@ export default function Search() {
                       Clear All Filters
                     </Button>
                     {filters.selectedTags.length > 0 && (
-                      <Button onClick={() => navigate('/checkin')} className="coffee-gradient text-white">
-                        Check In & Add Tags
+                      <Button onClick={() => navigate('/share/unified')} className="coffee-gradient text-white">
+                        Share Your Experience
                       </Button>
                     )}
                   </div>

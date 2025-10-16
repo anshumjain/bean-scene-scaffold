@@ -73,8 +73,13 @@ function transformCafeData(cafe: any): Cafe {
 
 /**
  * Fetch cafes from database with optional filters
+ * Now supports location-optional search with distance sorting
  */
-export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiResponse<Cafe[]>> {
+export async function fetchCafes(filters: SearchFilters & {
+  userLat?: number;
+  userLng?: number;
+  sortByDistance?: boolean;
+} = {}): Promise<ApiResponse<Cafe[]>> {
   try {
     // If there are filters that require database-level filtering, use those
     const hasDatabaseFilters = filters.query || 
@@ -168,14 +173,28 @@ export async function fetchCafes(filters: SearchFilters = {}): Promise<ApiRespon
     }
 
     // Transform database format to app format
-    const cafes: Cafe[] = allData.map(transformCafeData);
+    let cafes: Cafe[] = allData.map(transformCafeData);
+    
+    // Add distance calculation if user location is provided
+    if (filters.userLat && filters.userLng) {
+      cafes = cafes.map(cafe => ({
+        ...cafe,
+        distance: calculateDistance(filters.userLat!, filters.userLng!, cafe.latitude, cafe.longitude)
+      }));
+    }
+    
+    // Sort by distance if requested and location is available
+    if (filters.sortByDistance && filters.userLat && filters.userLng) {
+      cafes.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    }
     
     // Debug: Log cafe data to see if hero photos are being loaded
     console.log('Loaded cafes with hero photos:', cafes.filter(cafe => cafe.heroPhotoUrl).length);
     console.log('Sample cafe data:', cafes[0] ? {
       name: cafes[0].name,
       heroPhotoUrl: cafes[0].heroPhotoUrl,
-      photos: cafes[0].photos
+      photos: cafes[0].photos,
+      distance: cafes[0].distance
     } : 'No cafes loaded');
 
     return {
@@ -232,6 +251,47 @@ export async function fetchCafeDetails(placeId: string): Promise<ApiResponse<Caf
  */
 export async function searchCafes(query: string, filters: SearchFilters = {}): Promise<ApiResponse<Cafe[]>> {
   return await fetchCafes({ ...filters, query });
+}
+
+/**
+ * Search cafes for unified share flow
+ * Shows ALL cafes, sorts by distance if GPS available, alphabetically if not
+ */
+export async function searchCafesForShare(
+  query: string,
+  userLocation?: { latitude: number; longitude: number }
+): Promise<ApiResponse<Cafe[]>> {
+  try {
+    // Always search all cafes regardless of location
+    const result = await fetchCafes({
+      query,
+      userLat: userLocation?.latitude,
+      userLng: userLocation?.longitude,
+      sortByDistance: Boolean(userLocation) // Sort by distance only if GPS available
+    });
+    
+    if (!result.success) {
+      return result;
+    }
+    
+    let cafes = result.data || [];
+    
+    // If no GPS, sort alphabetically
+    if (!userLocation) {
+      cafes = cafes.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    
+    return {
+      data: cafes,
+      success: true
+    };
+  } catch (error) {
+    return {
+      data: [],
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to search cafes'
+    };
+  }
 }
 
 /**

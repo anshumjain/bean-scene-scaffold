@@ -11,7 +11,6 @@ import { supabase } from "@/integrations/supabase/client";
 import Home from "./pages/Home";
 import Feed from "./pages/Feed";
 import Search from "./pages/Search";
-import CheckIn from "./pages/CheckIn";
 import RecentlyViewed from "./pages/RecentlyViewed";
 import Profile from "./pages/Profile";
 import CafeDetail from "./pages/CafeDetail";
@@ -19,7 +18,7 @@ import ImageUpload from "./pages/ImageUpload";
 import DataValidation from "./pages/DataValidation";
 import Moments from "./pages/Moments";
 import Share from "./pages/Share";
-import CreatePost from "./pages/CreatePost";
+import UnifiedShare from "./pages/UnifiedShare";
 import EditPost from "./pages/EditPost";
 import PostView from "./pages/PostView";
 import Feedback from "./pages/Feedback";
@@ -74,13 +73,19 @@ const App = () => {
               duration: 5000,
             });
           } else if (migrationResult.success && migrationResult.data?.message.includes("already taken")) {
-            // Show warning if username is taken
-            toast({
-              title: "Username Conflict",
-              description: migrationResult.data.message,
-              variant: "destructive",
-              duration: 8000,
-            });
+            // Only show warning if username was actually cleared (not on every load)
+            if (migrationResult.data.message.includes("Username cleared")) {
+              // In development, make this less intrusive
+              if (import.meta.env.DEV) {
+                console.log("Username conflict resolved:", migrationResult.data.message);
+              } else {
+                toast({
+                  title: "Username Conflict Resolved",
+                  description: "Your previous username was already taken and has been cleared. You can set a new one anytime.",
+                  duration: 5000,
+                });
+              }
+            }
           }
         }
       } catch (error) {
@@ -118,8 +123,7 @@ const App = () => {
             <Route path="/moments" element={<Moments />} />
             <Route path="/favorites" element={<Favorites />} />
             <Route path="/share" element={<Share />} />
-            <Route path="/checkin" element={<CheckIn />} />
-            <Route path="/post" element={<CreatePost />} />
+            <Route path="/share/unified" element={<UnifiedShare />} />
             <Route path="/edit-post" element={<EditPost />} />
             <Route path="/post-view" element={<PostView />} />
             <Route path="/recent" element={<RecentlyViewed />} />

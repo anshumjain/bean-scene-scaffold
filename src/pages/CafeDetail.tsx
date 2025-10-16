@@ -389,10 +389,10 @@ export default function CafeDetail() {
                   Be the first to check in at {cafe.name}!
                 </p>
                 <Button 
-                  onClick={() => navigate('/checkin')}
+                  onClick={() => navigate('/share/unified')}
                   className="coffee-gradient text-white"
                 >
-                  Check In
+                  Share Your Experience
                 </Button>
               </div>
             )}

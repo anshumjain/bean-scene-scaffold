@@ -283,13 +283,15 @@ export function CafeHeader({ cafe, loading = false, onPhotoAdded, tagRefreshTrig
       <div className="flex gap-3">
           <Button 
             className="flex-1 coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth"
-            onClick={() => navigate('/checkin', { 
+            onClick={() => navigate('/share/unified', { 
               state: { 
-                cafeId: cafe.id, 
-                cafeName: cafe.name,
-                placeId: cafe.placeId,
-                address: cafe.address,
-                neighborhood: cafe.neighborhood
+                prefilledCafe: {
+                  id: cafe.id, 
+                  name: cafe.name,
+                  placeId: cafe.placeId,
+                  address: cafe.address,
+                  neighborhood: cafe.neighborhood
+                }
               } 
             })}
           >

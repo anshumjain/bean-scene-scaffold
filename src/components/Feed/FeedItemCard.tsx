@@ -111,7 +111,17 @@ export function FeedItemCard({ item, onTagClick }: FeedItemCardProps) {
             <Button
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/checkin?cafeId=${cafe.placeId}`);
+                navigate('/share/unified', { 
+                  state: { 
+                    prefilledCafe: {
+                      id: cafe.id,
+                      placeId: cafe.placeId,
+                      name: cafe.name,
+                      address: cafe.address,
+                      neighborhood: cafe.neighborhood
+                    }
+                  } 
+                });
               }}
               className="w-full coffee-gradient text-white shadow-coffee hover:shadow-glow transition-smooth"
             >

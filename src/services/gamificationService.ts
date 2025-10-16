@@ -12,6 +12,7 @@ export const XP_VALUES = {
 
 // Badge definitions
 export const BADGE_DEFINITIONS = {
+  // Check-in badges
   FIRST_SIP: {
     type: 'first_sip',
     name: 'First Sip',
@@ -20,6 +21,42 @@ export const BADGE_DEFINITIONS = {
     icon: '☕',
     xp: 0,
   },
+  DETAILED_REVIEWER: {
+    type: 'detailed_reviewer',
+    name: 'Detailed Reviewer',
+    description: 'Write 10 detailed reviews',
+    condition: (stats: UserStats) => stats.total_reviews >= 10,
+    icon: '✍️',
+    xp: 0,
+  },
+  CAFE_EXPERT: {
+    type: 'cafe_expert',
+    name: 'Cafe Expert',
+    description: 'Check-in at 15 different cafes',
+    condition: (stats: UserStats) => stats.total_cafes_visited >= 15,
+    icon: '🏆',
+    xp: 0,
+  },
+  
+  // Social post badges
+  SOCIAL_SHARER: {
+    type: 'social_sharer',
+    name: 'Social Sharer',
+    description: 'Share 10 social posts',
+    condition: (stats: UserStats) => stats.total_posts >= 10,
+    icon: '📱',
+    xp: 0,
+  },
+  CONTENT_CREATOR: {
+    type: 'content_creator',
+    name: 'Content Creator',
+    description: 'Share 25 posts with photos',
+    condition: (stats: UserStats) => stats.posts_with_photos >= 25,
+    icon: '🎨',
+    xp: 0,
+  },
+  
+  // Legacy badges (updated conditions)
   COFFEE_EXPLORER: {
     type: 'coffee_explorer',
     name: 'Coffee Explorer',
@@ -61,10 +98,12 @@ export interface UserStats {
   username?: string;
   total_xp: number;
   current_level: number;
-  total_checkins: number;
-  total_photos: number;
-  total_reviews: number;
-  total_cafes_visited: number;
+  total_checkins: number;        // Formal check-ins only
+  total_posts: number;           // Social posts only
+  total_reviews: number;         // Formal reviews only
+  total_photos: number;          // All photos
+  posts_with_photos: number;     // Posts that include photos
+  total_cafes_visited: number;   // Unique cafes
   pioneer_count?: number;
   created_at: string;
   updated_at: string;
@@ -160,8 +199,10 @@ export async function getOrCreateUserStats(
         total_xp: 0,
         current_level: 1,
         total_checkins: 0,
-        total_photos: 0,
+        total_posts: 0,
         total_reviews: 0,
+        total_photos: 0,
+        posts_with_photos: 0,
         total_cafes_visited: 0,
       })
       .select()
@@ -187,7 +228,7 @@ export async function awardXP(
   deviceId?: string,
   username?: string,
   xpAmount: number = 0,
-  actionType: 'checkin' | 'photo' | 'review' = 'checkin'
+  actionType: 'checkin' | 'post' | 'photo' | 'review' = 'checkin'
 ): Promise<UserStats | null> {
   try {
     // First get or create user stats
@@ -206,6 +247,9 @@ export async function awardXP(
     switch (actionType) {
       case 'checkin':
         updates.total_checkins = stats.total_checkins + 1;
+        break;
+      case 'post':
+        updates.total_posts = (stats.total_posts || 0) + 1;
         break;
       case 'photo':
         updates.total_photos = stats.total_photos + 1;
@@ -522,38 +566,40 @@ export async function checkAndAwardBadges(
 }
 
 /**
- * Process a post creation and award appropriate XP and badges
+ * Process a social post creation and award appropriate XP and badges
  */
 export async function processPostCreation(
   userId?: string,
   deviceId?: string,
   username?: string,
-  cafeId?: string,
-  hasImage: boolean = false,
-  hasReview: boolean = false,
-  isFirstDiscoverer: boolean = false
+  xpAmount: number,
+  data: {
+    cafeId?: string;
+    hasImage: boolean;
+    imageCount: number;
+  }
 ): Promise<{ stats: UserStats | null; newBadges: UserBadge[] }> {
   try {
-    let totalXP = XP_VALUES.CHECK_IN;
+    // Award XP for social post
+    const stats = await awardXP(userId, deviceId, username, xpAmount, 'post');
     
-    if (hasImage) {
-      totalXP += XP_VALUES.PHOTO_UPLOAD;
-    }
-    
-    if (hasReview) {
-      totalXP += XP_VALUES.REVIEW_WRITTEN;
-    }
-    
-    if (isFirstDiscoverer) {
-      totalXP += XP_VALUES.FIRST_DISCOVERER;
-    }
+    if (!stats) return { stats: null, newBadges: [] };
 
-    // Award XP
-    const stats = await awardXP(userId, deviceId, username, totalXP, 'checkin');
+    // Update post-specific counters
+    const updates: any = {
+      posts_with_photos: data.hasImage ? (stats.posts_with_photos || 0) + 1 : (stats.posts_with_photos || 0),
+      total_photos: stats.total_photos + data.imageCount,
+    };
+
+    // Update stats
+    await supabase
+      .from('user_stats')
+      .update(updates)
+      .eq('id', stats.id);
 
     // Track cafe visit if cafe ID provided
-    if (cafeId) {
-      await trackCafeVisit(userId, deviceId, username, cafeId);
+    if (data.cafeId) {
+      await trackCafeVisit(userId, deviceId, username, data.cafeId);
     }
 
     // Check and award badges
@@ -562,6 +608,54 @@ export async function processPostCreation(
     return { stats, newBadges };
   } catch (error) {
     console.error('Error in processPostCreation:', error);
+    return { stats: null, newBadges: [] };
+  }
+}
+
+/**
+ * Process a check-in creation and award appropriate XP and badges
+ */
+export async function processCheckinCreation(
+  userId?: string,
+  deviceId?: string,
+  username?: string,
+  xpAmount: number,
+  data: {
+    cafeId?: string;
+    hasImage: boolean;
+    imageCount: number;
+    isFirstTimeCafe: boolean;
+  }
+): Promise<{ stats: UserStats | null; newBadges: UserBadge[] }> {
+  try {
+    // Award XP for formal check-in
+    const stats = await awardXP(userId, deviceId, username, xpAmount, 'checkin');
+    
+    if (!stats) return { stats: null, newBadges: [] };
+
+    // Update check-in specific counters
+    const updates: any = {
+      total_reviews: stats.total_reviews + 1,
+      total_photos: stats.total_photos + data.imageCount,
+    };
+
+    // Update stats
+    await supabase
+      .from('user_stats')
+      .update(updates)
+      .eq('id', stats.id);
+
+    // Track cafe visit
+    if (data.cafeId) {
+      await trackCafeVisit(userId, deviceId, username, data.cafeId);
+    }
+
+    // Check and award badges
+    const newBadges = await checkAndAwardBadges(userId, deviceId, username);
+
+    return { stats, newBadges };
+  } catch (error) {
+    console.error('Error in processCheckinCreation:', error);
     return { stats: null, newBadges: [] };
   }
 }

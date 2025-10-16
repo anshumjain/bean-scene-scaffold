@@ -7,6 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { getUsername, getDeviceId } from './userService';
 import { logActivity } from './activityService';
 import { recalculateCafeRating } from './ratingService';
+import { createCafeReview, updateCafeRating } from './cafeReviewService';
+import { processPostCreation, processCheckinCreation } from './gamificationService';
+import { calculateXP, ShareMode } from '../utils/xpCalculator';
 
 function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
   return {
@@ -264,202 +267,6 @@ export async function fetchUserPosts(username?: string, deviceId?: string): Prom
   }
 }
 
-/**
- * Submit a new check-in post
- */
-export async function submitCheckin(checkinData: CheckInData): Promise<ApiResponse<Post>> {
-  try {
-    let imageUrl = checkinData.imageUrl || '';
-    let imageUrls: string[] = [];
-    
-    // Handle single image (for check-ins)
-    if (checkinData.imageFile) {
-      const uploadResult = await uploadImage(checkinData.imageFile);
-      if (uploadResult.success && uploadResult.data) {
-        imageUrl = uploadResult.data.secure_url;
-        imageUrls = [uploadResult.data.secure_url];
-      } else {
-        console.warn('Image upload failed, continuing without image:', uploadResult.error);
-        // Don't throw error, just continue without image
-      }
-    }
-    
-    // Handle multiple images (for posts)
-    if (checkinData.imageFiles && checkinData.imageFiles.length > 0) {
-      imageUrls = [];
-      for (const file of checkinData.imageFiles.slice(0, 3)) { // Limit to 3 images
-        const uploadResult = await uploadImage(file);
-        if (uploadResult.success && uploadResult.data) {
-          imageUrls.push(uploadResult.data.secure_url);
-        } else {
-          console.warn('Image upload failed for file:', file.name, uploadResult.error);
-        }
-      }
-      
-      // Set the first image as the main image for backward compatibility
-      if (imageUrls.length > 0) {
-        imageUrl = imageUrls[0];
-      }
-    }
-    
-    // Use provided URLs if no files were uploaded
-    if (checkinData.imageUrls && checkinData.imageUrls.length > 0) {
-      imageUrls = checkinData.imageUrls;
-      imageUrl = imageUrls[0] || '';
-    }
-    
-    // Get current user and username
-    const { data: { user } } = await supabase.auth.getUser();
-    const deviceId = getDeviceId();
-    let username = null;
-    
-    // Get username (works for both authenticated and anonymous users)
-    const usernameRes = await getUsername();
-    username = usernameRes.success ? usernameRes.data : null;
-
-    // Get or create user profile (works for both authenticated and anonymous users)
-    let userProfile = null;
-    
-    if (user) {
-      // For authenticated users
-      let { data: profile } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!profile) {
-        // Create user profile if it doesn't exist
-        const { data: newProfile, error: profileError } = await supabase
-          .from('users')
-          .insert({
-            auth_user_id: user.id,
-            name: user.user_metadata?.name || username || 'Anonymous User',
-            email: user.email || '',
-            username: username
-          })
-          .select('id')
-          .single();
-
-        if (profileError) throw new Error(profileError.message);
-        profile = newProfile;
-      }
-      userProfile = profile;
-    } else if (username) {
-      // For anonymous users, ensure they have a user record
-      let { data: profile } = await supabase
-        .from('users')
-        .select('id')
-        .eq('device_id', deviceId)
-        .single();
-
-      if (!profile) {
-        // Create anonymous user profile
-        const { data: newProfile, error: profileError } = await supabase
-          .from('users')
-          .insert({
-            device_id: deviceId,
-            username: username,
-            name: username,
-            email: `anonymous-${deviceId}@beanscene.local`
-          })
-          .select('id')
-          .single();
-
-        if (profileError) throw new Error(profileError.message);
-        profile = newProfile;
-      }
-      userProfile = profile;
-    }
-    
-    // Create post data
-    const postData = {
-      user_id: userProfile?.id || null,
-      cafe_id: checkinData.cafeId || null,
-      place_id: checkinData.placeId || null,
-      image_url: imageUrl, // Keep for backward compatibility
-      image_urls: imageUrls, // New field for multiple images
-      rating: checkinData.rating,
-      text_review: checkinData.review,
-      tags: checkinData.tags,
-      username: username,
-      device_id: deviceId,
-      source: 'user', // Explicitly set as user-generated content
-      photo_source: 'user' // Explicitly set as user-generated photo
-    };
-    
-    // No need to set device context since we allow anyone to create posts
-    
-    const { data, error } = await supabase
-      .from('posts')
-      .insert(postData)
-      .select(`
-        *,
-        cafes (name, neighborhood, place_id)
-      `)
-      .single();
-    
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    // Transform to app format
-    const newPost: Post = {
-      id: data.id,
-      userId: data.user_id,
-      cafeId: data.cafe_id,
-      placeId: data.place_id,
-      imageUrl: data.image_url, // Keep for backward compatibility
-      imageUrls: data.image_urls || [], // New field for multiple images
-      rating: data.rating,
-      textReview: data.text_review,
-      tags: data.tags || [],
-      likes: data.likes,
-      comments: data.comments,
-      createdAt: data.created_at,
-      cafe: data.cafes ? {
-        name: data.cafes.name,
-        neighborhood: data.cafes.neighborhood,
-        placeId: data.cafes.place_id
-      } : undefined
-    };
-    
-    // Log activity (optional - don't fail post creation if this fails)
-    try {
-      if (checkinData.cafeId) {
-        await logActivity('check-in', checkinData.cafeId, { 
-          cafeName: data.cafes?.name,
-          rating: checkinData.rating,
-          hasImage: !!checkinData.imageFile || !!checkinData.imageFiles?.length
-        });
-      }
-    } catch (error) {
-      console.error('Failed to log activity (non-critical):', error);
-      // Don't throw - this is optional logging
-    }
-
-    // Recalculate cafe rating (optional - don't fail post creation if this fails)
-    try {
-      if (checkinData.placeId && checkinData.rating) {
-        await recalculateCafeRating(checkinData.placeId);
-      }
-    } catch (error) {
-      console.error('Failed to recalculate cafe rating (non-critical):', error);
-      // Don't throw - this is optional
-    }
-    
-    return {
-      data: newPost,
-      success: true
-    };
-  } catch (error) {
-    return {
-      data: {} as Post,
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to submit check-in'
-    };
-  }
-}
 
 /**
  * Like a post
@@ -727,6 +534,188 @@ export async function deletePost(postId: string): Promise<ApiResponse<boolean>> 
       data: false,
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete post'
+    };
+  }
+}
+
+/**
+ * Submit a check-in/post with optional content
+ * Supports both Post (social) and Check-in (formal review) modes
+ */
+export async function submitCheckin(data: {
+  mode: ShareMode;
+  cafeId?: string | null;
+  placeId?: string | null;
+  rating?: number;
+  tags?: string[];
+  review?: string;
+  imageFiles?: File[];
+  location?: { latitude: number; longitude: number };
+  username?: string;
+}): Promise<ApiResponse<{ postId: string; reviewId?: string }>> {
+  try {
+    console.log('Submitting with mode:', data.mode, 'data:', data);
+
+    // Get user info
+    const usernameResult = await getUsername();
+    const deviceId = getDeviceId();
+    const username = usernameResult.success ? usernameResult.data : null;
+
+    // Handle image uploads if provided
+    let imageUrls: string[] = [];
+    if (data.imageFiles && data.imageFiles.length > 0) {
+      console.log(`Uploading ${data.imageFiles.length} images...`);
+      
+      for (const file of data.imageFiles) {
+        const uploadResult = await uploadImage(file);
+        if (uploadResult.success && uploadResult.data?.secure_url) {
+          imageUrls.push(uploadResult.data.secure_url);
+        } else {
+          console.error('Failed to upload image:', uploadResult.error);
+          return {
+            data: { postId: '', reviewId: undefined },
+            success: false,
+            error: `Failed to upload image: ${uploadResult.error}`
+          };
+        }
+      }
+    }
+
+    // Calculate XP for gamification
+    const xpCalculation = calculateXP({
+      mode: data.mode,
+      hasPhoto: imageUrls.length > 0,
+      hasCaption: Boolean(data.review && data.review.trim().length >= 20),
+      hasCafe: Boolean(data.cafeId),
+      hasRating: Boolean(data.rating && data.rating > 0),
+      tagsCount: data.tags?.length || 0,
+      isGPSVerified: false, // TODO: Implement GPS verification
+      isFirstTimeCafe: false, // TODO: Check if first time at cafe
+    });
+
+    console.log('XP Calculation:', xpCalculation);
+
+    let reviewId: string | undefined;
+
+    // Handle Check-in mode: Create formal review first
+    if (data.mode === 'checkin' && data.cafeId && data.rating && data.review) {
+      console.log('Creating formal cafe review...');
+      
+      const reviewResult = await createCafeReview({
+        cafeId: data.cafeId,
+        reviewerName: username || 'Anonymous',
+        rating: data.rating,
+        reviewText: data.review,
+        profilePhotoUrl: undefined // TODO: Add profile photo support
+      });
+
+      if (!reviewResult.success) {
+        console.error('Failed to create cafe review:', reviewResult.error);
+        return {
+          data: { postId: '', reviewId: undefined },
+          success: false,
+          error: `Failed to create review: ${reviewResult.error}`
+        };
+      }
+
+      reviewId = reviewResult.data.id;
+
+      // Update cafe rating based on reviews
+      await updateCafeRating(data.cafeId);
+    }
+
+    // Prepare post data (both modes create social posts)
+    const postData: any = {
+      user_id: null, // Will be set by RLS policies
+      device_id: deviceId,
+      username: username || 'Anonymous',
+      place_id: data.placeId,
+      cafe_id: data.cafeId,
+      image_url: imageUrls.length > 0 ? imageUrls[0] : null, // First image for backward compatibility
+      image_urls: imageUrls.length > 0 ? imageUrls : null,
+      rating: data.rating || null,
+      text_review: data.review || null,
+      tags: data.tags || null,
+      source: 'user',
+      photo_source: imageUrls.length > 0 ? 'user' : null,
+      created_at: new Date().toISOString()
+    };
+
+    console.log('Inserting post with data:', postData);
+
+    // Insert the social post
+    const { data: insertedPost, error: insertError } = await supabase
+      .from('posts')
+      .insert(postData)
+      .select('id')
+      .single();
+
+    if (insertError) {
+      console.error('Error inserting post:', insertError);
+      return {
+        data: { postId: '', reviewId },
+        success: false,
+        error: insertError.message
+      };
+    }
+
+    // Process gamification (XP and badges)
+    const gamificationData = {
+      cafeId: data.cafeId,
+      hasImage: imageUrls.length > 0,
+      imageCount: imageUrls.length,
+      isFirstTimeCafe: false // TODO: Implement first time cafe check
+    };
+
+    if (data.mode === 'checkin') {
+      await processCheckinCreation(
+        undefined, // userId
+        deviceId,
+        username,
+        xpCalculation.totalXP,
+        gamificationData
+      );
+    } else {
+      await processPostCreation(
+        undefined, // userId
+        deviceId,
+        username,
+        xpCalculation.totalXP,
+        gamificationData
+      );
+    }
+
+    // Log activity
+    await logActivity({
+      type: data.mode === 'checkin' ? 'checkin_created' : 'post_created',
+      description: `Created a ${data.mode}${data.cafeId ? ' at a cafe' : ''}${imageUrls.length > 0 ? ' with photos' : ''}`,
+      metadata: {
+        post_id: insertedPost.id,
+        review_id: reviewId,
+        cafe_id: data.cafeId,
+        has_images: imageUrls.length > 0,
+        image_count: imageUrls.length,
+        has_review: !!data.review,
+        has_rating: !!data.rating,
+        tags_count: data.tags?.length || 0,
+        mode: data.mode,
+        xp_earned: xpCalculation.totalXP
+      }
+    });
+
+    console.log(`${data.mode} created successfully:`, insertedPost.id, reviewId ? `with review: ${reviewId}` : '');
+
+    return {
+      data: { postId: insertedPost.id, reviewId },
+      success: true
+    };
+
+  } catch (error) {
+    console.error('Error in submitCheckin:', error);
+    return {
+      data: { postId: '', reviewId: undefined },
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to submit check-in'
     };
   }
 }

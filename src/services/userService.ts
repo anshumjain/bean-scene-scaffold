@@ -220,6 +220,19 @@ export const migrateLocalStorageToSupabase = async (): Promise<ApiResponse<{
         } 
       };
     }
+
+    // Also check if we've already tried to migrate this specific username
+    const usernameMigrationKey = `username_migration_attempted_${deviceId}_${anonymousUsername}`;
+    const usernameAlreadyAttempted = localStorage.getItem(usernameMigrationKey);
+    if (usernameAlreadyAttempted === 'true') {
+      return { 
+        success: true, 
+        data: { 
+          migrated: false, 
+          message: "Username migration already attempted for this device" 
+        } 
+      };
+    }
     
     // Check if user has a username in localStorage
     if (!anonymousUsername) {
@@ -276,11 +289,18 @@ export const migrateLocalStorageToSupabase = async (): Promise<ApiResponse<{
     
     if (usernameTaken && usernameTaken.device_id !== deviceId) {
       // Username is taken by someone else, we can't migrate
+      // Clear the conflicting username from localStorage to prevent future conflicts
+      localStorage.removeItem("anonymousUsername");
+      
+      // Mark this username migration as attempted to prevent repeated attempts
+      const usernameMigrationKey = `username_migration_attempted_${deviceId}_${anonymousUsername}`;
+      localStorage.setItem(usernameMigrationKey, 'true');
+      
       return { 
         success: true, 
         data: { 
           migrated: false, 
-          message: `Username "${anonymousUsername}" is already taken by another user. Please choose a different username.` 
+          message: `Username "${anonymousUsername}" is already taken by another user. Username cleared from local storage.` 
         } 
       };
     }
