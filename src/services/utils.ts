@@ -324,12 +324,23 @@ export function testIOSWorkarounds(): void {
     console.log('❌ Device motion API not available');
   }
   
-  // Test 4: Check secure context
+  // Test 4: Check secure context and HTTPS details
   console.log('Secure context check:', {
     isSecureContext: window.isSecureContext,
     protocol: location.protocol,
     hostname: location.hostname,
-    origin: location.origin
+    origin: location.origin,
+    port: location.port,
+    href: location.href
+  });
+  
+  // Check if we can access security-related APIs
+  console.log('Security APIs:', {
+    crypto: !!window.crypto,
+    cryptoSubtle: !!(window.crypto && window.crypto.subtle),
+    indexedDB: !!window.indexedDB,
+    localStorage: !!window.localStorage,
+    sessionStorage: !!window.sessionStorage
   });
   
   // Test 5: Check if we can access navigator properties
@@ -341,6 +352,26 @@ export function testIOSWorkarounds(): void {
     cookieEnabled: navigator.cookieEnabled,
     onLine: navigator.onLine
   });
+  
+  // Test 6: Check domain trust and app-like behavior
+  console.log('Domain trust check:', {
+    isApp: window.matchMedia('(display-mode: standalone)').matches,
+    isPWA: window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone,
+    referrer: document.referrer,
+    userAgent: navigator.userAgent.substring(0, 50) + '...'
+  });
+  
+  // Test 7: Try to access location without user interaction (should fail but gives us info)
+  console.log('Testing immediate geolocation call...');
+  try {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => console.log('✅ Immediate call succeeded (unexpected):', pos.coords),
+      (err) => console.log('❌ Immediate call failed (expected):', err.code, err.message),
+      { enableHighAccuracy: false, timeout: 1000, maximumAge: 0 }
+    );
+  } catch (e) {
+    console.log('❌ Immediate call threw exception:', e);
+  }
 }
 
 /**
