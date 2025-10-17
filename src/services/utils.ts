@@ -183,7 +183,11 @@ function attemptGeolocationWithRetry(
   options: PositionOptions,
   retries: number
 ): void {
-  console.log(`🔄 Chrome iOS attempt ${4 - retries}/3...`);
+  const userAgent = navigator.userAgent;
+  const isChromeIOS = /iPad|iPhone|iPod/.test(userAgent) && /Chrome/.test(userAgent);
+  const browserType = isChromeIOS ? 'Chrome iOS' : 'Safari iOS';
+  
+  console.log(`🔄 ${browserType} attempt ${4 - retries}/3...`);
   
   // Try different options for each attempt
   const attemptOptions = [
@@ -197,11 +201,11 @@ function attemptGeolocationWithRetry(
   
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      console.log('✅ Chrome iOS location obtained successfully:', position.coords);
+      console.log(`✅ ${browserType} location obtained successfully:`, position.coords);
       resolve(position);
     },
     (error) => {
-      console.error(`❌ Chrome iOS attempt ${4 - retries} failed:`, {
+      console.error(`❌ ${browserType} attempt ${4 - retries} failed:`, {
         code: error.code,
         message: error.message,
         options: currentOptions
@@ -321,7 +325,17 @@ export function getMobileFriendlyLocation(): Promise<GeolocationPosition> {
     const isMobile = isMobileBrowser();
     const isIOS = /iPad|iPhone|iPod/.test(userAgent);
     const isAndroid = /Android/.test(userAgent);
-    const isChromeIOS = isIOS && /Chrome/.test(userAgent);
+    const isChrome = /Chrome/.test(userAgent);
+    const isSafari = /Safari/.test(userAgent) && !isChrome;
+    const isChromeIOS = isIOS && isChrome;
+    
+    console.log('Browser detection:', {
+      userAgent: userAgent.substring(0, 100) + '...',
+      isIOS,
+      isChrome,
+      isSafari,
+      isChromeIOS
+    });
     
     console.log('Platform detection:', {
       isMobile,
@@ -348,14 +362,15 @@ export function getMobileFriendlyLocation(): Promise<GeolocationPosition> {
     // Platform-specific options
     let options;
     if (isChromeIOS) {
-      // Chrome on iOS - use most conservative settings
-      options = {
+      // Chrome on iOS - use retry mechanism
+      console.log('🔄 Chrome iOS detected - using retry mechanism');
+      attemptGeolocationWithRetry(resolve, reject, {
         enableHighAccuracy: false,
-        timeout: 30000, // Very long timeout for Chrome iOS
-        maximumAge: 0 // No cached location
-      };
-      console.log('Using Chrome iOS specific options');
-    } else if (isIOS) {
+        timeout: 30000,
+        maximumAge: 0
+      }, 3);
+      return;
+    } else if (isIOS && isSafari) {
       // Safari on iOS - also has issues, use retry mechanism
       console.log('🔄 Safari iOS detected - using retry mechanism');
       attemptGeolocationWithRetry(resolve, reject, {
