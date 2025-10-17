@@ -355,52 +355,80 @@ export default function Search() {
         const userAgent = navigator.userAgent;
         const isIOS = /iPad|iPhone|iPod/.test(userAgent);
         
-        // Use very basic, reliable options
-        const options = {
-          enableHighAccuracy: false,
-          timeout: 20000,
-          maximumAge: 0
-        };
-        
-        console.log('Making direct geolocation request with options:', options);
-        
-        // For iOS, try watchPosition first (sometimes works better)
-        if (isIOS) {
-          console.log('🍎 iOS detected - trying watchPosition approach');
-          const watchId = navigator.geolocation.watchPosition(
-            (position) => {
-              console.log('✅ iOS watchPosition success:', position.coords);
-              navigator.geolocation.clearWatch(watchId);
-              resolve(position);
-            },
-            (error) => {
-              console.error('❌ iOS watchPosition failed:', {
-                code: error.code,
-                message: error.message
-              });
-              navigator.geolocation.clearWatch(watchId);
+        // For iOS, check permissions first to verify user actually granted permission
+        if (isIOS && 'permissions' in navigator) {
+          console.log('🍎 iOS detected - checking permissions first...');
+          navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((result) => {
+            console.log('Permissions API result:', result.state);
+            
+            if (result.state === 'granted') {
+              console.log('✅ Permissions API confirms location is granted - proceeding with geolocation');
               
-              // Fallback to getCurrentPosition
-              console.log('🔄 Falling back to getCurrentPosition...');
+              // Use very basic options
+              const options = {
+                enableHighAccuracy: false,
+                timeout: 30000,
+                maximumAge: 0
+              };
+              
+              // Try getCurrentPosition with longer timeout
               navigator.geolocation.getCurrentPosition(
                 (position) => {
-                  console.log('✅ iOS getCurrentPosition fallback success:', position.coords);
+                  console.log('✅ iOS geolocation success after permission check:', position.coords);
                   resolve(position);
                 },
                 (error) => {
-                  console.error('❌ iOS getCurrentPosition fallback failed:', {
+                  console.error('❌ iOS geolocation failed even with granted permission:', {
                     code: error.code,
                     message: error.message
                   });
-                  reject(new Error(`Location request failed: ${error.message}`));
+                  
+                  // This is likely the iOS bug - user granted permission but API returns denied
+                  // Try one more time with different options
+                  console.log('🔄 Retrying with different options...');
+                  navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                      console.log('✅ iOS retry success:', position.coords);
+                      resolve(position);
+                    },
+                    (error) => {
+                      console.error('❌ iOS retry also failed:', error);
+                      reject(new Error('iOS geolocation bug detected. Please try refreshing the page and granting location permission again.'));
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+                  );
                 },
                 options
               );
-            },
-            options
-          );
+            } else {
+              console.log('❌ Permissions API shows location not granted:', result.state);
+              reject(new Error('Location permission not granted. Please allow location access and try again.'));
+            }
+          }).catch((error) => {
+            console.error('❌ Permissions API error:', error);
+            // Fallback to direct geolocation if permissions API fails
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                console.log('✅ Fallback geolocation success:', position.coords);
+                resolve(position);
+              },
+              (error) => {
+                console.error('❌ Fallback geolocation failed:', error);
+                reject(new Error(`Location request failed: ${error.message}`));
+              },
+              { enableHighAccuracy: false, timeout: 20000, maximumAge: 0 }
+            );
+          });
         } else {
           // For Android and desktop, use getCurrentPosition directly
+          const options = {
+            enableHighAccuracy: false,
+            timeout: 20000,
+            maximumAge: 0
+          };
+          
+          console.log('Making direct geolocation request with options:', options);
+          
           navigator.geolocation.getCurrentPosition(
             (position) => {
               console.log('✅ Direct geolocation success:', position.coords);
