@@ -342,6 +342,10 @@ export default function Search() {
     setLocationError("");
     
     try {
+      // Clear any cached location data first
+      localStorage.removeItem('user-location');
+      console.log('Cleared cached location data');
+      
       // Make the geolocation request IMMEDIATELY after user interaction
       // Don't do any async operations first - this is critical for mobile browsers
       console.log('Making immediate geolocation request...');
