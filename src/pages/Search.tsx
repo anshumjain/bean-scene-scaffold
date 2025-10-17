@@ -8,7 +8,7 @@ import { AppLayout } from "@/components/Layout/AppLayout";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { useNavigate } from "react-router-dom";
 import { Cafe } from "@/services/types";
-import { debounce, getCurrentLocation, getMobileFriendlyLocation, isMobileBrowser, debugMobileLocation, testGeolocationApproaches, testIOSWorkarounds, testSimpleGeolocation } from "@/services/utils";
+import { debounce, getCurrentLocation } from "@/services/utils";
 import { calculateDistance } from "@/utils/distanceUtils";
 import { toast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
@@ -40,7 +40,6 @@ export default function Search() {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationError, setLocationError] = useState("");
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
-  const [debugOutput, setDebugOutput] = useState<string[]>([]);
 
   // Filters - with persistence
   const [filters, setFilters] = useState<FilterState>(() => {
@@ -99,7 +98,7 @@ export default function Search() {
 
       // On mobile browsers, don't try to auto-detect location without user interaction
       // This prevents the "Location Access Failed" error on page load
-      if (isMobileBrowser()) {
+      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
         console.log('Mobile browser detected - skipping auto-location detection to avoid permission issues');
         return;
       }
@@ -335,47 +334,13 @@ export default function Search() {
     // Results will be updated automatically by useEffect when searchQuery changes
   };
 
-  /** Location request handler - mobile-optimized */
+  /** Location request handler */
   const handleRequestLocation = async () => {
-    console.log('Location request initiated by user');
     setIsRequestingLocation(true);
     setLocationError("");
     
     try {
-      // CRITICAL: Make geolocation request IMMEDIATELY - no async operations first
-      // This is the key fix for iOS Safari geolocation bug
-      console.log('Making IMMEDIATE geolocation request (iOS fix)...');
-      
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        if (!navigator.geolocation) {
-          reject(new Error('Geolocation is not supported by this browser'));
-          return;
-        }
-        
-        // Use the most basic, reliable options for all platforms
-        const options = {
-          enableHighAccuracy: false,
-          timeout: 15000,
-          maximumAge: 0
-        };
-        
-        console.log('Making geolocation request with options:', options);
-        
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            console.log('✅ Geolocation success:', position.coords);
-            resolve(position);
-          },
-          (error) => {
-            console.error('❌ Geolocation failed:', {
-              code: error.code,
-              message: error.message
-            });
-            reject(new Error(`Location request failed: ${error.message}`));
-          },
-          options
-        );
-      });
+      const position = await getCurrentLocation();
       // Location received
       
       const { latitude, longitude } = position.coords;
@@ -531,75 +496,6 @@ export default function Search() {
             />
           </div>
 
-          {/* Debug button - temporary for mobile debugging */}
-          <div className="mb-3 space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setDebugOutput([]);
-                const output: string[] = [];
-                
-                const log = (msg: string) => {
-                  console.log(msg);
-                  output.push(msg);
-                  setDebugOutput([...output]);
-                };
-                
-                log('🔧 Running debug tests...');
-                log(`Mobile browser detected: ${isMobileBrowser()}`);
-                
-                // Run debug functions
-                debugMobileLocation();
-                testGeolocationApproaches();
-                
-                // Test iOS specific workarounds if on iOS
-                const userAgent = navigator.userAgent;
-                if (/iPad|iPhone|iPod/.test(userAgent)) {
-                  log('🍎 Testing iOS specific workarounds...');
-                  testIOSWorkarounds();
-                  
-                  log('🚀 Testing simple geolocation...');
-                  testSimpleGeolocation();
-                }
-                
-                log('✅ Debug tests completed - check console for detailed output');
-              }}
-              className="text-xs bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-200"
-            >
-              🔧 Debug Location (All Devices)
-            </Button>
-            
-            {/* Mobile console button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                // Load Eruda mobile console
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/eruda';
-                script.onload = () => {
-                  (window as any).eruda.init();
-                  console.log('📱 Mobile console loaded! Check the floating button on your screen.');
-                };
-                document.head.appendChild(script);
-              }}
-              className="text-xs bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-200"
-            >
-              📱 Load Mobile Console
-            </Button>
-            
-          </div>
-
-          {/* Debug Output Display */}
-          {debugOutput.length > 0 && (
-            <div className="mb-3 p-3 bg-gray-100 rounded-lg text-xs font-mono max-h-40 overflow-y-auto">
-              <div className="font-bold mb-2">Debug Output:</div>
-              {debugOutput.map((line, index) => (
-                <div key={index} className="mb-1">{line}</div>
-              ))}
-            </div>
-          )}
 
           {/* Popular Tags - Horizontal Scrollable */}
           {popularTags.length > 0 && (

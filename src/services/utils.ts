@@ -53,7 +53,6 @@ export function parseUrlParams(url: string): Record<string, string> {
 
 /**
  * Get current user location with error handling
- * Enhanced for mobile browser compatibility
  */
 export function getCurrentLocation(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
@@ -63,50 +62,36 @@ export function getCurrentLocation(): Promise<GeolocationPosition> {
     }
     
     // Check if we're on HTTPS (required for mobile browsers)
-    // Allow localhost and 127.0.0.1 for development
-    const isSecureContext = location.protocol === 'https:' || 
-                           location.hostname === 'localhost' || 
-                           location.hostname === '127.0.0.1' ||
-                           location.hostname.includes('vercel.app') ||
-                           location.hostname.includes('netlify.app');
-    
-    if (!isSecureContext) {
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
       reject(new Error('Location access requires HTTPS on mobile browsers. Please use a secure connection.'));
       return;
     }
     
-    // Don't check permissions API - let the geolocation request handle it
-    // The permissions API can be unreliable on mobile browsers
-    
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        console.log('Location obtained successfully:', position.coords);
-        resolve(position);
-      },
+      (position) => resolve(position),
       (error) => {
-        console.error('Geolocation error:', error);
         let errorMessage = 'Location access failed';
         
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = 'Location access denied. Please enable location permissions in your browser settings and refresh the page.';
+            errorMessage = 'Location access denied. Please enable location permissions in your browser settings.';
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information unavailable. Please check your device location settings and try again.';
+            errorMessage = 'Location information unavailable. Please check your device settings.';
             break;
           case error.TIMEOUT:
             errorMessage = 'Location request timed out. Please try again.';
             break;
           default:
-            errorMessage = 'An unknown error occurred while retrieving location. Please try again.';
+            errorMessage = 'An unknown error occurred while retrieving location.';
             break;
         }
         
         reject(new Error(errorMessage));
       },
       {
-        enableHighAccuracy: false, // Changed to false for better compatibility
-        timeout: 10000, // Reduced timeout to 10 seconds
+        enableHighAccuracy: true,
+        timeout: 15000, // Increased timeout for mobile browsers
         maximumAge: 300000 // 5 minutes
       }
     );

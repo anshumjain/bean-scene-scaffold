@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useGoogleAnalytics } from "@/hooks/use-google-analytics";
-import { getCurrentLocation, getMobileFriendlyLocation, isMobileBrowser } from "@/services/utils";
+import { getCurrentLocation } from "@/services/utils";
 import { searchCafesForShare } from "@/services/cafeService";
 import { submitCheckin } from "@/services/postService";
 import { getUsername } from "@/services/userService";
@@ -86,7 +86,7 @@ export default function UnifiedShare() {
         }
 
         // On mobile browsers, don't try to auto-detect location without user interaction
-        if (isMobileBrowser()) {
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
           console.log('Mobile browser detected in UnifiedShare - skipping auto-location detection');
           return;
         }
