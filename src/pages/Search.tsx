@@ -352,6 +352,9 @@ export default function Search() {
           return;
         }
         
+        const userAgent = navigator.userAgent;
+        const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+        
         // Use very basic, reliable options
         const options = {
           enableHighAccuracy: false,
@@ -361,20 +364,58 @@ export default function Search() {
         
         console.log('Making direct geolocation request with options:', options);
         
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            console.log('✅ Direct geolocation success:', position.coords);
-            resolve(position);
-          },
-          (error) => {
-            console.error('❌ Direct geolocation failed:', {
-              code: error.code,
-              message: error.message
-            });
-            reject(new Error(`Location request failed: ${error.message}`));
-          },
-          options
-        );
+        // For iOS, try watchPosition first (sometimes works better)
+        if (isIOS) {
+          console.log('🍎 iOS detected - trying watchPosition approach');
+          const watchId = navigator.geolocation.watchPosition(
+            (position) => {
+              console.log('✅ iOS watchPosition success:', position.coords);
+              navigator.geolocation.clearWatch(watchId);
+              resolve(position);
+            },
+            (error) => {
+              console.error('❌ iOS watchPosition failed:', {
+                code: error.code,
+                message: error.message
+              });
+              navigator.geolocation.clearWatch(watchId);
+              
+              // Fallback to getCurrentPosition
+              console.log('🔄 Falling back to getCurrentPosition...');
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  console.log('✅ iOS getCurrentPosition fallback success:', position.coords);
+                  resolve(position);
+                },
+                (error) => {
+                  console.error('❌ iOS getCurrentPosition fallback failed:', {
+                    code: error.code,
+                    message: error.message
+                  });
+                  reject(new Error(`Location request failed: ${error.message}`));
+                },
+                options
+              );
+            },
+            options
+          );
+        } else {
+          // For Android and desktop, use getCurrentPosition directly
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              console.log('✅ Direct geolocation success:', position.coords);
+              resolve(position);
+            },
+            (error) => {
+              console.error('❌ Direct geolocation failed:', {
+                code: error.code,
+                message: error.message
+              });
+              reject(new Error(`Location request failed: ${error.message}`));
+            },
+            options
+          );
+        }
       });
       // Location received
       
@@ -589,33 +630,6 @@ export default function Search() {
               📱 Load Mobile Console
             </Button>
             
-            {/* Manual location input as fallback */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const lat = prompt('Enter your latitude (e.g., 29.7604):');
-                const lng = prompt('Enter your longitude (e.g., -95.3698):');
-                
-                if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
-                  const locationData = {
-                    latitude: parseFloat(lat),
-                    longitude: parseFloat(lng),
-                    timestamp: Date.now()
-                  };
-                  localStorage.setItem('user-location', JSON.stringify(locationData));
-                  setUserLocation({ latitude: parseFloat(lat), longitude: parseFloat(lng) });
-                  
-                  toast({
-                    title: "Location Set Manually",
-                    description: "You can now filter cafes by distance from your location.",
-                  });
-                }
-              }}
-              className="text-xs bg-green-100 border-green-300 text-green-800 hover:bg-green-200"
-            >
-              📍 Manual Location Input
-            </Button>
           </div>
 
           {/* Debug Output Display */}
