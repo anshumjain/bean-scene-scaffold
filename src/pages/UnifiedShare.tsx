@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useGoogleAnalytics } from "@/hooks/use-google-analytics";
-import { getCurrentLocation } from "@/services/utils";
+import { getCurrentLocation, getMobileFriendlyLocation, isMobileBrowser } from "@/services/utils";
 import { searchCafesForShare } from "@/services/cafeService";
 import { submitCheckin } from "@/services/postService";
 import { getUsername } from "@/services/userService";
@@ -70,6 +70,28 @@ export default function UnifiedShare() {
   useEffect(() => {
     const getLocation = async () => {
       try {
+        // Check if we have stored location first
+        const storedLocation = localStorage.getItem('user-location');
+        if (storedLocation) {
+          const parsedLocation = JSON.parse(storedLocation);
+          // Check if location is not too old (less than 1 hour)
+          if (parsedLocation.timestamp && Date.now() - parsedLocation.timestamp < 3600000) {
+            setUserLocation({
+              latitude: parsedLocation.latitude,
+              longitude: parsedLocation.longitude,
+            });
+            console.log('Using stored location in UnifiedShare:', parsedLocation);
+            return;
+          }
+        }
+
+        // On mobile browsers, don't try to auto-detect location without user interaction
+        if (isMobileBrowser()) {
+          console.log('Mobile browser detected in UnifiedShare - skipping auto-location detection');
+          return;
+        }
+
+        // Only try auto-detection on desktop browsers
         const position = await getCurrentLocation();
         setUserLocation({
           latitude: position.coords.latitude,

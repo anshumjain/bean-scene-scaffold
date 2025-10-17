@@ -8,7 +8,7 @@ import { AppLayout } from "@/components/Layout/AppLayout";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { useNavigate } from "react-router-dom";
 import { Cafe } from "@/services/types";
-import { debounce, getCurrentLocation } from "@/services/utils";
+import { debounce, getCurrentLocation, getMobileFriendlyLocation, isMobileBrowser } from "@/services/utils";
 import { calculateDistance } from "@/utils/distanceUtils";
 import { toast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
@@ -72,7 +72,7 @@ export default function Search() {
     };
   });
 
-  /** Auto-detect location on page load */
+  /** Auto-detect location on page load - mobile-friendly version */
   const autoDetectLocation = useCallback(async () => {
     try {
       // Check if we already have location stored
@@ -96,7 +96,14 @@ export default function Search() {
         }
       }
 
-      // Try to get current location automatically (without user interaction)
+      // On mobile browsers, don't try to auto-detect location without user interaction
+      // This prevents the "Location Access Failed" error on page load
+      if (isMobileBrowser()) {
+        console.log('Mobile browser detected - skipping auto-location detection to avoid permission issues');
+        return;
+      }
+
+      // Only try auto-detection on desktop browsers
       const position = await getCurrentLocation();
       const { latitude, longitude } = position.coords;
       
@@ -327,14 +334,30 @@ export default function Search() {
     // Results will be updated automatically by useEffect when searchQuery changes
   };
 
-  /** Location request handler */
+  /** Location request handler - mobile-optimized */
   const handleRequestLocation = async () => {
     setIsRequestingLocation(true);
     setLocationError("");
     
     try {
+      // Check if we're on mobile and provide better error handling
+      if (isMobileBrowser()) {
+        // On mobile, check if permissions are already denied
+        if (navigator.permissions) {
+          try {
+            const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+            if (permission.state === 'denied') {
+              throw new Error('Location access denied. Please enable location permissions in your browser settings and refresh the page.');
+            }
+          } catch (permError) {
+            // Permissions API not supported, continue with request
+            console.log('Permissions API not supported, continuing with location request');
+          }
+        }
+      }
+      
       // Requesting location...
-      const position = await getCurrentLocation();
+      const position = await getMobileFriendlyLocation();
       // Location received
       
       const { latitude, longitude } = position.coords;
@@ -367,12 +390,14 @@ export default function Search() {
       setLocationError(error.message);
       
       let errorMessage = "Please enable location access to filter by distance.";
-      if (error.code === 1) {
-        errorMessage = "Location access denied. Please allow location access in your browser settings.";
-      } else if (error.code === 2) {
-        errorMessage = "Location unavailable. Please check your internet connection.";
-      } else if (error.code === 3) {
+      if (error.code === 1 || error.message.includes('denied')) {
+        errorMessage = "Location access denied. Please enable location permissions in your browser settings and refresh the page.";
+      } else if (error.code === 2 || error.message.includes('unavailable')) {
+        errorMessage = "Location information unavailable. Please check that your device has location services enabled.";
+      } else if (error.code === 3 || error.message.includes('timeout')) {
         errorMessage = "Location request timed out. Please try again.";
+      } else if (error.message.includes('HTTPS')) {
+        errorMessage = "Location access requires a secure connection. Please ensure you're using HTTPS.";
       }
       
       toast({
