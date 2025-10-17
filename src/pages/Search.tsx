@@ -8,7 +8,7 @@ import { AppLayout } from "@/components/Layout/AppLayout";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { useNavigate } from "react-router-dom";
 import { Cafe } from "@/services/types";
-import { debounce, getCurrentLocation, getMobileFriendlyLocation, isMobileBrowser } from "@/services/utils";
+import { debounce, getCurrentLocation, getMobileFriendlyLocation, isMobileBrowser, debugMobileLocation, testGeolocationApproaches } from "@/services/utils";
 import { calculateDistance } from "@/utils/distanceUtils";
 import { toast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
@@ -341,6 +341,9 @@ export default function Search() {
     setLocationError("");
     
     try {
+      // Run debug info first
+      debugMobileLocation();
+      
       // Don't check permissions API - let the geolocation request handle it
       // The permissions API can be unreliable on mobile browsers and may prevent
       // the user from being prompted for location access
@@ -501,6 +504,23 @@ export default function Search() {
               onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10 coffee-search-bar bg-white/90 border-white/20 text-foreground"
             />
+          </div>
+
+          {/* Debug button - temporary for mobile debugging */}
+          <div className="mb-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                console.log('🔧 Running debug tests...');
+                console.log('Mobile browser detected:', isMobileBrowser());
+                debugMobileLocation();
+                testGeolocationApproaches();
+              }}
+              className="text-xs bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-200"
+            >
+              🔧 Debug Location (All Devices)
+            </Button>
           </div>
 
           {/* Popular Tags - Horizontal Scrollable */}

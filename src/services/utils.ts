@@ -121,6 +121,146 @@ export function isMobileBrowser(): boolean {
 }
 
 /**
+ * Debug mobile location capabilities
+ */
+export function debugMobileLocation(): void {
+  const userAgent = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+  const isAndroid = /Android/.test(userAgent);
+  const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+  const isChrome = /Chrome/.test(userAgent);
+  const isChromeIOS = isIOS && isChrome;
+  
+  console.log('🔍 Mobile Location Debug Info:', {
+    userAgent: userAgent,
+    isMobile: isMobileBrowser(),
+    isIOS: isIOS,
+    isAndroid: isAndroid,
+    isSafari: isSafari,
+    isChrome: isChrome,
+    isChromeIOS: isChromeIOS,
+    hasGeolocation: !!navigator.geolocation,
+    protocol: location.protocol,
+    hostname: location.hostname,
+    isSecureContext: window.isSecureContext,
+    permissionsAPI: !!navigator.permissions,
+    platform: navigator.platform,
+    cookieEnabled: navigator.cookieEnabled,
+    onLine: navigator.onLine
+  });
+  
+  // Platform-specific warnings
+  if (isChromeIOS) {
+    console.warn('⚠️ Chrome on iOS detected - known to have geolocation issues!');
+    console.warn('💡 Try using Safari instead, or check iOS Settings > Privacy > Location Services');
+  }
+  
+  if (isIOS && !isSecureContext) {
+    console.error('❌ iOS requires HTTPS for geolocation!');
+  }
+  
+  // Test permissions API if available
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'geolocation' as PermissionName })
+      .then(result => {
+        console.log('📍 Permissions API result:', {
+          state: result.state,
+          onchange: typeof result.onchange
+        });
+      })
+      .catch(err => {
+        console.log('📍 Permissions API error:', err);
+      });
+  }
+}
+
+/**
+ * Chrome iOS retry mechanism
+ */
+function attemptGeolocationWithRetry(
+  resolve: (position: GeolocationPosition) => void,
+  reject: (error: Error) => void,
+  options: PositionOptions,
+  retries: number
+): void {
+  console.log(`🔄 Attempting geolocation (${4 - retries}/3)...`);
+  
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      console.log('✅ Chrome iOS location obtained successfully:', position.coords);
+      resolve(position);
+    },
+    (error) => {
+      console.error(`❌ Chrome iOS attempt ${4 - retries} failed:`, error.code, error.message);
+      
+      if (retries > 1) {
+        // Wait 1 second before retry
+        setTimeout(() => {
+          attemptGeolocationWithRetry(resolve, reject, options, retries - 1);
+        }, 1000);
+      } else {
+        // All retries failed
+        let errorMessage = 'Location access failed after multiple attempts.';
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location access denied. Please enable location permissions in your browser settings and refresh the page.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information unavailable. Please check that your device has location services enabled and try again.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out. Please try again.';
+            break;
+          default:
+            errorMessage = 'An unknown error occurred while retrieving location. Please try again.';
+            break;
+        }
+        
+        reject(new Error(errorMessage));
+      }
+    },
+    options
+  );
+}
+
+/**
+ * Test different geolocation approaches for debugging
+ */
+export function testGeolocationApproaches(): void {
+  if (!navigator.geolocation) {
+    console.error('❌ Geolocation not supported');
+    return;
+  }
+
+  console.log('🧪 Testing different geolocation approaches...');
+
+  // Test 1: Basic approach
+  console.log('Test 1: Basic geolocation');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => console.log('✅ Test 1 success:', pos.coords),
+    (err) => console.log('❌ Test 1 failed:', err.code, err.message),
+    { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
+  );
+
+  // Test 2: High accuracy
+  console.log('Test 2: High accuracy');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => console.log('✅ Test 2 success:', pos.coords),
+    (err) => console.log('❌ Test 2 failed:', err.code, err.message),
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+
+  // Test 3: With cached location
+  console.log('Test 3: With cached location');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => console.log('✅ Test 3 success:', pos.coords),
+    (err) => console.log('❌ Test 3 failed:', err.code, err.message),
+    { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+  );
+}
+
+/**
  * Get mobile-friendly location with better error handling
  */
 export function getMobileFriendlyLocation(): Promise<GeolocationPosition> {
@@ -130,8 +270,19 @@ export function getMobileFriendlyLocation(): Promise<GeolocationPosition> {
       return;
     }
     
+    const userAgent = navigator.userAgent;
     const isMobile = isMobileBrowser();
-    console.log('Mobile browser detected:', isMobile);
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+    const isAndroid = /Android/.test(userAgent);
+    const isChromeIOS = isIOS && /Chrome/.test(userAgent);
+    
+    console.log('Platform detection:', {
+      isMobile,
+      isIOS,
+      isAndroid,
+      isChromeIOS,
+      userAgent: userAgent.substring(0, 100) + '...'
+    });
     
     // Check if we're on HTTPS (required for mobile browsers)
     const isSecureContext = location.protocol === 'https:' || 
@@ -147,31 +298,78 @@ export function getMobileFriendlyLocation(): Promise<GeolocationPosition> {
       return;
     }
     
-    // For mobile browsers, use very conservative settings
-    const options = isMobile ? {
-      enableHighAccuracy: false,
-      timeout: 20000, // Even longer timeout for mobile
-      maximumAge: 0 // Don't use cached location on mobile
-    } : {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 300000 // 5 minutes for desktop
-    };
+    // Platform-specific options
+    let options;
+    if (isChromeIOS) {
+      // Chrome on iOS - use most conservative settings
+      options = {
+        enableHighAccuracy: false,
+        timeout: 30000, // Very long timeout for Chrome iOS
+        maximumAge: 0 // No cached location
+      };
+      console.log('Using Chrome iOS specific options');
+    } else if (isIOS) {
+      // Safari on iOS
+      options = {
+        enableHighAccuracy: false,
+        timeout: 20000,
+        maximumAge: 0
+      };
+      console.log('Using iOS Safari options');
+    } else if (isAndroid) {
+      // Android browsers
+      options = {
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 0
+      };
+      console.log('Using Android options');
+    } else {
+      // Desktop
+      options = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000
+      };
+      console.log('Using desktop options');
+    }
     
     console.log('Geolocation options:', options);
     console.log('Making geolocation request...');
     
+    // Chrome iOS specific workaround - try multiple times
+    if (isChromeIOS) {
+      console.log('🔄 Chrome iOS detected - using retry mechanism');
+      attemptGeolocationWithRetry(resolve, reject, options, 3);
+      return;
+    }
+    
+    // Add a timeout to detect if the request is hanging
+    const requestTimeout = setTimeout(() => {
+      console.error('Geolocation request timed out after 25 seconds');
+    }, 25000);
+    
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        console.log('Location obtained successfully:', position.coords);
+        clearTimeout(requestTimeout);
+        console.log('✅ Location obtained successfully:', {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: position.timestamp
+        });
         resolve(position);
       },
       (error) => {
-        console.error('Geolocation error details:', {
+        clearTimeout(requestTimeout);
+        console.error('❌ Geolocation error details:', {
           code: error.code,
           message: error.message,
           isMobile: isMobile,
-          userAgent: navigator.userAgent
+          userAgent: navigator.userAgent,
+          protocol: location.protocol,
+          hostname: location.hostname,
+          secureContext: window.isSecureContext
         });
         
         let errorMessage = 'Location access failed';
