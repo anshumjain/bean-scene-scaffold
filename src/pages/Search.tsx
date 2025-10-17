@@ -8,7 +8,7 @@ import { AppLayout } from "@/components/Layout/AppLayout";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { useNavigate } from "react-router-dom";
 import { Cafe } from "@/services/types";
-import { debounce, getCurrentLocation, getMobileFriendlyLocation, isMobileBrowser, debugMobileLocation, testGeolocationApproaches, testIOSWorkarounds } from "@/services/utils";
+import { debounce, getCurrentLocation, getMobileFriendlyLocation, isMobileBrowser, debugMobileLocation, testGeolocationApproaches, testIOSWorkarounds, testSimpleGeolocation } from "@/services/utils";
 import { calculateDistance } from "@/utils/distanceUtils";
 import { toast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
@@ -342,16 +342,40 @@ export default function Search() {
     setLocationError("");
     
     try {
-      // Run debug info first
-      debugMobileLocation();
+      // Make the geolocation request IMMEDIATELY after user interaction
+      // Don't do any async operations first - this is critical for mobile browsers
+      console.log('Making immediate geolocation request...');
       
-      // Don't check permissions API - let the geolocation request handle it
-      // The permissions API can be unreliable on mobile browsers and may prevent
-      // the user from being prompted for location access
-      
-      console.log('About to call getMobileFriendlyLocation...');
-      // Requesting location...
-      const position = await getMobileFriendlyLocation();
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocation is not supported by this browser'));
+          return;
+        }
+        
+        // Use very basic, reliable options
+        const options = {
+          enableHighAccuracy: false,
+          timeout: 20000,
+          maximumAge: 0
+        };
+        
+        console.log('Making direct geolocation request with options:', options);
+        
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log('✅ Direct geolocation success:', position.coords);
+            resolve(position);
+          },
+          (error) => {
+            console.error('❌ Direct geolocation failed:', {
+              code: error.code,
+              message: error.message
+            });
+            reject(new Error(`Location request failed: ${error.message}`));
+          },
+          options
+        );
+      });
       // Location received
       
       const { latitude, longitude } = position.coords;
@@ -534,6 +558,9 @@ export default function Search() {
                 if (/iPad|iPhone|iPod/.test(userAgent)) {
                   log('🍎 Testing iOS specific workarounds...');
                   testIOSWorkarounds();
+                  
+                  log('🚀 Testing simple geolocation...');
+                  testSimpleGeolocation();
                 }
                 
                 log('✅ Debug tests completed - check console for detailed output');
@@ -560,6 +587,34 @@ export default function Search() {
               className="text-xs bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-200"
             >
               📱 Load Mobile Console
+            </Button>
+            
+            {/* Manual location input as fallback */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const lat = prompt('Enter your latitude (e.g., 29.7604):');
+                const lng = prompt('Enter your longitude (e.g., -95.3698):');
+                
+                if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
+                  const locationData = {
+                    latitude: parseFloat(lat),
+                    longitude: parseFloat(lng),
+                    timestamp: Date.now()
+                  };
+                  localStorage.setItem('user-location', JSON.stringify(locationData));
+                  setUserLocation({ latitude: parseFloat(lat), longitude: parseFloat(lng) });
+                  
+                  toast({
+                    title: "Location Set Manually",
+                    description: "You can now filter cafes by distance from your location.",
+                  });
+                }
+              }}
+              className="text-xs bg-green-100 border-green-300 text-green-800 hover:bg-green-200"
+            >
+              📍 Manual Location Input
             </Button>
           </div>
 

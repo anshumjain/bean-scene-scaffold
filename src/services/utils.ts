@@ -285,6 +285,44 @@ export function testGeolocationApproaches(): void {
 }
 
 /**
+ * Simple, direct geolocation test - bypass all complex logic
+ */
+export function testSimpleGeolocation(): void {
+  console.log('🚀 Testing simple, direct geolocation...');
+  
+  if (!navigator.geolocation) {
+    console.error('❌ Geolocation not supported');
+    return;
+  }
+  
+  // Use the most basic settings possible
+  const options = {
+    enableHighAccuracy: false,
+    timeout: 15000,
+    maximumAge: 0
+  };
+  
+  console.log('Making simple geolocation request with options:', options);
+  
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      console.log('✅ SIMPLE SUCCESS! Location obtained:', {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy
+      });
+    },
+    (error) => {
+      console.error('❌ Simple geolocation failed:', {
+        code: error.code,
+        message: error.message
+      });
+    },
+    options
+  );
+}
+
+/**
  * Test iOS specific geolocation workarounds
  */
 export function testIOSWorkarounds(): void {
