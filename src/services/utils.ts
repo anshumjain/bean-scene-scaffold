@@ -175,7 +175,7 @@ export function debugMobileLocation(): void {
 }
 
 /**
- * Chrome iOS retry mechanism
+ * Chrome iOS retry mechanism with different approaches
  */
 function attemptGeolocationWithRetry(
   resolve: (position: GeolocationPosition) => void,
@@ -183,7 +183,17 @@ function attemptGeolocationWithRetry(
   options: PositionOptions,
   retries: number
 ): void {
-  console.log(`🔄 Attempting geolocation (${4 - retries}/3)...`);
+  console.log(`🔄 Chrome iOS attempt ${4 - retries}/3...`);
+  
+  // Try different options for each attempt
+  const attemptOptions = [
+    { enableHighAccuracy: false, timeout: 30000, maximumAge: 0 },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+  ];
+  
+  const currentOptions = attemptOptions[3 - retries] || options;
+  console.log('Using options:', currentOptions);
   
   navigator.geolocation.getCurrentPosition(
     (position) => {
@@ -191,36 +201,38 @@ function attemptGeolocationWithRetry(
       resolve(position);
     },
     (error) => {
-      console.error(`❌ Chrome iOS attempt ${4 - retries} failed:`, error.code, error.message);
+      console.error(`❌ Chrome iOS attempt ${4 - retries} failed:`, {
+        code: error.code,
+        message: error.message,
+        options: currentOptions
+      });
       
       if (retries > 1) {
-        // Wait 1 second before retry
+        // Wait 2 seconds before retry
         setTimeout(() => {
           attemptGeolocationWithRetry(resolve, reject, options, retries - 1);
-        }, 1000);
+        }, 2000);
       } else {
-        // All retries failed
-        let errorMessage = 'Location access failed after multiple attempts.';
+        // All retries failed - provide iOS specific guidance
+        const userAgent = navigator.userAgent;
+        const isChromeIOS = /iPad|iPhone|iPod/.test(userAgent) && /Chrome/.test(userAgent);
         
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = 'Location access denied. Please enable location permissions in your browser settings and refresh the page.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Location information unavailable. Please check that your device has location services enabled and try again.';
-            break;
-          case error.TIMEOUT:
-            errorMessage = 'Location request timed out. Please try again.';
-            break;
-          default:
-            errorMessage = 'An unknown error occurred while retrieving location. Please try again.';
-            break;
+        let errorMessage = 'iOS has known geolocation issues. ';
+        
+        if (error.code === 1) {
+          if (isChromeIOS) {
+            errorMessage += 'Please try using Safari instead, or check iOS Settings > Privacy & Security > Location Services > Safari.';
+          } else {
+            errorMessage += 'Please check iOS Settings > Privacy & Security > Location Services > Safari and ensure location is enabled.';
+          }
+        } else {
+          errorMessage += 'Please check that location services are enabled on your device.';
         }
         
         reject(new Error(errorMessage));
       }
     },
-    options
+    currentOptions
   );
 }
 
@@ -309,13 +321,14 @@ export function getMobileFriendlyLocation(): Promise<GeolocationPosition> {
       };
       console.log('Using Chrome iOS specific options');
     } else if (isIOS) {
-      // Safari on iOS
-      options = {
+      // Safari on iOS - also has issues, use retry mechanism
+      console.log('🔄 Safari iOS detected - using retry mechanism');
+      attemptGeolocationWithRetry(resolve, reject, {
         enableHighAccuracy: false,
-        timeout: 20000,
+        timeout: 25000,
         maximumAge: 0
-      };
-      console.log('Using iOS Safari options');
+      }, 3);
+      return;
     } else if (isAndroid) {
       // Android browsers
       options = {
@@ -337,7 +350,7 @@ export function getMobileFriendlyLocation(): Promise<GeolocationPosition> {
     console.log('Geolocation options:', options);
     console.log('Making geolocation request...');
     
-    // Chrome iOS specific workaround - try multiple times
+    // Chrome iOS specific workaround - try multiple times with different approaches
     if (isChromeIOS) {
       console.log('🔄 Chrome iOS detected - using retry mechanism');
       attemptGeolocationWithRetry(resolve, reject, options, 3);
