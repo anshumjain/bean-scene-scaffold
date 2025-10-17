@@ -75,17 +75,8 @@ export function getCurrentLocation(): Promise<GeolocationPosition> {
       return;
     }
     
-    // Check if permissions are already denied
-    if (navigator.permissions) {
-      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((result) => {
-        if (result.state === 'denied') {
-          reject(new Error('Location access denied. Please enable location permissions in your browser settings.'));
-          return;
-        }
-      }).catch(() => {
-        // Permissions API not supported, continue with geolocation request
-      });
-    }
+    // Don't check permissions API - let the geolocation request handle it
+    // The permissions API can be unreliable on mobile browsers
     
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -140,6 +131,7 @@ export function getMobileFriendlyLocation(): Promise<GeolocationPosition> {
     }
     
     const isMobile = isMobileBrowser();
+    console.log('Mobile browser detected:', isMobile);
     
     // Check if we're on HTTPS (required for mobile browsers)
     const isSecureContext = location.protocol === 'https:' || 
@@ -148,21 +140,26 @@ export function getMobileFriendlyLocation(): Promise<GeolocationPosition> {
                            location.hostname.includes('vercel.app') ||
                            location.hostname.includes('netlify.app');
     
+    console.log('Secure context:', isSecureContext, 'Protocol:', location.protocol, 'Hostname:', location.hostname);
+    
     if (!isSecureContext) {
       reject(new Error('Location access requires HTTPS on mobile browsers. Please use a secure connection.'));
       return;
     }
     
-    // For mobile browsers, use more conservative settings
+    // For mobile browsers, use very conservative settings
     const options = isMobile ? {
       enableHighAccuracy: false,
-      timeout: 15000, // Longer timeout for mobile
-      maximumAge: 600000 // 10 minutes for mobile
+      timeout: 20000, // Even longer timeout for mobile
+      maximumAge: 0 // Don't use cached location on mobile
     } : {
       enableHighAccuracy: true,
       timeout: 10000,
       maximumAge: 300000 // 5 minutes for desktop
     };
+    
+    console.log('Geolocation options:', options);
+    console.log('Making geolocation request...');
     
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -170,7 +167,13 @@ export function getMobileFriendlyLocation(): Promise<GeolocationPosition> {
         resolve(position);
       },
       (error) => {
-        console.error('Geolocation error:', error);
+        console.error('Geolocation error details:', {
+          code: error.code,
+          message: error.message,
+          isMobile: isMobile,
+          userAgent: navigator.userAgent
+        });
+        
         let errorMessage = 'Location access failed';
         
         switch (error.code) {

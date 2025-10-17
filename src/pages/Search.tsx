@@ -336,26 +336,16 @@ export default function Search() {
 
   /** Location request handler - mobile-optimized */
   const handleRequestLocation = async () => {
+    console.log('Location request initiated by user');
     setIsRequestingLocation(true);
     setLocationError("");
     
     try {
-      // Check if we're on mobile and provide better error handling
-      if (isMobileBrowser()) {
-        // On mobile, check if permissions are already denied
-        if (navigator.permissions) {
-          try {
-            const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-            if (permission.state === 'denied') {
-              throw new Error('Location access denied. Please enable location permissions in your browser settings and refresh the page.');
-            }
-          } catch (permError) {
-            // Permissions API not supported, continue with request
-            console.log('Permissions API not supported, continuing with location request');
-          }
-        }
-      }
+      // Don't check permissions API - let the geolocation request handle it
+      // The permissions API can be unreliable on mobile browsers and may prevent
+      // the user from being prompted for location access
       
+      console.log('About to call getMobileFriendlyLocation...');
       // Requesting location...
       const position = await getMobileFriendlyLocation();
       // Location received
@@ -386,7 +376,12 @@ export default function Search() {
         description: "You can now filter cafes by distance from your location.",
       });
     } catch (error: any) {
-      console.error("Location error:", error);
+      console.error("Location error in Search page:", {
+        error: error,
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       setLocationError(error.message);
       
       let errorMessage = "Please enable location access to filter by distance.";
