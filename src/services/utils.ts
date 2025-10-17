@@ -290,8 +290,8 @@ export function testGeolocationApproaches(): void {
 export function testIOSWorkarounds(): void {
   console.log('🍎 Testing iOS specific workarounds...');
   
-  // Check if we can use watchPosition instead
-  console.log('Testing watchPosition...');
+  // Test 1: watchPosition
+  console.log('Test 1: watchPosition...');
   const watchId = navigator.geolocation.watchPosition(
     (pos) => {
       console.log('✅ watchPosition success:', pos.coords);
@@ -309,6 +309,38 @@ export function testIOSWorkarounds(): void {
     navigator.geolocation.clearWatch(watchId);
     console.log('Cleared watchPosition');
   }, 5000);
+  
+  // Test 2: Check if we can access device orientation (indicates device capabilities)
+  if (window.DeviceOrientationEvent) {
+    console.log('✅ Device orientation API available');
+  } else {
+    console.log('❌ Device orientation API not available');
+  }
+  
+  // Test 3: Check if we can access device motion (indicates device capabilities)
+  if (window.DeviceMotionEvent) {
+    console.log('✅ Device motion API available');
+  } else {
+    console.log('❌ Device motion API not available');
+  }
+  
+  // Test 4: Check secure context
+  console.log('Secure context check:', {
+    isSecureContext: window.isSecureContext,
+    protocol: location.protocol,
+    hostname: location.hostname,
+    origin: location.origin
+  });
+  
+  // Test 5: Check if we can access navigator properties
+  console.log('Navigator capabilities:', {
+    geolocation: !!navigator.geolocation,
+    permissions: !!navigator.permissions,
+    serviceWorker: !!navigator.serviceWorker,
+    platform: navigator.platform,
+    cookieEnabled: navigator.cookieEnabled,
+    onLine: navigator.onLine
+  });
 }
 
 /**
