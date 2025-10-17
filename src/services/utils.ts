@@ -67,22 +67,57 @@ export function getCurrentLocation(): Promise<GeolocationPosition> {
       return;
     }
     
+    // iOS Safari geolocation workaround - use watchPosition instead of getCurrentPosition
+    const userAgent = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+    
+    if (isIOS) {
+      console.log('🍎 iOS detected - using watchPosition workaround');
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          console.log('✅ iOS watchPosition success:', position.coords);
+          navigator.geolocation.clearWatch(watchId);
+          resolve(position);
+        },
+        (error) => {
+          console.error('❌ iOS watchPosition failed:', error);
+          navigator.geolocation.clearWatch(watchId);
+          
+          // Fallback to getCurrentPosition with different options
+          console.log('🔄 iOS fallback to getCurrentPosition...');
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              console.log('✅ iOS fallback success:', position.coords);
+              resolve(position);
+            },
+            (error) => {
+              console.error('❌ iOS fallback also failed:', error);
+              reject(new Error('iOS geolocation is not working. Please try refreshing the page or using a different browser.'));
+            },
+            {
+              enableHighAccuracy: false,
+              timeout: 30000,
+              maximumAge: 0
+            }
+          );
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 20000,
+          maximumAge: 0
+        }
+      );
+    } else {
+      // Non-iOS browsers - use standard getCurrentPosition
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        console.log('✅ Geolocation success:', position.coords);
-        resolve(position);
-      },
+        (position) => {
+          console.log('✅ Geolocation success:', position.coords);
+          resolve(position);
+        },
       (error) => {
-        console.error('❌ Geolocation error:', {
-          code: error.code,
-          message: error.message,
-          userAgent: navigator.userAgent,
-          protocol: location.protocol,
-          hostname: location.hostname
-        });
-        
+          console.error('❌ Geolocation error:', error);
+          
         let errorMessage = 'Location access failed';
-        
         switch (error.code) {
           case error.PERMISSION_DENIED:
             errorMessage = 'Location access denied. Please enable location permissions in your browser settings.';
@@ -102,10 +137,11 @@ export function getCurrentLocation(): Promise<GeolocationPosition> {
       },
       {
         enableHighAccuracy: true,
-        timeout: 15000, // Increased timeout for mobile browsers
-        maximumAge: 300000 // 5 minutes
-      }
-    );
+          timeout: 15000,
+          maximumAge: 300000
+        }
+      );
+    }
   });
 }
 
