@@ -68,8 +68,19 @@ export function getCurrentLocation(): Promise<GeolocationPosition> {
     }
     
     navigator.geolocation.getCurrentPosition(
-      (position) => resolve(position),
+      (position) => {
+        console.log('✅ Geolocation success:', position.coords);
+        resolve(position);
+      },
       (error) => {
+        console.error('❌ Geolocation error:', {
+          code: error.code,
+          message: error.message,
+          userAgent: navigator.userAgent,
+          protocol: location.protocol,
+          hostname: location.hostname
+        });
+        
         let errorMessage = 'Location access failed';
         
         switch (error.code) {
