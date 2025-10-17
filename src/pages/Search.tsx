@@ -8,7 +8,7 @@ import { AppLayout } from "@/components/Layout/AppLayout";
 import { ExploreFilters, FilterState } from "@/components/Filters/ExploreFilters";
 import { useNavigate } from "react-router-dom";
 import { Cafe } from "@/services/types";
-import { debounce, getCurrentLocation, getMobileFriendlyLocation, isMobileBrowser, debugMobileLocation, testGeolocationApproaches } from "@/services/utils";
+import { debounce, getCurrentLocation, getMobileFriendlyLocation, isMobileBrowser, debugMobileLocation, testGeolocationApproaches, testIOSWorkarounds } from "@/services/utils";
 import { calculateDistance } from "@/utils/distanceUtils";
 import { toast } from "@/hooks/use-toast";
 import { getCafeEmoji } from "@/utils/emojiPlaceholders";
@@ -528,6 +528,13 @@ export default function Search() {
                 // Run debug functions
                 debugMobileLocation();
                 testGeolocationApproaches();
+                
+                // Test iOS specific workarounds if on iOS
+                const userAgent = navigator.userAgent;
+                if (/iPad|iPhone|iPod/.test(userAgent)) {
+                  log('🍎 Testing iOS specific workarounds...');
+                  testIOSWorkarounds();
+                }
                 
                 log('✅ Debug tests completed - check console for detailed output');
               }}

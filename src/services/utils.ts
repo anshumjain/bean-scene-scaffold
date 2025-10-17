@@ -270,6 +270,41 @@ export function testGeolocationApproaches(): void {
     (err) => console.log('❌ Test 3 failed:', err.code, err.message),
     { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
   );
+
+  // Test 4: iOS specific - very long timeout
+  console.log('Test 4: iOS long timeout');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => console.log('✅ Test 4 success:', pos.coords),
+    (err) => console.log('❌ Test 4 failed:', err.code, err.message),
+    { enableHighAccuracy: false, timeout: 30000, maximumAge: 0 }
+  );
+}
+
+/**
+ * Test iOS specific geolocation workarounds
+ */
+export function testIOSWorkarounds(): void {
+  console.log('🍎 Testing iOS specific workarounds...');
+  
+  // Check if we can use watchPosition instead
+  console.log('Testing watchPosition...');
+  const watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      console.log('✅ watchPosition success:', pos.coords);
+      navigator.geolocation.clearWatch(watchId);
+    },
+    (err) => {
+      console.log('❌ watchPosition failed:', err.code, err.message);
+      navigator.geolocation.clearWatch(watchId);
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+  );
+  
+  // Clear watch after 5 seconds
+  setTimeout(() => {
+    navigator.geolocation.clearWatch(watchId);
+    console.log('Cleared watchPosition');
+  }, 5000);
 }
 
 /**
