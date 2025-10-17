@@ -40,6 +40,7 @@ export default function Search() {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationError, setLocationError] = useState("");
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+  const [debugOutput, setDebugOutput] = useState<string[]>([]);
 
   // Filters - with persistence
   const [filters, setFilters] = useState<FilterState>(() => {
@@ -507,21 +508,63 @@ export default function Search() {
           </div>
 
           {/* Debug button - temporary for mobile debugging */}
-          <div className="mb-3">
+          <div className="mb-3 space-y-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
-                console.log('🔧 Running debug tests...');
-                console.log('Mobile browser detected:', isMobileBrowser());
+                setDebugOutput([]);
+                const output: string[] = [];
+                
+                const log = (msg: string) => {
+                  console.log(msg);
+                  output.push(msg);
+                  setDebugOutput([...output]);
+                };
+                
+                log('🔧 Running debug tests...');
+                log(`Mobile browser detected: ${isMobileBrowser()}`);
+                
+                // Run debug functions
                 debugMobileLocation();
                 testGeolocationApproaches();
+                
+                log('✅ Debug tests completed - check console for detailed output');
               }}
               className="text-xs bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-200"
             >
               🔧 Debug Location (All Devices)
             </Button>
+            
+            {/* Mobile console button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Load Eruda mobile console
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+                script.onload = () => {
+                  (window as any).eruda.init();
+                  console.log('📱 Mobile console loaded! Check the floating button on your screen.');
+                };
+                document.head.appendChild(script);
+              }}
+              className="text-xs bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-200"
+            >
+              📱 Load Mobile Console
+            </Button>
           </div>
+
+          {/* Debug Output Display */}
+          {debugOutput.length > 0 && (
+            <div className="mb-3 p-3 bg-gray-100 rounded-lg text-xs font-mono max-h-40 overflow-y-auto">
+              <div className="font-bold mb-2">Debug Output:</div>
+              {debugOutput.map((line, index) => (
+                <div key={index} className="mb-1">{line}</div>
+              ))}
+            </div>
+          )}
 
           {/* Popular Tags - Horizontal Scrollable */}
           {popularTags.length > 0 && (
