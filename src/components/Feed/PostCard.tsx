@@ -198,7 +198,16 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
           <div className="px-4 pt-4">
             <div className="text-xs font-medium text-green-700 mb-2">
               {post.username ? (
-                <UserLevelDisplay username={post.username} level={userLevel} className="text-green-700" />
+                <UserLevelDisplay 
+                  username={post.username} 
+                  level={userLevel} 
+                  className="text-green-700"
+                  clickable={true}
+                  onClick={(e) => {
+                    e?.stopPropagation();
+                    navigate(`/profile/${post.username}`);
+                  }}
+                />
               ) : (
                 'Anonymous'
               )} checked in to @{post.cafeName}
@@ -374,7 +383,15 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
           {/* Username with Follow Button */}
           {post.username && (
             <div className="mb-3 flex items-center justify-between">
-              <UserLevelDisplay username={post.username} level={userLevel} />
+              <UserLevelDisplay 
+                username={post.username} 
+                level={userLevel}
+                clickable={true}
+                onClick={(e) => {
+                  e?.stopPropagation();
+                  navigate(`/profile/${post.username}`);
+                }}
+              />
               {targetUserId && currentUsername && currentUsername !== post.username && (
                 <Button
                   variant={isFollowingUser ? "outline" : "default"}
@@ -497,7 +514,15 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 flex-1">
               {post.username ? (
-                <UserLevelDisplay username={post.username} level={userLevel} />
+                <UserLevelDisplay 
+                  username={post.username} 
+                  level={userLevel}
+                  clickable={true}
+                  onClick={(e) => {
+                    e?.stopPropagation();
+                    navigate(`/profile/${post.username}`);
+                  }}
+                />
               ) : (
                 <span className="text-sm font-medium text-muted-foreground">Anonymous</span>
               )}
@@ -661,7 +686,15 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {post.username ? (
-              <UserLevelDisplay username={post.username} level={userLevel} />
+              <UserLevelDisplay 
+                username={post.username} 
+                level={userLevel}
+                clickable={true}
+                onClick={(e) => {
+                  e?.stopPropagation();
+                  navigate(`/profile/${post.username}`);
+                }}
+              />
             ) : (
               <span className="text-sm font-medium text-muted-foreground">Anonymous</span>
             )}

@@ -1,4 +1,4 @@
-import { Camera, Coffee, Heart, MapPin, Settings, User as UserIcon, MessageSquare, Star, X, Trophy, Edit, Info, LogOut } from "lucide-react";
+import { Camera, Coffee, Heart, MapPin, Settings, User as UserIcon, MessageSquare, Star, X, Trophy, Edit, Info, LogOut, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { fetchUserPosts, updatePost, deletePost } from "@/services/postService";
 import { getUserStats, getUserBadges } from "@/services/gamificationService";
 import { formatTimeAgo } from "@/services/utils";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useSEO } from "@/hooks/useSEO";
 
@@ -29,10 +29,12 @@ const userStats = {
 export default function Profile() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { username: urlUsername } = useParams<{ username?: string }>();
   
   // Set SEO meta tags for profile page
   useSEO('profile');
   const [username, setUsername] = useState<string | null>(null);
+  const [viewingOtherUser, setViewingOtherUser] = useState(false);
   const [showUsernameSelect, setShowUsernameSelect] = useState(false);
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState<any[]>([]);
@@ -122,27 +124,47 @@ export default function Profile() {
     const loadProfileData = async () => {
       try {
         console.log('Loading profile data...');
-      const usernameRes = await getUsername();
-        console.log('Username result:', usernameRes);
         
-      if (usernameRes.success) {
-        setUsername(usernameRes.data);
-        if (!usernameRes.data) setShowUsernameSelect(true);
-      }
+        // If URL has username param, view that user's profile, otherwise view own profile
+        let profileUsername: string | null = null;
+        if (urlUsername) {
+          profileUsername = urlUsername;
+          setUsername(urlUsername);
+          setViewingOtherUser(true);
+        } else {
+          const usernameRes = await getUsername();
+          console.log('Username result:', usernameRes);
+          
+          if (usernameRes.success) {
+            profileUsername = usernameRes.data;
+            setUsername(profileUsername);
+            if (!profileUsername) setShowUsernameSelect(true);
+          }
+          setViewingOtherUser(false);
+        }
       
-        // Get device ID for anonymous users
-        const deviceId = getDeviceId();
-        console.log('Device ID:', deviceId);
+        // Get device ID for anonymous users (only if viewing own profile)
+        const deviceId = viewingOtherUser ? undefined : getDeviceId();
+        console.log('Device ID:', deviceId, 'Profile username:', profileUsername);
         
         // Load favorites, activities, user posts, and gamification data
+        // Only load favorites/activities for own profile
         console.log('Loading data...');
-        const [favoritesRes, activitiesRes, postsRes, gamificationStatsRes, userBadgesRes] = await Promise.all([
-        getFavorites(),
+        const loadPromises = viewingOtherUser ? [
+          Promise.resolve({ success: true, data: [] }), // Skip favorites
+          Promise.resolve({ success: true, data: [] }), // Skip activities
+          fetchUserPosts(profileUsername),
+          getUserStats(undefined, undefined, profileUsername),
+          getUserBadges(undefined, undefined, profileUsername)
+        ] : [
+          getFavorites(),
           getActivityFeed(),
-          fetchUserPosts(usernameRes.data, deviceId), // Pass username or deviceId
-          getUserStats(undefined, deviceId, usernameRes.data),
-          getUserBadges(undefined, deviceId, usernameRes.data)
-      ]);
+          fetchUserPosts(profileUsername, deviceId),
+          getUserStats(undefined, deviceId, profileUsername),
+          getUserBadges(undefined, deviceId, profileUsername)
+        ];
+        
+        const [favoritesRes, activitiesRes, postsRes, gamificationStatsRes, userBadgesRes] = await Promise.all(loadPromises);
         
         console.log('Data loaded:', { favoritesRes, activitiesRes, postsRes, gamificationStatsRes, userBadgesRes });
       
@@ -190,7 +212,7 @@ export default function Profile() {
     };
     
     loadProfileData();
-  }, []);
+  }, [urlUsername]);
 
   if (loading) {
     return (
@@ -215,43 +237,56 @@ export default function Profile() {
         {/* Header */}
         <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border p-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Profile</h1>
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Settings className="w-5 h-5" />
+            <div className="flex items-center gap-2">
+              {viewingOtherUser && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/profile')}
+                  className="p-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle>Settings</SheetTitle>
-                </SheetHeader>
-                <div className="space-y-4 mt-6">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      // Navigate to edit profile or show username selection
-                      setShowUsernameSelect(true);
-                    }}
-                  >
-                    <Edit className="w-4 h-4 mr-3" />
-                    Edit Profile
+              )}
+              <h1 className="text-2xl font-bold">{viewingOtherUser ? `@${username}` : 'Profile'}</h1>
+            </div>
+            {!viewingOtherUser && (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Settings className="w-5 h-5" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => navigate('/feedback')}
-                  >
-                    <MessageSquare className="w-4 h-4 mr-3" />
-                    Send Feedback
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      // Show About Bean Scene content
-                      window.alert(`
+                </SheetTrigger>
+                <SheetContent side="right" className="overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Settings</SheetTitle>
+                  </SheetHeader>
+                  <div className="space-y-4 mt-6">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        // Navigate to edit profile or show username selection
+                        setShowUsernameSelect(true);
+                      }}
+                    >
+                      <Edit className="w-4 h-4 mr-3" />
+                      Edit Profile
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => navigate('/feedback')}
+                    >
+                      <MessageSquare className="w-4 h-4 mr-3" />
+                      Send Feedback
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        // Show About Bean Scene content
+                        window.alert(`
 About Bean Scene
 
 Connected, but Lonely
@@ -267,29 +302,30 @@ The Vision
 This is just the beginning. Our bigger goal is to help people step away from algorithms and into real life, building a culture where belonging happens naturally, one café at a time.
 
 ✨ More than coffee. More than connections.
-                      `);
-                    }}
-                  >
-                    <Info className="w-4 h-4 mr-3" />
-                    About Bean Scene
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => {
-                      const confirmed = window.confirm("Are you sure you want to logout?");
-                      if (confirmed) {
-                        localStorage.clear();
-                        window.location.reload();
-                      }
-                    }}
-                  >
-                    <LogOut className="w-4 h-4 mr-3" />
-                    Logout
-                  </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
+                        `);
+                      }}
+                    >
+                      <Info className="w-4 h-4 mr-3" />
+                      About Bean Scene
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        const confirmed = window.confirm("Are you sure you want to logout?");
+                        if (confirmed) {
+                          localStorage.clear();
+                          window.location.reload();
+                        }
+                      }}
+                    >
+                      <LogOut className="w-4 h-4 mr-3" />
+                      Logout
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            )}
           </div>
         </div>
 

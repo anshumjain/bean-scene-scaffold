@@ -129,6 +129,7 @@ const App = () => {
             <Route path="/post-view" element={<PostView />} />
             <Route path="/recent" element={<RecentlyViewed />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/:username" element={<Profile />} />
             <Route path="/badges" element={<Badges />} />
             <Route path="/cafe/:id" element={<CafeDetail />} />
             <Route path="/cafe/:id/upload" element={<ImageUpload />} />

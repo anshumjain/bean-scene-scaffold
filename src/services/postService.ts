@@ -29,7 +29,7 @@ export async function fetchPosts(filters: SearchFilters & { city?: string } = {}
       .from('posts')
       .select(`
         *,
-        cafes (name, neighborhood, place_id, address, city)
+        cafes (name, neighborhood, place_id, address)
       `)
       .order('created_at', { ascending: false });
 
@@ -62,7 +62,9 @@ export async function fetchPosts(filters: SearchFilters & { city?: string } = {}
       filteredData = filteredData.filter(post => {
         // Only include posts that have a cafe with matching city
         // Posts without cafes are excluded when city filter is active
-        return post.cafes && post.cafes.city === filters.city;
+        // Handle case where city column might not exist yet (graceful degradation)
+        const cafeCity = post.cafes?.city;
+        return cafeCity && cafeCity === filters.city;
       });
     }
 
@@ -100,7 +102,8 @@ export async function fetchPosts(filters: SearchFilters & { city?: string } = {}
           name: post.cafes.name,
           neighborhood: post.cafes.neighborhood,
           placeId: post.cafes.place_id,
-          address: post.cafes.address
+          address: post.cafes.address,
+          city: (post.cafes as any).city || 'houston' // Default to houston if city column doesn't exist yet
         } : undefined
       };
     });
@@ -261,7 +264,8 @@ export async function fetchUserPosts(username?: string, deviceId?: string): Prom
           name: post.cafes.name,
           neighborhood: post.cafes.neighborhood,
           placeId: post.cafes.place_id,
-          address: post.cafes.address
+          address: post.cafes.address,
+          city: (post.cafes as any).city || 'houston' // Default to houston if city column doesn't exist yet
         } : undefined
       };
     });

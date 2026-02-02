@@ -94,17 +94,23 @@ interface UserLevelDisplayProps {
   level: number;
   showLabel?: boolean;
   className?: string;
+  onClick?: () => void;
+  clickable?: boolean;
 }
 
 export function UserLevelDisplay({ 
   username, 
   level, 
   showLabel = false, 
-  className 
+  className,
+  onClick,
+  clickable = false
 }: UserLevelDisplayProps) {
-  return (
+  const content = (
     <div className={cn('flex items-center gap-2', className)}>
-      <span className="font-medium text-foreground">{username}</span>
+      <span className={cn('font-medium', clickable && 'hover:text-primary cursor-pointer transition-colors')}>
+        @{username}
+      </span>
       <LevelBadge level={level} size="sm" />
       {showLabel && (
         <span className="text-xs text-muted-foreground">
@@ -113,4 +119,14 @@ export function UserLevelDisplay({
       )}
     </div>
   );
+
+  if (clickable && onClick) {
+    return (
+      <button onClick={onClick} className="text-left">
+        {content}
+      </button>
+    );
+  }
+
+  return content;
 }
