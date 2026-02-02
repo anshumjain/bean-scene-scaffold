@@ -55,18 +55,8 @@ export async function fetchPosts(filters: SearchFilters & { city?: string } = {}
       throw new Error(error.message);
     }
 
-    // Filter by city if specified (prevents Austin users seeing Houston posts)
-    // Filter client-side since Supabase doesn't support filtering on nested relations
+    // City filtering removed for now - show all posts
     let filteredData = data || [];
-    if (filters.city && filters.city !== 'all') {
-      filteredData = filteredData.filter(post => {
-        // Only include posts that have a cafe with matching city
-        // Posts without cafes are excluded when city filter is active
-        // Handle case where city column might not exist yet (graceful degradation)
-        const cafeCity = post.cafes?.city;
-        return cafeCity && cafeCity === filters.city;
-      });
-    }
 
     // Transform database format to app format
     const posts: Post[] = filteredData.map(post => {

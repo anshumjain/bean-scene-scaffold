@@ -96,6 +96,32 @@ export async function followUser(targetUserId: string): Promise<ApiResponse<Foll
       return { success: false, error: error.message };
     }
     
+    // Create notification for the user being followed
+    try {
+      const { notifyNewFollower } = await import('./notificationService');
+      const currentUsername = await getUsername();
+      if (currentUsername.success && currentUsername.data) {
+        // Get target user info to send notification
+        const { data: targetUser } = await supabase
+          .from('users')
+          .select('id, device_id, username')
+          .eq('id', targetUserId)
+          .single();
+        
+        if (targetUser) {
+          await notifyNewFollower(
+            currentUsername.data,
+            targetUser.id,
+            targetUser.device_id || undefined,
+            targetUser.username || undefined
+          );
+        }
+      }
+    } catch (notifError) {
+      console.error('Error creating follow notification:', notifError);
+      // Don't fail the follow if notification fails
+    }
+    
     return { success: true, data };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -158,9 +184,9 @@ export async function isFollowing(targetUserId: string): Promise<ApiResponse<boo
 }
 
 /**
- * Get users that current user is following
+ * Get users that current user is following (with user info)
  */
-export async function getFollowing(): Promise<ApiResponse<Follow[]>> {
+export async function getFollowing(): Promise<ApiResponse<Array<Follow & { user: { id: string; username: string } }>>> {
   try {
     const currentUserId = await getCurrentUserId();
     
@@ -170,23 +196,31 @@ export async function getFollowing(): Promise<ApiResponse<Follow[]>> {
     
     const { data, error } = await supabase
       .from('user_follows')
-      .select('*')
+      .select(`
+        *,
+        following:users!user_follows_following_id_fkey(id, username)
+      `)
       .eq('follower_id', currentUserId);
     
     if (error) {
       return { success: false, error: error.message };
     }
     
-    return { success: true, data: data || [] };
+    const result = (data || []).map(f => ({
+      ...f,
+      user: (f as any).following
+    }));
+    
+    return { success: true, data: result };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
 /**
- * Get users following current user (followers)
+ * Get users following current user (followers) with user info
  */
-export async function getFollowers(): Promise<ApiResponse<Follow[]>> {
+export async function getFollowers(): Promise<ApiResponse<Array<Follow & { user: { id: string; username: string } }>>> {
   try {
     const currentUserId = await getCurrentUserId();
     
@@ -196,14 +230,22 @@ export async function getFollowers(): Promise<ApiResponse<Follow[]>> {
     
     const { data, error } = await supabase
       .from('user_follows')
-      .select('*')
+      .select(`
+        *,
+        follower:users!user_follows_follower_id_fkey(id, username)
+      `)
       .eq('following_id', currentUserId);
     
     if (error) {
       return { success: false, error: error.message };
     }
     
-    return { success: true, data: data || [] };
+    const result = (data || []).map(f => ({
+      ...f,
+      user: (f as any).follower
+    }));
+    
+    return { success: true, data: result };
   } catch (error: any) {
     return { success: false, error: error.message };
   }

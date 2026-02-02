@@ -39,12 +39,28 @@ export const BADGE_DEFINITIONS = {
   },
   
   // Social post badges
+  FIRST_POST: {
+    type: 'first_post',
+    name: 'First Post',
+    description: 'Share your first post',
+    condition: (stats: UserStats) => stats.total_posts >= 1,
+    icon: '📝',
+    xp: 0,
+  },
   SOCIAL_SHARER: {
     type: 'social_sharer',
     name: 'Social Sharer',
     description: 'Share 10 social posts',
     condition: (stats: UserStats) => stats.total_posts >= 10,
     icon: '📱',
+    xp: 0,
+  },
+  EARLY_ADOPTER: {
+    type: 'early_adopter',
+    name: 'Early Adopter',
+    description: 'Share 3 posts',
+    condition: (stats: UserStats) => stats.total_posts >= 3,
+    icon: '🌟',
     xp: 0,
   },
   CONTENT_CREATOR: {
@@ -261,6 +277,7 @@ export async function awardXP(
 
     // Calculate new level
     const newLevel = calculateLevelFromXP(updates.total_xp);
+    const levelUp = newLevel > stats.current_level;
     updates.current_level = newLevel;
 
     // Update the database
@@ -274,6 +291,17 @@ export async function awardXP(
     if (error) {
       console.error('Error updating user stats:', error);
       return null;
+    }
+
+    // Create notification for level up
+    if (levelUp && newLevel > 1) {
+      try {
+        const { notifyLevelUp } = await import('./notificationService');
+        await notifyLevelUp(newLevel, userId, deviceId, username);
+      } catch (notifError) {
+        console.error('Error creating level up notification:', notifError);
+        // Don't fail XP award if notification fails
+      }
     }
 
     return data;
@@ -509,6 +537,15 @@ export async function awardBadge(
       return null;
     }
 
+    // Create notification for badge earned
+    try {
+      const { notifyBadgeEarned } = await import('./notificationService');
+      await notifyBadgeEarned(badgeName, badgeType, userId, deviceId, username);
+    } catch (notifError) {
+      console.error('Error creating badge notification:', notifError);
+      // Don't fail badge award if notification fails
+    }
+
     return data;
   } catch (error) {
     console.error('Error in awardBadge:', error);
@@ -527,6 +564,7 @@ export async function checkAndAwardBadges(
   try {
     const stats = await getUserStats(userId, deviceId, username);
     if (!stats) {
+      console.warn('No stats found for user, cannot check badges');
       return [];
     }
 
@@ -544,6 +582,31 @@ export async function checkAndAwardBadges(
         .eq('id', stats.id);
     }
     
+    // Also sync total_posts from actual posts count if needed
+    // This ensures badges are awarded correctly for existing users
+    let postsQuery = supabase.from('posts').select('*', { count: 'exact', head: true });
+    
+    if (username) {
+      postsQuery = postsQuery.eq('username', username);
+    } else if (deviceId) {
+      postsQuery = postsQuery.eq('device_id', deviceId);
+    } else if (userId) {
+      postsQuery = postsQuery.eq('user_id', userId);
+    }
+    
+    const { count: postsCount } = await postsQuery;
+    
+    if (postsCount !== null && postsCount !== stats.total_posts) {
+      await supabase
+        .from('user_stats')
+        .update({ 
+          total_posts: postsCount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stats.id);
+      stats.total_posts = postsCount;
+    }
+    
     // Update stats with cafes visited count for badge checking
     const updatedStats = { ...stats, total_cafes_visited: cafesVisitedCount };
 
@@ -554,6 +617,7 @@ export async function checkAndAwardBadges(
       const hasThisBadge = await hasBadge(userId, deviceId, username, badge.type);
       
       if (!hasThisBadge && badge.condition(updatedStats)) {
+        console.log(`Awarding badge ${badge.name} to user`, { userId, deviceId, username, stats: updatedStats });
         const awardedBadge = await awardBadge(
           userId,
           deviceId,
@@ -565,6 +629,9 @@ export async function checkAndAwardBadges(
         
         if (awardedBadge) {
           newBadges.push(awardedBadge);
+          console.log(`Successfully awarded badge: ${badge.name}`);
+        } else {
+          console.warn(`Failed to award badge: ${badge.name}`);
         }
       }
     }

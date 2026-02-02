@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Users, Coffee, ChevronRight, Heart } from 'lucide-react';
+import { MapPin, Users, Coffee, ChevronRight, Heart, UserPlus, Trophy, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { getUsername, getDeviceId } from '@/services/userService';
+import { getUserStats, getUserBadges } from '@/services/gamificationService';
+import { fetchUserPosts } from '@/services/postService';
 
 const onboardingSteps = [
   {
@@ -31,6 +34,13 @@ const onboardingSteps = [
     description: "Unlock badges, level up, and build your coffee passport as you explore Houston's cafe scene.",
     insight: "Your username is saved to this device. Accounts coming soon to sync across devices!",
     emoji: "🏆"
+  },
+  {
+    icon: UserPlus,
+    title: "Follow & Connect",
+    description: "Follow other coffee lovers to see their posts in your feed. Build your community and discover new cafes together.",
+    insight: "Click usernames in posts or visit profiles to follow people you want to see more from!",
+    emoji: "👥"
   }
 ];
 
@@ -38,6 +48,39 @@ export default function Onboarding({ onComplete }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+  const [isRepeatUser, setIsRepeatUser] = useState(false);
+  const [userBadges, setUserBadges] = useState<any[]>([]);
+  const [userPosts, setUserPosts] = useState(0);
+
+  // Check if user is a repeat user (has posts or badges)
+  useEffect(() => {
+    const checkRepeatUser = async () => {
+      try {
+        const username = await getUsername();
+        const deviceId = getDeviceId();
+        
+        if (username?.success && username.data) {
+          const [badgesRes, postsRes] = await Promise.all([
+            getUserBadges(undefined, deviceId, username.data),
+            fetchUserPosts(username.data, deviceId)
+          ]);
+          
+          const badges = badgesRes || [];
+          const posts = postsRes.success ? postsRes.data.length : 0;
+          
+          if (badges.length > 0 || posts > 0) {
+            setIsRepeatUser(true);
+            setUserBadges(badges);
+            setUserPosts(posts);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking repeat user:', error);
+      }
+    };
+    
+    checkRepeatUser();
+  }, []);
 
   const handleNext = () => {
     if (currentStep < onboardingSteps.length - 1) {
@@ -104,6 +147,36 @@ export default function Onboarding({ onComplete }) {
                 <p className="text-sm text-amber-600 dark:text-amber-400">
                   No algorithms. No ads. Just Houston coffee lovers sharing their favorite spots.
                 </p>
+              </div>
+            )}
+
+            {/* Special card for repeat users showing new features */}
+            {isRepeatUser && currentStep === 3 && (
+              <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-center gap-2 text-primary">
+                  <Sparkles className="w-4 h-4" />
+                  <span className="text-sm font-medium">New Features Available!</span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <Trophy className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Badges Updated</p>
+                      <p className="text-muted-foreground text-xs">
+                        You have {userBadges.length} badge{userBadges.length !== 1 ? 's' : ''}! Check your profile to see them all.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <UserPlus className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Follow Other Users</p>
+                      <p className="text-muted-foreground text-xs">
+                        Click usernames in posts or visit profiles to follow people and see their posts in your feed!
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

@@ -86,7 +86,11 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
       try {
         // Get current user's username
         const currentUserResult = await getUsername();
-        if (!currentUserResult.success || !currentUserResult.data) return;
+        if (!currentUserResult.success || !currentUserResult.data) {
+          // If no current user, we can still show follow button (they'll need to set username)
+          // But for now, return early
+          return;
+        }
         
         const currentUser = currentUserResult.data;
         setCurrentUsername(currentUser);
@@ -96,7 +100,12 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
         
         // Get target user ID from username
         const userResult = await getUserByUsername(post.username);
-        if (!userResult.success || !userResult.data?.id) return;
+        if (!userResult.success || !userResult.data?.id) {
+          console.warn('Could not find user for username:', post.username);
+          // Still try to show follow button - we'll handle the error when they click
+          // But we need the user ID, so return for now
+          return;
+        }
         
         setTargetUserId(userResult.data.id);
         
@@ -392,18 +401,34 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
                   navigate(`/profile/${post.username}`);
                 }}
               />
-              {targetUserId && currentUsername && currentUsername !== post.username && (
+              {post.username && currentUsername && currentUsername !== post.username && (
                 <Button
                   variant={isFollowingUser ? "outline" : "default"}
                   size="sm"
                   onClick={async (e) => {
                     e.stopPropagation();
-                    if (followingLoading || !targetUserId) return;
+                    if (followingLoading) return;
+                    
+                    // If we don't have targetUserId yet, try to get it now
+                    let userId = targetUserId;
+                    if (!userId) {
+                      const userResult = await getUserByUsername(post.username);
+                      if (!userResult.success || !userResult.data?.id) {
+                        toast({
+                          title: "Error",
+                          description: "Could not find user. Please try again.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      userId = userResult.data.id;
+                      setTargetUserId(userId);
+                    }
                     
                     setFollowingLoading(true);
                     try {
                       if (isFollowingUser) {
-                        const result = await unfollowUser(targetUserId);
+                        const result = await unfollowUser(userId);
                         if (result.success) {
                           setIsFollowingUser(false);
                           toast({
@@ -418,7 +443,7 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
                           });
                         }
                       } else {
-                        const result = await followUser(targetUserId);
+                        const result = await followUser(userId);
                         if (result.success) {
                           setIsFollowingUser(true);
                           toast({
@@ -526,35 +551,69 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
               ) : (
                 <span className="text-sm font-medium text-muted-foreground">Anonymous</span>
               )}
-              {targetUserId && currentUsername && currentUsername !== post.username && (
+              {post.username && currentUsername && currentUsername !== post.username && (
                 <Button
                   variant={isFollowingUser ? "outline" : "ghost"}
                   size="sm"
                   onClick={async (e) => {
                     e.stopPropagation();
-                    if (followingLoading || !targetUserId) return;
+                    if (followingLoading) return;
+                    
+                    // If we don't have targetUserId yet, try to get it now
+                    let userId = targetUserId;
+                    if (!userId) {
+                      const userResult = await getUserByUsername(post.username);
+                      if (!userResult.success || !userResult.data?.id) {
+                        toast({
+                          title: "Error",
+                          description: "Could not find user. Please try again.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      userId = userResult.data.id;
+                      setTargetUserId(userId);
+                    }
                     
                     setFollowingLoading(true);
                     try {
                       if (isFollowingUser) {
-                        const result = await unfollowUser(targetUserId);
+                        const result = await unfollowUser(userId);
                         if (result.success) {
                           setIsFollowingUser(false);
                           toast({
                             title: "Unfollowed",
                             description: `You're no longer following @${post.username}`,
                           });
+                        } else {
+                          toast({
+                            title: "Error",
+                            description: result.error || "Failed to unfollow",
+                            variant: "destructive",
+                          });
                         }
                       } else {
-                        const result = await followUser(targetUserId);
+                        const result = await followUser(userId);
                         if (result.success) {
                           setIsFollowingUser(true);
                           toast({
                             title: "Following",
                             description: `You're now following @${post.username}`,
                           });
+                        } else {
+                          toast({
+                            title: "Error",
+                            description: result.error || "Failed to follow",
+                            variant: "destructive",
+                          });
                         }
                       }
+                    } catch (error) {
+                      toast({
+                        title: "Error",
+                        description: "Something went wrong",
+                        variant: "destructive",
+                      });
                     } finally {
                       setFollowingLoading(false);
                     }

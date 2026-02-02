@@ -1,4 +1,4 @@
-import { Camera, Coffee, Heart, MapPin, Settings, User as UserIcon, MessageSquare, Star, X, Trophy, Edit, Info, LogOut, ArrowLeft } from "lucide-react";
+import { Camera, Coffee, Heart, MapPin, Settings, User as UserIcon, MessageSquare, Star, X, Trophy, Edit, Info, LogOut, ArrowLeft, UserPlus, UserCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,11 +7,14 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { AppLayout } from "@/components/Layout/AppLayout";
 import { ProfilePostCard } from "@/components/Profile/ProfilePostCard";
 import { UsernameSelection } from "@/components/UsernameSelection";
-import { getUsername, getDeviceId } from "@/services/userService";
+import { PushNotificationSettings } from "@/components/Notification/PushNotificationSettings";
+import { getUsername, getDeviceId, getUserByUsername } from "@/services/userService";
 import { getFavorites, removeFavorite } from "@/services/favoritesService";
 import { getActivityFeed } from "@/services/activityService";
 import { fetchUserPosts, updatePost, deletePost } from "@/services/postService";
 import { getUserStats, getUserBadges } from "@/services/gamificationService";
+import { followUser, unfollowUser, isFollowing, getFollowCounts } from "@/services/followService";
+import { FollowersFollowingList } from "@/components/Follow/FollowersFollowingList";
 import { formatTimeAgo } from "@/services/utils";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -55,6 +58,13 @@ export default function Profile() {
     total_cafes_visited: 0
   });
   const [userBadges, setUserBadges] = useState<any[]>([]);
+  const [isFollowingUser, setIsFollowingUser] = useState<boolean>(false);
+  const [followingLoading, setFollowingLoading] = useState(false);
+  const [targetUserId, setTargetUserId] = useState<string | null>(null);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+  const [showFollowList, setShowFollowList] = useState(false);
+  const [followListTab, setFollowListTab] = useState<'followers' | 'following'>('followers');
 
   // Handle post editing
   const handleEditPost = (postId: string) => {
@@ -193,11 +203,61 @@ export default function Profile() {
         // Load gamification stats
         if (gamificationStatsRes) {
           setGamificationStats(gamificationStatsRes);
+          
+          // Retroactively check and award badges for existing users
+          // This ensures users with existing posts get their badges
+          const { checkAndAwardBadges } = await import('@/services/gamificationService');
+          const newBadges = await checkAndAwardBadges(undefined, deviceId, profileUsername);
+          if (newBadges.length > 0) {
+            // Reload badges if new ones were awarded
+            const updatedBadges = await getUserBadges(undefined, deviceId, profileUsername);
+            if (updatedBadges) {
+              setUserBadges(updatedBadges);
+            }
+          }
         }
 
         // Load user badges
         if (userBadgesRes) {
           setUserBadges(userBadgesRes);
+        }
+        
+        // If viewing another user, check follow status
+        if (viewingOtherUser && profileUsername) {
+          const currentUserResult = await getUsername();
+          if (currentUserResult.success && currentUserResult.data) {
+            setCurrentUsername(currentUserResult.data);
+            
+            // Don't show follow button if viewing own profile
+            if (currentUserResult.data !== profileUsername) {
+              const userResult = await getUserByUsername(profileUsername);
+              if (userResult.success && userResult.data?.id) {
+                setTargetUserId(userResult.data.id);
+                setProfileUserId(userResult.data.id);
+                
+                const followResult = await isFollowing(userResult.data.id);
+                if (followResult.success) {
+                  setIsFollowingUser(followResult.data);
+                }
+                
+                // Get follow counts for this user
+                const countsResult = await getFollowCounts(userResult.data.id);
+                if (countsResult.success && countsResult.data) {
+                  setFollowCounts(countsResult.data);
+                }
+              }
+            }
+          }
+        } else {
+          // Get follow counts for current user
+          const userResult = await getUserByUsername(profileUsername || '');
+          if (userResult.success && userResult.data?.id) {
+            setProfileUserId(userResult.data.id);
+            const countsResult = await getFollowCounts(userResult.data.id);
+            if (countsResult.success && countsResult.data) {
+              setFollowCounts(countsResult.data);
+            }
+          }
         }
       } catch (error) {
         console.error('Error loading profile data:', error);
@@ -212,7 +272,7 @@ export default function Profile() {
     };
     
     loadProfileData();
-  }, [urlUsername]);
+  }, [urlUsername, viewingOtherUser]);
 
   if (loading) {
     return (
@@ -262,6 +322,7 @@ export default function Profile() {
                     <SheetTitle>Settings</SheetTitle>
                   </SheetHeader>
                   <div className="space-y-4 mt-6">
+                    <PushNotificationSettings />
                     <Button
                       variant="ghost"
                       className="w-full justify-start"
@@ -336,7 +397,113 @@ This is just the beginning. Our bigger goal is to help people step away from alg
               <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <UserIcon className="w-10 h-10 text-primary" />
               </div>
-              <h2 className="text-xl font-bold mb-1">@{username || "Coffee Lover"}</h2>
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <h2 className="text-xl font-bold">@{username || "Coffee Lover"}</h2>
+                {viewingOtherUser && username && currentUsername && currentUsername !== username && (
+                  <Button
+                    variant={isFollowingUser ? "outline" : "default"}
+                    size="sm"
+                    onClick={async () => {
+                      if (followingLoading || !targetUserId) {
+                        // Try to get targetUserId if not set
+                        if (!targetUserId && username) {
+                          const userResult = await getUserByUsername(username);
+                          if (userResult.success && userResult.data?.id) {
+                            setTargetUserId(userResult.data.id);
+                            const userId = userResult.data.id;
+                            
+                            setFollowingLoading(true);
+                            try {
+                              if (isFollowingUser) {
+                                const result = await unfollowUser(userId);
+                                if (result.success) {
+                                  setIsFollowingUser(false);
+                                  toast({
+                                    title: "Unfollowed",
+                                    description: `You're no longer following @${username}`,
+                                  });
+                                }
+                              } else {
+                                const result = await followUser(userId);
+                                if (result.success) {
+                                  setIsFollowingUser(true);
+                                  toast({
+                                    title: "Following",
+                                    description: `You're now following @${username}`,
+                                  });
+                                }
+                              }
+                            } finally {
+                              setFollowingLoading(false);
+                            }
+                            return;
+                          }
+                        }
+                        return;
+                      }
+                      
+                      setFollowingLoading(true);
+                      try {
+                        if (isFollowingUser) {
+                          const result = await unfollowUser(targetUserId);
+                          if (result.success) {
+                            setIsFollowingUser(false);
+                            toast({
+                              title: "Unfollowed",
+                              description: `You're no longer following @${username}`,
+                            });
+                          } else {
+                            toast({
+                              title: "Error",
+                              description: result.error || "Failed to unfollow",
+                              variant: "destructive",
+                            });
+                          }
+                        } else {
+                          const result = await followUser(targetUserId);
+                          if (result.success) {
+                            setIsFollowingUser(true);
+                            toast({
+                              title: "Following",
+                              description: `You're now following @${username}`,
+                            });
+                          } else {
+                            toast({
+                              title: "Error",
+                              description: result.error || "Failed to follow",
+                              variant: "destructive",
+                            });
+                          }
+                        }
+                      } catch (error) {
+                        toast({
+                          title: "Error",
+                          description: "Something went wrong",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setFollowingLoading(false);
+                      }
+                    }}
+                    disabled={followingLoading}
+                    className="h-8 px-3 text-sm transition-all duration-200 hover:scale-105 active:scale-95"
+                  >
+                    {followingLoading ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : isFollowingUser ? (
+                      <>
+                        <UserCheck className="w-4 h-4 mr-1" />
+                        Following
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4 mr-1" />
+                        Follow
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground mb-4">Houston, TX</p>
               
               {/* Level and XP */}
@@ -357,7 +524,7 @@ This is just the beginning. Our bigger goal is to help people step away from alg
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-3 gap-4 mb-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary">{gamificationStats.total_checkins}</div>
                   <div className="text-xs text-muted-foreground">Check-ins</div>
@@ -370,6 +537,30 @@ This is just the beginning. Our bigger goal is to help people step away from alg
                   <div className="text-2xl font-bold text-primary">{gamificationStats.total_cafes_visited || 0}</div>
                   <div className="text-xs text-muted-foreground">Cafes</div>
                 </div>
+              </div>
+
+              {/* Followers/Following (Instagram-style) */}
+              <div className="flex justify-center gap-6 mb-6 pb-4 border-b">
+                <button
+                  onClick={() => {
+                    setFollowListTab('followers');
+                    setShowFollowList(true);
+                  }}
+                  className="text-center hover:opacity-70 transition-opacity"
+                >
+                  <div className="text-xl font-bold text-foreground">{followCounts.followers}</div>
+                  <div className="text-xs text-muted-foreground">Followers</div>
+                </button>
+                <button
+                  onClick={() => {
+                    setFollowListTab('following');
+                    setShowFollowList(true);
+                  }}
+                  className="text-center hover:opacity-70 transition-opacity"
+                >
+                  <div className="text-xl font-bold text-foreground">{followCounts.following}</div>
+                  <div className="text-xs text-muted-foreground">Following</div>
+                </button>
               </div>
 
               {/* Badges */}
@@ -556,6 +747,17 @@ This is just the beginning. Our bigger goal is to help people step away from alg
           </Tabs>
         </div>
       </div>
+
+      {/* Followers/Following List Modal */}
+      {username && (targetUserId || profileUserId) && (
+        <FollowersFollowingList
+          userId={targetUserId || profileUserId || ''}
+          username={username}
+          isOpen={showFollowList}
+          onClose={() => setShowFollowList(false)}
+          initialTab={followListTab}
+        />
+      )}
     </AppLayout>
   );
 }

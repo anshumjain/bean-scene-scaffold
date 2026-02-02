@@ -22,19 +22,31 @@ interface BadgeWithStatus {
   };
 }
 
-const badgeIcons = {
+const badgeIcons: Record<string, string> = {
   first_sip: "☕",
+  first_post: "📝",
+  early_adopter: "🌟",
+  social_sharer: "📱",
   coffee_explorer: "🗺️", 
+  cafe_expert: "🏆",
   photographer: "📸",
   reviewer: "✍️",
+  detailed_reviewer: "✍️",
+  content_creator: "🎨",
   pioneer: "🚀",
 };
 
-const badgeColors = {
+const badgeColors: Record<string, string> = {
   first_sip: "from-yellow-400 to-yellow-600",
-  coffee_explorer: "from-blue-400 to-blue-600",
-  photographer: "from-purple-400 to-purple-600", 
-  reviewer: "from-green-400 to-green-600",
+  first_post: "from-blue-400 to-blue-600",
+  early_adopter: "from-purple-400 to-purple-600",
+  social_sharer: "from-green-400 to-green-600",
+  coffee_explorer: "from-indigo-400 to-indigo-600",
+  cafe_expert: "from-amber-400 to-amber-600",
+  photographer: "from-pink-400 to-pink-600", 
+  reviewer: "from-emerald-400 to-emerald-600",
+  detailed_reviewer: "from-teal-400 to-teal-600",
+  content_creator: "from-violet-400 to-violet-600",
   pioneer: "from-red-400 to-red-600",
 };
 
@@ -64,45 +76,55 @@ export default function Badges() {
           const earnedBadge = badgesResult?.find(b => b.badge_type === badge.type);
           const earned = !!earnedBadge;
           
-          // Calculate progress for each badge
+          // Calculate progress for each badge dynamically
           let progress = undefined;
           if (!earned && statsResult) {
-            switch (badge.type) {
-              case 'first_sip':
-                progress = {
-                  current: statsResult.total_checkins,
-                  target: 1,
-                  description: "Complete your first check-in"
-                };
-                break;
-              case 'coffee_explorer':
-                progress = {
-                  current: statsResult.total_cafes_visited,
-                  target: 5,
-                  description: "Visit 5 different cafés"
-                };
-                break;
-              case 'photographer':
-                progress = {
-                  current: statsResult.total_photos,
-                  target: 10,
-                  description: "Share 10 photos"
-                };
-                break;
-              case 'reviewer':
-                progress = {
-                  current: statsResult.total_reviews,
-                  target: 5,
-                  description: "Write 5 reviews"
-                };
-                break;
-              case 'pioneer':
-                progress = {
-                  current: statsResult.pioneer_count || 0,
-                  target: 1,
-                  description: "Be the first to discover a new café"
-                };
-                break;
+            // Extract target number from condition or description
+            let target = 1;
+            let current = 0;
+            
+            // Determine current value and target based on badge type
+            if (badge.type === 'first_sip') {
+              current = statsResult.total_checkins || 0;
+              target = 1;
+            } else if (badge.type === 'first_post') {
+              current = statsResult.total_posts || 0;
+              target = 1;
+            } else if (badge.type === 'early_adopter') {
+              current = statsResult.total_posts || 0;
+              target = 3;
+            } else if (badge.type === 'social_sharer') {
+              current = statsResult.total_posts || 0;
+              target = 10;
+            } else if (badge.type === 'coffee_explorer') {
+              current = statsResult.total_cafes_visited || 0;
+              target = 5;
+            } else if (badge.type === 'cafe_expert') {
+              current = statsResult.total_cafes_visited || 0;
+              target = 15;
+            } else if (badge.type === 'photographer') {
+              current = statsResult.total_photos || 0;
+              target = 10;
+            } else if (badge.type === 'reviewer') {
+              current = statsResult.total_reviews || 0;
+              target = 5;
+            } else if (badge.type === 'detailed_reviewer') {
+              current = statsResult.total_reviews || 0;
+              target = 10;
+            } else if (badge.type === 'content_creator') {
+              current = statsResult.posts_with_photos || 0;
+              target = 25;
+            } else if (badge.type === 'pioneer') {
+              current = statsResult.pioneer_count || 0;
+              target = 1;
+            }
+            
+            if (current < target) {
+              progress = {
+                current: Math.min(current, target),
+                target: target,
+                description: badge.description
+              };
             }
           }
 
@@ -200,10 +222,10 @@ export default function Badges() {
                     {/* Badge Icon */}
                     <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
                       badge.earned 
-                        ? `bg-gradient-to-r ${badgeColors[badge.type as keyof typeof badgeColors]} text-white shadow-lg` 
+                        ? `bg-gradient-to-r ${badgeColors[badge.type] || 'from-gray-400 to-gray-600'} text-white shadow-lg` 
                         : 'bg-muted text-muted-foreground'
                     }`}>
-                      {badge.icon}
+                      {badge.icon || badgeIcons[badge.type] || '🏆'}
                     </div>
 
                     {/* Badge Info */}
