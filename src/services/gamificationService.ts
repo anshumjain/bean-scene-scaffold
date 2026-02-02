@@ -533,7 +533,18 @@ export async function checkAndAwardBadges(
     // Get cafes visited count
     const cafesVisitedCount = await getCafesVisitedCount(userId, deviceId, username);
     
-    // Update stats with cafes visited count
+    // Sync total_cafes_visited to database if it's out of sync
+    if (stats.total_cafes_visited !== cafesVisitedCount) {
+      await supabase
+        .from('user_stats')
+        .update({ 
+          total_cafes_visited: cafesVisitedCount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stats.id);
+    }
+    
+    // Update stats with cafes visited count for badge checking
     const updatedStats = { ...stats, total_cafes_visited: cafesVisitedCount };
 
     const newBadges: UserBadge[] = [];
@@ -600,6 +611,16 @@ export async function processPostCreation(
     // Track cafe visit if cafe ID provided
     if (data.cafeId) {
       await trackCafeVisit(userId, deviceId, username, data.cafeId);
+      
+      // Update total_cafes_visited count
+      const cafesVisitedCount = await getCafesVisitedCount(userId, deviceId, username);
+      await supabase
+        .from('user_stats')
+        .update({ 
+          total_cafes_visited: cafesVisitedCount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stats.id);
     }
 
     // Check and award badges
@@ -647,7 +668,17 @@ export async function processCheckinCreation(
 
     // Track cafe visit
     if (data.cafeId) {
-      await trackCafeVisit(userId, deviceId, username, data.cafeId);
+      const visit = await trackCafeVisit(userId, deviceId, username, data.cafeId);
+      
+      // Update total_cafes_visited count
+      const cafesVisitedCount = await getCafesVisitedCount(userId, deviceId, username);
+      await supabase
+        .from('user_stats')
+        .update({ 
+          total_cafes_visited: cafesVisitedCount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stats.id);
     }
 
     // Check and award badges

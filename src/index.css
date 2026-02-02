@@ -126,9 +126,20 @@
     @apply border-border;
   }
 
+  html {
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+  }
+
   body {
     @apply bg-background text-foreground font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+    /* Prevent horizontal scroll on mobile */
+    max-width: 100vw;
   }
 
   /* Custom scrollbar */
@@ -193,6 +204,26 @@
   }
 
   .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Prevent horizontal overflow on mobile */
+  .no-horizontal-scroll {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+  }
+
+  /* Contain horizontal scrollable elements */
+  .horizontal-scroll-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .horizontal-scroll-container::-webkit-scrollbar {
     display: none;
   }
 }

@@ -97,7 +97,8 @@ export default function Search() {
       }
 
       // On mobile browsers, don't try to auto-detect location without user interaction
-      // This prevents the "Location Access Failed" error on page load
+      // This prevents the "Location Access Failed" error on page load and improves UX
+      // Users must explicitly request location via button click
       if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
         console.log('Mobile browser detected - skipping auto-location detection to avoid permission issues');
         return;
@@ -366,7 +367,7 @@ export default function Search() {
       
       toast({
         title: "Location Enabled",
-        description: "You can now filter cafes by distance from your location.",
+        description: "You can now filter cafes by distance from your location. Location is only used on-demand, not in background.",
       });
     } catch (error: any) {
       console.error("Location error in Search page:", {
@@ -375,11 +376,10 @@ export default function Search() {
         code: error.code,
         stack: error.stack
       });
-      setLocationError(error.message);
       
       let errorMessage = "Please enable location access to filter by distance.";
       if (error.code === 1 || error.message.includes('denied')) {
-        errorMessage = "Location access denied. Please enable location permissions in your browser settings and refresh the page.";
+        errorMessage = "Location access denied. Please enable location permissions in your browser settings.";
       } else if (error.code === 2 || error.message.includes('unavailable')) {
         errorMessage = "Location information unavailable. Please check that your device has location services enabled.";
       } else if (error.code === 3 || error.message.includes('timeout')) {
@@ -500,7 +500,7 @@ export default function Search() {
           {/* Popular Tags - Horizontal Scrollable */}
           {popularTags.length > 0 && (
             <div className="mb-3">
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide w-full max-w-full">
                 {popularTags.slice(0, 10).map((tag) => (
                   <Button
                     key={tag}

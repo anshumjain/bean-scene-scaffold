@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Heart, MessageCircle, MapPin, Star } from "lucide-react";
+import { Heart, MessageCircle, MapPin, Star, UserPlus, UserCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,9 @@ import { useNavigate } from "react-router-dom";
 import { formatTimeAgo } from "@/services/utils";
 import { getUserStats } from "@/services/gamificationService";
 import { hasPhoto, getPostLayoutType, tagsToVibes, getTextPostTags } from "@/utils/tagMappings";
+import { followUser, unfollowUser, isFollowing } from "@/services/followService";
+import { getUserByUsername } from "@/services/userService";
+import { getUsername } from "@/services/userService";
 
 interface PostCardProps {
   post: {
@@ -41,12 +44,16 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
   const [imageUrlsError, setImageUrlsError] = useState<boolean[]>([]);
   const [userLevel, setUserLevel] = useState<number>(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isFollowingUser, setIsFollowingUser] = useState<boolean>(false);
+  const [followingLoading, setFollowingLoading] = useState(false);
+  const [targetUserId, setTargetUserId] = useState<string | null>(null);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   
   // Determine layout type
   const layoutType = getPostLayoutType(post);
   const postHasPhoto = hasPhoto(post);
 
-  // Fetch user level and check if post is liked when component mounts
+  // Fetch user level, check if post is liked, and check follow status
   useEffect(() => {
     const fetchUserLevel = async () => {
       if (post.username) {
@@ -73,8 +80,39 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
       }
     };
 
+    const checkFollowStatus = async () => {
+      if (!post.username) return;
+      
+      try {
+        // Get current user's username
+        const currentUserResult = await getUsername();
+        if (!currentUserResult.success || !currentUserResult.data) return;
+        
+        const currentUser = currentUserResult.data;
+        setCurrentUsername(currentUser);
+        
+        // Don't show follow button if it's the current user's own post
+        if (currentUser === post.username) return;
+        
+        // Get target user ID from username
+        const userResult = await getUserByUsername(post.username);
+        if (!userResult.success || !userResult.data?.id) return;
+        
+        setTargetUserId(userResult.data.id);
+        
+        // Check if following
+        const followResult = await isFollowing(userResult.data.id);
+        if (followResult.success) {
+          setIsFollowingUser(followResult.data);
+        }
+      } catch (error) {
+        console.error('Error checking follow status:', error);
+      }
+    };
+
     fetchUserLevel();
     checkLikeStatus();
+    checkFollowStatus();
   }, [post.username, post.id]);
 
   // Handle like functionality
@@ -201,13 +239,13 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
         <div className="relative">
           {/* Image Carousel for multiple images */}
           {post.imageUrls && post.imageUrls.length > 1 ? (
-            <div className="relative w-full h-64 bg-muted overflow-hidden">
+            <div className={`relative w-full ${imageUrlsError[currentImageIndex] ? 'h-24' : 'h-64'} bg-muted overflow-hidden`}>
               {/* Main image display */}
               <div className="w-full h-full flex items-center justify-center">
                 {imageUrlsError[currentImageIndex] ? (
                   <div className="text-center text-muted-foreground">
-                    <div className="text-4xl mb-2">📷</div>
-                    <div className="text-sm">Image unavailable</div>
+                    <div className="text-2xl mb-1">📷</div>
+                    <div className="text-xs">Image unavailable</div>
                   </div>
                 ) : (
                   <img
@@ -273,12 +311,11 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
             </div>
           ) : (
             /* Single image display */
-            <div className="w-full h-64 bg-muted flex items-center justify-center">
+            <div className={`w-full ${imageError || !getCurrentImage() || getCurrentImage() === 'null' || getCurrentImage() === '' ? 'h-24' : 'h-64'} bg-muted flex items-center justify-center`}>
               {imageError || !getCurrentImage() || getCurrentImage() === 'null' || getCurrentImage() === '' ? (
                 <div className="text-center text-muted-foreground">
-                  <div className="text-4xl mb-2">☕</div>
-                  <div className="text-sm font-medium">{post.cafeName} post</div>
-                  <div className="text-xs">No image available</div>
+                  <div className="text-2xl mb-1">☕</div>
+                  <div className="text-xs font-medium">{post.cafeName}</div>
                 </div>
               ) : (
                 <img
@@ -334,10 +371,79 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
             </div>
           )}
           
-          {/* Username */}
+          {/* Username with Follow Button */}
           {post.username && (
-            <div className="mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <UserLevelDisplay username={post.username} level={userLevel} />
+              {targetUserId && currentUsername && currentUsername !== post.username && (
+                <Button
+                  variant={isFollowingUser ? "outline" : "default"}
+                  size="sm"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (followingLoading || !targetUserId) return;
+                    
+                    setFollowingLoading(true);
+                    try {
+                      if (isFollowingUser) {
+                        const result = await unfollowUser(targetUserId);
+                        if (result.success) {
+                          setIsFollowingUser(false);
+                          toast({
+                            title: "Unfollowed",
+                            description: `You're no longer following @${post.username}`,
+                          });
+                        } else {
+                          toast({
+                            title: "Error",
+                            description: result.error || "Failed to unfollow",
+                            variant: "destructive",
+                          });
+                        }
+                      } else {
+                        const result = await followUser(targetUserId);
+                        if (result.success) {
+                          setIsFollowingUser(true);
+                          toast({
+                            title: "Following",
+                            description: `You're now following @${post.username}`,
+                          });
+                        } else {
+                          toast({
+                            title: "Error",
+                            description: result.error || "Failed to follow",
+                            variant: "destructive",
+                          });
+                        }
+                      }
+                    } catch (error) {
+                      toast({
+                        title: "Error",
+                        description: "Something went wrong",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setFollowingLoading(false);
+                    }
+                  }}
+                  disabled={followingLoading}
+                  className="h-7 px-2 text-xs transition-all duration-200 hover:scale-105 active:scale-95"
+                >
+                  {followingLoading ? (
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  ) : isFollowingUser ? (
+                    <>
+                      <UserCheck className="w-3 h-3 mr-1" />
+                      Following
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3 h-3 mr-1" />
+                      Follow
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           )}
 
@@ -348,11 +454,11 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className={`h-8 px-2 transition-smooth ${liked ? 'text-red-500' : ''}`}
+                className={`h-8 px-2 transition-all duration-200 hover:scale-105 active:scale-95 ${liked ? 'text-red-500' : ''}`}
                 onClick={handleLike}
                 disabled={liking}
               >
-                <Heart className={`w-4 h-4 mr-1 transition-smooth ${liked ? 'fill-current' : ''} ${liking ? 'scale-110' : ''}`} />
+                <Heart className={`w-4 h-4 mr-1 transition-all duration-200 ${liked ? 'fill-current scale-110' : ''} ${liking ? 'animate-pulse' : ''}`} />
                 <span className="text-sm">{likeCount}</span>
               </Button>
               
@@ -389,11 +495,64 @@ export function PostCard({ post, type = 'post' }: PostCardProps) {
         {/* Header with username and timestamp */}
         <div className="p-4 pb-2">
           <div className="flex items-center justify-between mb-2">
-            {post.username ? (
-              <UserLevelDisplay username={post.username} level={userLevel} />
-            ) : (
-              <span className="text-sm font-medium text-muted-foreground">Anonymous</span>
-            )}
+            <div className="flex items-center gap-2 flex-1">
+              {post.username ? (
+                <UserLevelDisplay username={post.username} level={userLevel} />
+              ) : (
+                <span className="text-sm font-medium text-muted-foreground">Anonymous</span>
+              )}
+              {targetUserId && currentUsername && currentUsername !== post.username && (
+                <Button
+                  variant={isFollowingUser ? "outline" : "ghost"}
+                  size="sm"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (followingLoading || !targetUserId) return;
+                    
+                    setFollowingLoading(true);
+                    try {
+                      if (isFollowingUser) {
+                        const result = await unfollowUser(targetUserId);
+                        if (result.success) {
+                          setIsFollowingUser(false);
+                          toast({
+                            title: "Unfollowed",
+                            description: `You're no longer following @${post.username}`,
+                          });
+                        }
+                      } else {
+                        const result = await followUser(targetUserId);
+                        if (result.success) {
+                          setIsFollowingUser(true);
+                          toast({
+                            title: "Following",
+                            description: `You're now following @${post.username}`,
+                          });
+                        }
+                      }
+                    } finally {
+                      setFollowingLoading(false);
+                    }
+                  }}
+                  disabled={followingLoading}
+                  className="h-6 px-2 text-xs ml-auto transition-all duration-200 hover:scale-105 active:scale-95"
+                >
+                  {followingLoading ? (
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  ) : isFollowingUser ? (
+                    <>
+                      <UserCheck className="w-3 h-3 mr-1" />
+                      Following
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3 h-3 mr-1" />
+                      Follow
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
             <span className="text-xs text-muted-foreground">{formatTimeAgo(post.createdAt)}</span>
           </div>
           

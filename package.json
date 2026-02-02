@@ -18,7 +18,8 @@
     "update:seeded-cafe-tags": "tsx scripts/updateSeededCafeTags.ts",
     "seed:missouri-city": "tsx scripts/seedMissouriCityCafes.ts",
     "seed:missouri-city-minimal": "tsx scripts/seedMissouriCityMinimal.ts",
-    "generate:sitemap": "tsx scripts/generateSitemap.ts"
+    "generate:sitemap": "tsx scripts/generateSitemap.ts",
+    "test:supabase": "tsx scripts/testSupabaseConnection.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^9.4.0",

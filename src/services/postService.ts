@@ -21,14 +21,15 @@ function apiErrorResponse<T>(defaultValue: T): ApiResponse<T> {
 
 /**
  * Fetch posts for the main feed with optional filters
+ * Now supports city-based filtering to show relevant local content
  */
-export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiResponse<Post[]>> {
+export async function fetchPosts(filters: SearchFilters & { city?: string } = {}): Promise<ApiResponse<Post[]>> {
   try {
     let query = supabase
       .from('posts')
       .select(`
         *,
-        cafes (name, neighborhood, place_id, address)
+        cafes (name, neighborhood, place_id, address, city)
       `)
       .order('created_at', { ascending: false });
 
@@ -54,8 +55,19 @@ export async function fetchPosts(filters: SearchFilters = {}): Promise<ApiRespon
       throw new Error(error.message);
     }
 
+    // Filter by city if specified (prevents Austin users seeing Houston posts)
+    // Filter client-side since Supabase doesn't support filtering on nested relations
+    let filteredData = data || [];
+    if (filters.city && filters.city !== 'all') {
+      filteredData = filteredData.filter(post => {
+        // Only include posts that have a cafe with matching city
+        // Posts without cafes are excluded when city filter is active
+        return post.cafes && post.cafes.city === filters.city;
+      });
+    }
+
     // Transform database format to app format
-    const posts: Post[] = (data || []).map(post => {
+    const posts: Post[] = filteredData.map(post => {
       // Determine source based on available data
       const source = post.source || 'user'; // Default to user for new posts
       // Priority: 1) explicit photo_source field, 2) URL patterns, 3) default to 'user'
@@ -707,6 +719,18 @@ export async function submitCheckin(data: {
       }
     }
 
+    // Check if this is first time at cafe (before tracking the visit)
+    let isFirstTimeCafe = false;
+    if (data.cafeId) {
+      const { count } = await supabase
+        .from('cafe_visits')
+        .select('*', { count: 'exact', head: true })
+        .eq('cafe_id', data.cafeId)
+        .or(`device_id.eq.${deviceId}${username ? `,username.eq.${username}` : ''}`);
+      
+      isFirstTimeCafe = (count || 0) === 0;
+    }
+
     // Calculate XP for gamification
     const xpCalculation = calculateXP({
       mode: data.mode,
@@ -716,7 +740,7 @@ export async function submitCheckin(data: {
       hasRating: Boolean(data.rating && data.rating > 0),
       tagsCount: data.tags?.length || 0,
       isGPSVerified: false, // TODO: Implement GPS verification
-      isFirstTimeCafe: false, // TODO: Check if first time at cafe
+      isFirstTimeCafe: isFirstTimeCafe,
     });
 
     console.log('XP Calculation:', xpCalculation);
@@ -790,7 +814,7 @@ export async function submitCheckin(data: {
       cafeId: data.cafeId,
       hasImage: imageUrls.length > 0,
       imageCount: imageUrls.length,
-      isFirstTimeCafe: false // TODO: Implement first time cafe check
+      isFirstTimeCafe: isFirstTimeCafe
     };
 
     if (data.mode === 'checkin') {

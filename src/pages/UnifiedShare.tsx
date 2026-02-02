@@ -578,7 +578,7 @@ export default function UnifiedShare() {
                     
                     {/* Image Thumbnails */}
                     {imageFiles.length > 1 && (
-                      <div className="flex gap-2 overflow-x-auto">
+                      <div className="flex gap-2 overflow-x-auto w-full max-w-full">
                         {imageFiles.map((file, index) => (
                           <div
                             key={index}

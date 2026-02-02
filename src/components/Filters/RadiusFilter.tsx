@@ -55,7 +55,30 @@ export function RadiusFilter({
           </Button>
         </div>
         {locationError && (
-          <p className="text-xs text-muted-foreground mt-2">{locationError}</p>
+          <div className="mt-2 space-y-2">
+            <p className="text-xs text-muted-foreground">{locationError}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const lat = prompt('Enter your latitude (e.g., 29.7604 for Houston):');
+                const lng = prompt('Enter your longitude (e.g., -95.3698 for Houston):');
+                
+                if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
+                  const locationData = {
+                    latitude: parseFloat(lat),
+                    longitude: parseFloat(lng),
+                    timestamp: Date.now()
+                  };
+                  localStorage.setItem('user-location', JSON.stringify(locationData));
+                  window.location.reload(); // Refresh to update the UI
+                }
+              }}
+              className="text-xs bg-green-100 border-green-300 text-green-800 hover:bg-green-200"
+            >
+              📍 Enter Location Manually
+            </Button>
+          </div>
         )}
       </Card>
     );

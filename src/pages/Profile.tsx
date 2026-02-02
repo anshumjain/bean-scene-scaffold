@@ -321,7 +321,7 @@ This is just the beginning. Our bigger goal is to help people step away from alg
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary">{gamificationStats.total_checkins}</div>
                   <div className="text-xs text-muted-foreground">Check-ins</div>
@@ -329,6 +329,10 @@ This is just the beginning. Our bigger goal is to help people step away from alg
                 <div className="text-center">
                   <div className="text-2xl font-bold text-primary">{gamificationStats.total_photos}</div>
                   <div className="text-xs text-muted-foreground">Photos</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-primary">{gamificationStats.total_cafes_visited || 0}</div>
+                  <div className="text-xs text-muted-foreground">Cafes</div>
                 </div>
               </div>
 

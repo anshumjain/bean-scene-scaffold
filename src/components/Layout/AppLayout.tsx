@@ -10,9 +10,9 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, showBottomNav = true, showWeather = true }: AppLayoutProps) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden w-full max-w-full">
       {showWeather && <GlobalWeatherBar />}
-      <main className={cn("w-full", showBottomNav && "pb-16")}>
+      <main className={cn("w-full max-w-full overflow-x-hidden", showBottomNav && "pb-16")}>
         {children}
       </main>
       {showBottomNav && <BottomNav />}
